@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Weave Wonder — ويڤ وندر</title>
+
+  <!-- Fabric.js (canvas editor) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.2.4/fabric.min.js" integrity="" crossorigin="anonymous"></script>
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+  <style>
+    :root{
+      --accent:#111827;
+      --muted:#6b7280;
+      --card:#ffffff;
+      --bg:#f6f7f9;
+      --success:#059669;
+    }
+    html,body{height:100%;margin:0;font-family: "Helvetica Neue", Arial, "Noto Naskh Arabic", sans-serif;background:var(--bg);color:var(--accent);-webkit-font-smoothing:antialiased;}
+    header{background:#fff;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,.04);position:sticky;top:0;z-index:50}
+    header h1{margin:0;font-size:18px}
+    nav{display:flex;gap:8px}
+    button.btn{background:var(--accent);color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer}
+    button.btn.ghost{background:transparent;border:1px solid rgba(0,0,0,.06);color:var(--accent)}
+    .container{max-width:1180px;margin:28px auto;padding:0 16px}
+    /* Grid */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+    .card{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(15,15,15,.03);display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+    .card img{max-width:100%;height:220px;object-fit:cover;border-radius:8px;background:#f0f0f0}
+    .price{font-weight:700;font-size:16px}
+    .old-price{text-decoration:line-through;color:var(--muted);font-weight:600;margin-right:8px}
+    /* Editor area */
+    .editor-wrap{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .panel{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(15,15,15,.03)}
+    canvas{width:100%;border-radius:8px;border:1px solid rgba(0,0,0,.04)}
+    .controls{display:flex;flex-direction:column;gap:10px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    select,input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #e6e7eb;font-size:14px}
+    .small{font-size:13px;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
+    .row.space{justify-content:space-between}
+    .sizes{display:flex;gap:8px;flex-wrap:wrap}
+    .size{padding:6px 10px;border-radius:8px;border:1px solid #eee;cursor:pointer}
+    .size.disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed}
+    footer{margin:40px 0;padding:18px;text-align:center;color:var(--muted)}
+    /* responsive */
+    @media(max-width:960px){ .editor-wrap{grid-template-columns:1fr} .card img{height:180px} }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Weave Wonder — ويڤ وندر</h1>
+  <nav>
+    <button class="btn" id="showGallery">معرض المنتجات</button>
+    <button class="btn ghost" id="showDesigner">استوديو التصميم</button>
+  </nav>
+</header>
+
+<div class="container">
+
+  <!-- GALLERY -->
+  <section id="gallerySection">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h2>معرض المنتجات</h2>
+      <small class="small">أضف صور المنتجات إلى مجلد <code>/products</code> أو حدّث ملف <code>products.json</code></small>
+    </div>
+
+    <div id="productGrid" class="grid"></div>
+    <p class="small" style="margin-top:8px">تم جلب الأسعار من اسم ملف الصورة. مثال: <code>120 200.png</code> → السعر الحالي 120 ج.م، السعر قبل الخصم 200 ج.م</p>
+    <hr style="margin-top:16px"/>
+  </section>
+
+  <!-- DESIGNER -->
+  <section id="designerSection" style="display:none;margin-top:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h2>استوديو التصميم</h2>
+      <div class="small">اضغط لتحميل صورة التصميم → ثم حرّك وغير الحجم أو الدوران. يمكنك التبديل بين الواجهة/الخلفية، وتغيير اللون والنوع.</div>
+    </div>
+
+    <div class="editor-wrap">
+      <!-- CANVAS PANEL -->
+      <div class="panel">
+        <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;justify-content:space-between">
+          <div class="row">
+            <label class="small" style="margin:0 8px 0 0">عرض/خلف</label>
+            <button id="viewFront" class="btn ghost">الواجهة</button>
+            <button id="viewBack" class="btn ghost">الظهر</button>
+          </div>
+          <div>
+            <button id="downloadBtn" class="btn">تحميل التصميم</button>
+          </div>
+        </div>
+
+        <canvas id="designCanvas" width="900" height="900"></canvas>
+
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <input type="file" id="uploadDesign" accept="image/*" />
+          <button id="addText" class="btn ghost">إضافة نص</button>
+          <button id="clearCanvas" class="btn ghost">مسح</button>
+        </div>
+        <div class="small" style="margin-top:8px">اضغط على العنصر لتظهر مقابض التغيير. عند تبديل اللون أو النوع سيبقى موضع وحجم العناصر (مئوية).</div>
+      </div>
+
+      <!-- CONTROLS PANEL -->
+      <aside class="panel">
+        <div class="controls">
+          <div>
+            <label>نوع المنتج</label>
+            <select id="productTypeSelect"></select>
+          </div>
+
+          <div>
+            <label>اللون</label>
+            <select id="colorSelect"></select>
+          </div>
+
+          <div>
+            <label>إعدادات السعر (قابلة للتعديل في الكود)</label>
+            <div class="row space">
+              <div class="small">سعر الواجهة+الظهر سيزيد تلقائياً إذا تم التصميم على الوجهين.</div>
+            </div>
+          </div>
+
+          <div>
+            <label>المقاسات</label>
+            <div id="sizesContainer" class="sizes"></div>
+            <img id="sizeChart" src="" alt="مخطط المقاسات" style="width:100%;margin-top:8px;display:none;border-radius:6px" />
+          </div>
+
+          <div>
+            <label>معاينة نهائية</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button id="buyBtn" class="btn">شراء</button>
+              <div class="small" id="finalPriceText">السعر: -</div>
+            </div>
+          </div>
+
+          <hr/>
+          <div>
+            <label>حالة التضمين (خفاء/إظهار أنواع)</label>
+            <div id="productVisibility" class="small"></div>
+            <div class="small" style="color:var(--muted);margin-top:6px">لإخفاء نوع: عدّل قيمة <code>visible</code> في الكود أو الإعداد أعلاه.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- PURCHASE MODAL (simple) -->
+  <div id="purchaseModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:200">
+    <div style="width:720px;max-width:96%;background:#fff;border-radius:12px;padding:18px;direction:rtl;">
+      <h3 style="margin-top:0">تفاصيل الطلب</h3>
+      <form id="orderForm">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <label>المنتج</label>
+            <input id="orderProduct" readonly />
+          </div>
+          <div style="flex:1;min-width:160px">
+            <label>اللون</label>
+            <input id="orderColor" readonly />
+          </div>
+          <div style="flex:1;min-width:120px">
+            <label>الكمية</label>
+            <input id="orderQty" type="number" min="1" value="1" />
+          </div>
+          <div style="flex:1;min-width:160px">
+            <label>المقاس</label>
+            <input id="orderSize" readonly />
+          </div>
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1">
+            <label>الاسم</label>
+            <input id="custName" required />
+          </div>
+          <div style="flex:1">
+            <label>الهاتف</label>
+            <input id="custPhone" required />
+          </div>
+          <div style="flex:1">
+            <label>هاتف ثان (اختياري)</label>
+            <input id="custPhone2" />
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>المحافظة (سعر الشحن)</label>
+          <select id="governorateSelect"></select>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>عنوان العميل بالتفصيل (المركز - الحي - الشارع - العمارة - رقم الشقة)</label>
+          <textarea id="custAddress" rows="2"></textarea>
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between">
+          <div class="small">السعر النهائي: <strong id="grandTotal">-</strong> ج.م</div>
+          <div>
+            <button id="sendOrder" class="btn">إرسال الطلب</button>
+            <button type="button" id="closeModal" class="btn ghost">إلغاء</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<footer>© Weave Wonder — ويڤ وندر</footer>
+
+<script>
+/* ===========================
+   CONFIG —  عدّل هنا بسهولة
+   =========================== */
+
+const CONFIG = {
+  siteTitleArabic: "ويڤ وندر",
+  // product types config (show/hide, available colors, sizes per color, base price)
+  productTypes: {
+    "Tshirt": {
+      label: "تيشيرت",
+      visible: true,
+      sizes: ["M","L","XL","2XL","3XL"],
+      colors: {
+        "black": {label:"أسود", availableSizes:["M","L","XL","2XL","3XL"]},
+        "white": {label:"أبيض", availableSizes:["M","L","XL","2XL","3XL"]},
+        "gray": {label:"رمادي", availableSizes:["M","L","XL","2XL","3XL"]},
+        "blue": {label:"أزرق", availableSizes:["M","L","XL","2XL","3XL"]},
+        "red": {label:"أحمر", availableSizes:["M","L","XL","2XL","3XL"]},
+        "light-blue": {label:"أزرق فاتح", availableSizes:["M","L","XL","2XL","3XL"]},
+      },
+      basePrice: 200 // editable default price (LE)
+    },
+    "Oversized T-shirt": {
+      label: "تيشيرت كبير (أوفرايزد)",
+      visible: true,
+      sizes: ["M","L"],
+      colors: {
+        "black": {label:"أسود", availableSizes:["M","L"]},
+        "white": {label:"أبيض", availableSizes:["M","L"]},
+        "gray": {label:"رمادي", availableSizes:["M","L"]},
+        "red": {label:"أحمر", availableSizes:["M","L"]},
+        "light-blue": {label:"أزرق فاتح", availableSizes:["M","L"]},
+      },
+      basePrice: 240
+    },
+    "Long sleeve T-shirt": {
+      label: "تيشيرت كم طويل",
+      visible: true,
+      sizes: ["M","L","XL","2XL","3XL"],
+      colors: {
+        "black": {label:"أسود", availableSizes:["M","L","XL","2XL","3XL"]},
+        "white": {label:"أبيض", availableSizes:["M","L","XL","2XL","3XL"]},
+        "red": {label:"أحمر", availableSizes:["M","L","XL","2XL","3XL"]},
+        "gray": {label:"رمادي", availableSizes:["M","L","XL","2XL","3XL"]},
+      },
+      basePrice: 260
+    },
+    "Classic Sweatshirt": {
+      label: "سويتشيرت كلاسيك",
+      visible: true,
+      sizes: ["M","L","XL","2XL","3XL"],
+      colors: {
+        "black": {label:"أسود", availableSizes:["M","L","XL","2XL","3XL"]},
+        "white": {label:"أبيض", availableSizes:["M","L","XL","2XL","3XL"]},
+        "light-blue": {label:"أزرق فاتح", availableSizes:["M","L","XL","2XL","3XL"]},
+        "beige": {label:"بيج", availableSizes:["M","L","XL","2XL","3XL"]},
+        "olive-green": {label:"زيتي", availableSizes:["M","L","XL","2XL","3XL"]},
+      },
+      basePrice: 320
+    },
+    "Premium Hoodie": {
+      label: "هودي بريميوم",
+      visible: true,
+      sizes: ["M","L","XL","2XL","3XL"],
+      colors: {
+        "black": {label:"أسود", availableSizes:["M","L","XL","2XL","3XL"]},
+        "white": {label:"أبيض", availableSizes:["M","L","XL","2XL","3XL"]},
+        "gray": {label:"رمادي", availableSizes:["M","L","XL","2XL","3XL"]},
+      },
+      basePrice: 420
+    },
+    "Classic Hoodie": {
+      label: "هودي كلاسيك",
+      visible: true,
+      sizes: ["M","L","XL","2XL","3XL"],
+      colors: {
+        "black": {label:"أسود", availableSizes:["M","L","XL","2XL","3XL"]},
+        "white": {label:"أبيض", availableSizes:["M","L","XL","2XL","3XL"]},
+        "light-blue": {label:"أزرق فاتح", availableSizes:["M","L","XL","2XL","3XL"]},
+        "beige": {label:"بيج", availableSizes:["M","L","XL","2XL","3XL"]},
+        "olive-green": {label:"زيتي", availableSizes:["M","L","XL","2XL","3XL"]},
+        "red": {label:"أحمر", availableSizes:["M","L","XL","2XL","3XL"]},
+        "magenta": {label:"ماجنتا", availableSizes:["M","L","XL","2XL","3XL"]},
+      },
+      basePrice: 380
+    },
+    "Oversized Hoodie": {
+      label: "هودي أوفرايزد",
+      visible: true,
+      sizes: ["M","L"],
+      colors: {
+        "black": {label:"أسود", availableSizes:["M","L"]},
+        "white": {label:"أبيض", availableSizes:["M","L"]},
+        "light-blue": {label:"أزرق فاتح", availableSizes:["M","L"]},
+        "olive-green": {label:"زيتي", availableSizes:["M","L"]},
+        "red": {label:"أحمر", availableSizes:["M","L"]},
+      },
+      basePrice: 450
+    }
+  },
+
+  // additional price when design added both front+back
+  frontBackExtraPrice: 80,
+
+  // governorates (Arabic names) with shipping cost in LE
+  governorates: {
+    "القاهرة":45,
+    "الجيزة":45,
+    "الإسكندرية":50,
+    "الدقهلية":50,
+    "الشرقية":50,
+    "المنوفية":50,
+    "القليوبية":50,
+    "البحيرة":50,
+    "الغربية":50,
+    "بورسعيد":55,
+    "دمياط":50,
+    "الإسماعيلية":55,
+    "السويس":55,
+    "كفر الشيخ":50,
+    "الفيوم":50,
+    "بني سويف":60,
+    "مرسى مطروح":130,
+    "المنيا":60,
+    "أسيوط":60,
+    "سوهاج":60,
+    "قنا":60,
+    "الغردقة":130,
+    "شرم الشيخ":130,
+    "الأقصر":65,
+    "أسوان":65,
+    "الوادي الجديد":130,
+    "دمنهور":50,
+    "الجيزة (المدن الجديدة)":45,
+    "شمال سيناء":130,
+    "العريش":130,
+    "البحر الأحمر":130,
+    "جنوب سيناء":130
+  },
+
+  // email for orders (target)
+  orderEmail: "hassanwaelhh@proton.me",
+
+  // If you want to use a static manifest instead of reading directory, create /products.json (see generator script)
+  manifestPath: "/products.json"
+};
+
+/* ===========================
+   END CONFIG
+   =========================== */
+
+/* Small helper: load product manifest if exists, else try to use /products/ directory via convention
+   Note: static GitHub Pages CANNOT list folders via client-side JS. For true 'drop image to add product'
+   you should create products.json or run the node generator script included below.
+*/
+
+async function loadProductManifest() {
+  try {
+    const res = await fetch(CONFIG.manifestPath, {cache: "no-store"});
+    if (!res.ok) throw new Error('no manifest');
+    const data = await res.json();
+    return data; // expect array of { filename: "products/120 200.png", title: "اسم", buyUrl: "https://..." }
+  } catch(e) {
+    // No manifest -> graceful empty list
+    return [];
+  }
+}
+
+/* parse price from filename like "120 200.png" or "150.png" */
+function parsePricesFromFilename(filename) {
+  // extract filename w/o extension and path
+  const base = filename.split('/').pop().replace(/\.[^/.]+$/, "");
+  const parts = base.trim().split(/\s+/).filter(Boolean);
+  const digits = parts.filter(p => /^\d+(\.\d+)?$/.test(p));
+  if (digits.length === 0) return {current:null, old:null, raw:base};
+  if (digits.length === 1) return {current: Number(digits[0]), old:null, raw:base};
+  return {current: Number(digits[0]), old: Number(digits[1]), raw:base};
+}
+
+/* Render product grid */
+async function renderGallery() {
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = "";
+  const manifest = await loadProductManifest();
+  if (!manifest.length) {
+    const note = document.createElement('div');
+    note.className = "card";
+    note.innerHTML = `<div style="padding:18px">لا يوجد ملف manifest. لو ترغب في إضافة منتجات بسهولة: ضع صور المنتجات في مجلد <code>/products</code> ثم شغّل سكربت توليد <code>generate_manifest.js</code> (موجود في التعليمات). أو أنشئ ملف <code>products.json</code> بنفس التنسيق.`;
+    grid.appendChild(note);
+    return;
+  }
+
+  manifest.forEach(item => {
+    const p = parsePricesFromFilename(item.filename);
+    const card = document.createElement('div');
+    card.className = "card";
+    card.innerHTML = `
+      <img src="${item.filename}" alt="${item.title || p.raw}" loading="lazy"/>
+      <div style="width:100%;display:flex;flex-direction:column;align-items:center">
+        <div style="display:flex;align-items:center;gap:6px">
+          ${p.old ? `<div class="old-price">${p.old} ج.م</div>` : ""}
+          <div class="price">${p.current ? p.current + " ج.م" : "-"}</div>
+        </div>
+        <div class="small" style="margin-top:6px">${item.title || ""}</div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" onclick="openBuy('${encodeURIComponent(item.buyUrl||'')}')">رؤية / شراء</button>
+          <button class="btn ghost" onclick="openDesignerWithImage('${item.filename.replace(/'/g,"\\'")}')">تصميم مشابه</button>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function openBuy(buyUrlEnc) {
+  const buyUrl = decodeURIComponent(buyUrlEnc);
+  if (!buyUrl) {
+    alert("لا يوجد رابط شراء محدد لهذا المنتج. يمكن إضافة buyUrl في products.json.");
+    return;
+  }
+  window.open(buyUrl, "_blank");
+}
+
+/* Open designer and optionally load product image as background */
+function openDesignerWithImage(img) {
+  document.getElementById('designerSection').style.display = "block";
+  document.getElementById('gallerySection').style.display = "none";
+  if (img) {
+    // set background image for canvas as the provided image
+    setBackgroundImage(img);
+  }
+}
+
+/* NAV */
+document.getElementById('showGallery').addEventListener('click', ()=> {
+  document.getElementById('gallerySection').style.display = "";
+  document.getElementById('designerSection').style.display = "none";
+});
+document.getElementById('showDesigner').addEventListener('click', ()=> {
+  document.getElementById('designerSection').style.display = "";
+  document.getElementById('gallerySection').style.display = "none";
+});
+
+/* ---------------------------
+   Designer: Fabric canvas
+   --------------------------- */
+const canvas = new fabric.Canvas('designCanvas', {preserveObjectStacking:true, selection: true});
+canvas.setBackgroundColor('#fff', canvas.renderAll.bind(canvas)); // default
+let currentView = "front"; // front | back
+let currentProductType = Object.keys(CONFIG.productTypes)[0];
+let currentColor = Object.keys(CONFIG.productTypes[currentProductType].colors)[0];
+let selectedSize = null;
+
+// store front and back state separately (background image path + fabric objects as JSON)
+const designStates = {
+  front: {bg: null, objects: null},
+  back: {bg: null, objects: null}
+};
+
+// Add basic controls
+document.getElementById('viewFront').addEventListener('click', ()=> switchView('front'));
+document.getElementById('viewBack').addEventListener('click', ()=> switchView('back'));
+document.getElementById('uploadDesign').addEventListener('change', handleDesignUpload);
+document.getElementById('addText').addEventListener('click', addDefaultText);
+document.getElementById('clearCanvas').addEventListener('click', clearCanvas);
+document.getElementById('downloadBtn').addEventListener('click', downloadFinalImage);
+
+function switchView(view) {
+  // save current canvas objects to states
+  saveCurrentState();
+  currentView = view;
+  loadStateToCanvas(view);
+}
+
+function saveCurrentState(){
+  try {
+    designStates[currentView].bg = canvas.backgroundImage ? canvas.backgroundImage.src : designStates[currentView].bg;
+    designStates[currentView].objects = canvas.toJSON(['dataPercent']);
+  } catch(e){}
+}
+
+function loadStateToCanvas(view) {
+  canvas.clear();
+  const st = designStates[view];
+  if (st && st.bg) {
+    fabric.Image.fromURL(st.bg, function(img){
+      // resize background to canvas size
+      setCanvasBackground(img._element.src);
+    });
+  } else {
+    // set blank white bg
+    canvas.setBackgroundColor('#fff', canvas.renderAll.bind(canvas));
+  }
+  // restore objects if available
+  if (st && st.objects) {
+    canvas.loadFromJSON(st.objects, canvas.renderAll.bind(canvas), function(o, object){
+      // nothing extra
+    });
+  }
+}
+
+/* set canvas background image and preserve scale/ratio */
+function setBackgroundImage(url) {
+  // save current state first
+  saveCurrentState();
+  // set on current view
+  designStates[currentView].bg = url;
+  setCanvasBackground(url);
+}
+
+function setCanvasBackground(url) {
+  fabric.Image.fromURL(url, function(img){
+    // scale to fit canvas width while preserving aspect
+    const canvasSize = Math.min(900, Math.max(400, window.innerWidth * 0.65));
+    const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+    img.set({originX:'center', originY:'center', left: canvas.width/2, top: canvas.height/2});
+    img.scaleToWidth(canvas.width);
+    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+  }, { crossOrigin: 'anonymous' });
+}
+
+/* handle upload image (design to place over garment) */
+function handleDesignUpload(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    fabric.Image.fromURL(ev.target.result, function(img){
+      // scale to reasonable size relative to canvas
+      const maxW = canvas.width * 0.6;
+      if (img.width > maxW) img.scaleToWidth(maxW);
+      img.set({left: canvas.width/2, top: canvas.height/2, originX:'center', originY:'center'});
+      img.setControlsVisibility({mt:true,mb:true,ml:true,mr:true, bl:true, br:true, tl:true, tr:true, mtr:true});
+      canvas.add(img).setActiveObject(img);
+      canvas.renderAll();
+    }, { crossOrigin:'anonymous' });
+  };
+  reader.readAsDataURL(file);
+  // clear file input
+  e.target.value = "";
+}
+
+function addDefaultText(){
+  const text = new fabric.IText('نص هنا', { left: canvas.width/2, top: canvas.height/2, originX:'center', originY:'center', fontFamily: 'sans-serif', fontSize: 36 });
+  canvas.add(text).setActiveObject(text);
+  canvas.renderAll();
+}
+
+function clearCanvas(){
+  if (!confirm('مسح كل العناصر من اللوحة؟')) return;
+  canvas.getObjects().forEach(obj => canvas.remove(obj));
+  canvas.renderAll();
+}
+
+/* download final image (without boundary) — combines background and objects */
+function downloadFinalImage(){
+  // temporarily ensure background image is included
+  const dataURL = canvas.toDataURL({format:'png', multiplier:1});
+  const a = document.createElement('a');
+  a.href = dataURL;
+  a.download = 'weavewonder_design.png';
+  a.click();
+}
+
+/* ----------------------------
+   Populate product type + color + sizes UI
+   ---------------------------- */
+
+const productTypeSelect = document.getElementById('productTypeSelect');
+const colorSelect = document.getElementById('colorSelect');
+const sizesContainer = document.getElementById('sizesContainer');
+const productVisibility = document.getElementById('productVisibility');
+const finalPriceText = document.getElementById('finalPriceText');
+const buyBtn = document.getElementById('buyBtn');
+const governorateSelect = document.getElementById('governorateSelect');
+const orderForm = document.getElementById('orderForm');
+const purchaseModal = document.getElementById('purchaseModal');
+const closeModal = document.getElementById('closeModal');
+
+function initUI() {
+  // product types
+  productTypeSelect.innerHTML = "";
+  Object.entries(CONFIG.productTypes).forEach(([key, info]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = info.label + (info.visible ? "" : " (مخفي)");
+    productTypeSelect.appendChild(opt);
+  });
+
+  // visibility info
+  let visHtml = "";
+  Object.entries(CONFIG.productTypes).forEach(([k,i]) => {
+    visHtml += `<div>${i.label}: visible = <code>${i.visible}</code></div>`;
+  });
+  productVisibility.innerHTML = visHtml;
+
+  // governorates
+  governorateSelect.innerHTML = "";
+  Object.entries(CONFIG.governorates).forEach(([k,v])=>{
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = `${k} [${v} ج.م]`;
+    governorateSelect.appendChild(opt);
+  });
+
+  // handlers
+  productTypeSelect.addEventListener('change', ()=>{
+    currentProductType = productTypeSelect.value;
+    buildColorOptions();
+    updateSizesUI();
+    updateFinalPrice();
+  });
+  colorSelect.addEventListener('change', ()=>{
+    currentColor = colorSelect.value;
+    updateSizesUI();
+    updateBackgroundForColor();
+    updateFinalPrice();
+  });
+  buyBtn.addEventListener('click', ()=> openPurchaseModal());
+  governorateSelect.addEventListener('change', updateGrandTotal);
+
+  // set initial
+  currentProductType = productTypeSelect.value;
+  buildColorOptions();
+  updateSizesUI();
+  updateFinalPrice();
+}
+
+function buildColorOptions(){
+  colorSelect.innerHTML = "";
+  const colors = CONFIG.productTypes[currentProductType].colors;
+  Object.entries(colors).forEach(([key,val])=>{
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = val.label;
+    colorSelect.appendChild(opt);
+  });
+  currentColor = colorSelect.value;
+  updateBackgroundForColor();
+}
+
+function updateBackgroundForColor(){
+  // This expects that you provide background blank images in /blanks/{productType}/{color}.png
+  // e.g. /blanks/Tshirt/black.png
+  // If you don't have blanks, the canvas will stay white.
+  const safeType = encodeURIComponent(currentProductType);
+  const imgPath1 = `/blanks/${safeType}/${currentColor}.png`;
+  // attempt to load; if fail, do nothing
+  fetch(imgPath1, {method:"HEAD"}).then(res=>{
+    if (res.ok) {
+      setBackgroundImage(imgPath1);
+    } else {
+      // try a generic placeholder if exists
+      // leave as-is
+    }
+  });
+}
+
+function updateSizesUI(){
+  sizesContainer.innerHTML = "";
+  const colorInfo = CONFIG.productTypes[currentProductType].colors[currentColor];
+  const allSizes = CONFIG.productTypes[currentProductType].sizes;
+  allSizes.forEach(s=>{
+    const span = document.createElement('div');
+    span.className = "size" + (colorInfo.availableSizes.includes(s) ? "" : " disabled");
+    span.textContent = s;
+    if (colorInfo.availableSizes.includes(s)) {
+      span.addEventListener('click', ()=> {
+        selectedSize = s;
+        // highlight
+        Array.from(sizesContainer.children).forEach(c=>c.style.boxShadow='none');
+        span.style.boxShadow = "0 0 0 3px rgba(0,0,0,0.08)";
+        document.getElementById('orderSize').value = s;
+      });
+    }
+    sizesContainer.appendChild(span);
+  });
+  // show size chart placeholder if you provide images e.g. /sizecharts/{productType}.png
+  const chart = document.getElementById('sizeChart');
+  const chartPath = `/sizecharts/${encodeURIComponent(currentProductType)}.png`;
+  fetch(chartPath, {method:'HEAD'}).then(r=>{
+    if (r.ok) { chart.src = chartPath; chart.style.display = 'block'; } else { chart.style.display='none'; }
+  }).catch(()=>{ chart.style.display='none'; });
+}
+
+function updateFinalPrice(){
+  // simple: base price from config, plus frontBackExtraPrice if both sides have objects
+  const base = CONFIG.productTypes[currentProductType].basePrice || 0;
+  const frontHas = designStates.front.objects && (designStates.front.objects.objects||[]).length>0;
+  const backHas = designStates.back.objects && (designStates.back.objects.objects||[]).length>0;
+  let total = base;
+  if (frontHas && backHas) total += CONFIG.frontBackExtraPrice;
+  finalPriceText.textContent = `السعر: ${total} ج.م`;
+  return total;
+}
+
+/* Basic purchase modal logic */
+function openPurchaseModal(){
+  // ensure selected size
+  if (!selectedSize) { alert("اختر المقاس أولاً"); return; }
+  // set product summary
+  document.getElementById('orderProduct').value = CONFIG.productTypes[currentProductType].label;
+  document.getElementById('orderColor').value = CONFIG.productTypes[currentProductType].colors[currentColor].label;
+  document.getElementById('orderQty').value = 1;
+  document.getElementById('orderSize').value = selectedSize;
+  // grand total
+  updateGrandTotal();
+  purchaseModal.style.display = "flex";
+}
+
+closeModal.addEventListener('click', ()=> purchaseModal.style.display = "none");
+
+function updateGrandTotal(){
+  const productPrice = updateFinalPrice();
+  const gov = governorateSelect.value;
+  const shipping = CONFIG.governorates[gov] || 0;
+  const qty = Number(document.getElementById('orderQty').value) || 1;
+  const total = (productPrice * qty) + shipping;
+  document.getElementById('grandTotal').textContent = total;
+}
+
+/* Send order to email using EmailJS (static-friendly) */
+/* NOTE: You MUST create an EmailJS account, create a template that accepts the fields below,
+   then fill userID and templateID in the code. Alternatively you can implement a serverless function to send mail. */
+const EMAILJS_USER_ID = "YOUR_EMAILJS_USER_ID"; // <--- replace
+const EMAILJS_TEMPLATE_ID = "YOUR_EMAILJS_TEMPLATE_ID"; // <--- replace
+const EMAILJS_SERVICE_ID = "YOUR_EMAILJS_SERVICE_ID"; // <--- replace
+
+document.getElementById('sendOrder').addEventListener('click', async (ev)=>{
+  ev.preventDefault();
+  // collect details
+  const name = document.getElementById('custName').value.trim();
+  const phone = document.getElementById('custPhone').value.trim();
+  const phone2 = document.getElementById('custPhone2').value.trim();
+  const gov = governorateSelect.value;
+  const address = document.getElementById('custAddress').value.trim();
+  const qty = Number(document.getElementById('orderQty').value) || 1;
+  const size = document.getElementById('orderSize').value;
+  const productLabel = document.getElementById('orderProduct').value;
+  const colorLabel = document.getElementById('orderColor').value;
+  const productPrice = updateFinalPrice();
+
+  if (!name || !phone || !address) {
+    alert("يرجى ملء الحقول الإلزامية: الاسم، الهاتف، العنوان.");
+    return;
+  }
+
+  // export canvas preview as dataURL
+  const previewBase64 = canvas.toDataURL({format:'png', multiplier:1});
+
+  // Prepare email content
+  const templateParams = {
+    to_email: CONFIG.orderEmail,
+    customer_name: name,
+    phone_primary: phone,
+    phone_secondary: phone2,
+    governorate: gov,
+    shipping_cost: CONFIG.governorates[gov] || 0,
+    address: address,
+    product_type: productLabel,
+    product_color: colorLabel,
+    product_size: size,
+    quantity: qty,
+    product_price: productPrice,
+    grand_total: ((productPrice * qty) + (CONFIG.governorates[gov] || 0)),
+    note: document.getElementById('orderForm').querySelector('textarea')?.value || '',
+    image_data: previewBase64 // included for email template — depends on your EmailJS template
+  };
+
+  // If EmailJS not configured, fallback to opening mailto with details (image can't be attached via mailto)
+  if (EMAILJS_USER_ID.includes("YOUR_")) {
+    const mailBody = encodeURIComponent(`
+العميل: ${name}
+الهاتف: ${phone}
+هاتف ثانٍ: ${phone2}
+المحافظة: ${gov} - شحن ${CONFIG.governorates[gov] || 0} ج.م
+العنوان: ${address}
+
+المنتج: ${productLabel}
+اللون: ${colorLabel}
+المقاس: ${size}
+الكمية: ${qty}
+سعر المنتج: ${productPrice} ج.م
+السعر النهائي: ${((productPrice * qty) + (CONFIG.governorates[gov] || 0))} ج.م
+
+ملاحظة: ${templateParams.note}
+
+(تم إنشاء معاينة التصميم كصورة داخل البريد — إذا أردت أن أستلم الصورة مباشرة استخدم EmailJS وأضف user/template في الكود)
+    `);
+    window.location.href = `mailto:${encodeURIComponent(CONFIG.orderEmail)}?subject=${encodeURIComponent("طلب جديد من Weave Wonder")}&body=${mailBody}`;
+    return;
+  }
+
+  // initialize EmailJS
+  emailjs.init(EMAILJS_USER_ID);
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams);
+    alert("تم إرسال الطلب. سأراجع التفاصيل وأتواصل معك. شكراً!");
+    purchaseModal.style.display = "none";
+  } catch(err){
+    console.error(err);
+    alert("فشل إرسال البريد عبر EmailJS. افتح ملف console للتحقق.");
+  }
+});
+
+/* Init everything */
+initUI();
+renderGallery();
+loadStateToCanvas('front');
+
+/* Small helper: if canvas changes, update final price */
+canvas.on('object:added', ()=> updateFinalPrice());
+canvas.on('object:removed', ()=> updateFinalPrice());
+canvas.on('object:modified', ()=> updateFinalPrice());
+
+</script>
+
+</body>
+</html>
