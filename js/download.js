@@ -102,12 +102,13 @@ function getTransformedDimensions(element) {
   // Use original size (before scaling)
   const width = element.naturalWidth || element.offsetWidth;
   const height = element.naturalHeight || element.offsetHeight;
-
+console.log("Drawing design at:", { translateX, translateY, width, height });
   return {
     x: translateX,
     y: translateY,
     width,
     height
   };
-  console.log("Drawing design at:", { translateX, translateY, width, height });
+  
 }
+
