@@ -67,39 +67,21 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // ✅ Parse CSS transform correctly
-  const style = window.getComputedStyle(designImage);
-  const transform = style.transform;
+  // ✅ Get actual position and size from style properties
+  const rect = designImage.getBoundingClientRect();
+  const layerRect = designLayer.getBoundingClientRect();
 
-  // If no transform or "none", assume identity (0,0,1,1)
-  let scaleX = 1, scaleY = 1, translateX = 0, translateY = 0;
+  // Calculate position relative to the layer
+  const x = rect.left - layerRect.left;
+  const y = rect.top - layerRect.top;
+  const width = rect.width;
+  const height = rect.height;
 
-  if (transform !== 'none') {
-    // Extract matrix values from transform: matrix(a, b, c, d, tx, ty)
-    const matrixMatch = transform.match(/matrix\(([^)]+)\)/);
-    if (matrixMatch && matrixMatch[1]) {
-      const values = matrixMatch[1].split(',').map(v => parseFloat(v.trim()));
-      if (values.length >= 6) {
-        scaleX = values[0];
-        scaleY = values[3];
-        translateX = values[4];
-        translateY = values[5];
-      }
-    }
-  }
-
-  // Use original width/height (before scaling), then apply scale
-  const originalWidth = designImage.naturalWidth || designImage.offsetWidth;
-  const originalHeight = designImage.naturalHeight || designImage.offsetHeight;
-
-  const width = originalWidth * scaleX;
-  const height = originalHeight * scaleY;
-
-  // Draw the image with correct position and scale
+  // Draw the design image at the correct position and size
   ctx.drawImage(
     designImage,
-    translateX,
-    translateY,
+    x,
+    y,
     width,
     height
   );
