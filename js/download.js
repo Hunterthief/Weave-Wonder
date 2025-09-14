@@ -67,22 +67,36 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // ✅ Get actual position and size from style properties
-  const rect = designImage.getBoundingClientRect();
-  const layerRect = designLayer.getBoundingClientRect();
+  // ✅ Parse transform: translate(x, y)
+  const style = window.getComputedStyle(designImage);
+  const transform = style.transform;
 
-  // Calculate position relative to the layer
-  const x = rect.left - layerRect.left;
-  const y = rect.top - layerRect.top;
-  const width = rect.width;
-  const height = rect.height;
+  let translateX = 0;
+  let translateY = 0;
 
-  // Draw the design image at the correct position and size
+  if (transform !== 'none') {
+    // Extract translate values from "translate(50px, 100px)"
+    const match = transform.match(/translate\(([^)]+)\)/);
+    if (match && match[1]) {
+      const values = match[1].split(',').map(v => parseFloat(v.trim()));
+      if (values.length >= 2) {
+        translateX = values[0];
+        translateY = values[1];
+      }
+    }
+  }
+
+  // ✅ Get original size (before scaling)
+  const width = designImage.naturalWidth || designImage.offsetWidth;
+  const height = designImage.naturalHeight || designImage.offsetHeight;
+
+  // Draw the image at the correct position and size
   ctx.drawImage(
     designImage,
-    x,
-    y,
+    translateX,
+    translateY,
     width,
     height
   );
+  console.log("Drawing design at:", { translateX, translateY, width, height });
 }
