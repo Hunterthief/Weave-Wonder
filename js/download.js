@@ -23,38 +23,38 @@ function generateAndDownloadDesign() {
   }
 
   // Check if designs exist
-  const hasFrontDesign = frontLayer.querySelector('.design-image');
-  const hasBackDesign = backLayer.querySelector('.design-image');
+  const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
+  const hasBackDesign = backLayer.querySelector('.design-image') !== null;
+
+  // If no design at all, warn user
+  if (!hasFrontDesign && !hasBackDesign) {
+    alert("No design uploaded. Please upload a design on front or back first.");
+    return;
+  }
 
   // Create canvas for front
   const frontCanvas = document.createElement('canvas');
   const frontCtx = frontCanvas.getContext('2d');
   setCanvasSize(frontCtx, frontBaseImage);
-
-  // Draw front design
   drawDesign(frontCtx, frontBaseImage, frontLayer);
 
   // Create canvas for back
   const backCanvas = document.createElement('canvas');
   const backCtx = backCanvas.getContext('2d');
   setCanvasSize(backCtx, backBaseImage);
-
-  // Draw back design
   drawDesign(backCtx, backBaseImage, backLayer);
 
-  // Download logic
+  // Download based on what exists
   if (hasFrontDesign && hasBackDesign) {
-    // Download both as separate files
+    // Download both separately
     downloadImage(frontCanvas, 'front-preview.png');
     downloadImage(backCanvas, 'back-preview.png');
   } else if (hasFrontDesign) {
-    // Download only front
+    // Only front
     downloadImage(frontCanvas, 'front-preview.png');
   } else if (hasBackDesign) {
-    // Download only back
+    // Only back
     downloadImage(backCanvas, 'back-preview.png');
-  } else {
-    alert("No design uploaded. Please upload a design first.");
   }
 }
 
@@ -71,7 +71,7 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // ✅ Parse transform: translate(x, y)
+  // ✅ Parse transform: translate(x, y) — CORRECTLY
   const style = window.getComputedStyle(designImage);
   const transform = style.transform;
 
@@ -79,14 +79,11 @@ function drawDesign(ctx, baseImage, designLayer) {
   let translateY = 0;
 
   if (transform !== 'none') {
-    // Extract translate values from "translate(50px, 100px)"
-    const match = transform.match(/translate\(([^)]+)\)/);
-    if (match && match[1]) {
-      const values = match[1].split(',').map(v => parseFloat(v.trim()));
-      if (values.length >= 2) {
-        translateX = values[0];
-        translateY = values[1];
-      }
+    // Extract values from "translate(50px, 100px)"
+    const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
+    if (match) {
+      translateX = parseFloat(match[1]);
+      translateY = parseFloat(match[2]);
     }
   }
 
