@@ -68,7 +68,20 @@ function drawDesign(ctx, baseImage, designLayer) {
   if (!designImage || !designImage.src) return;
 
   // ✅ Parse transform: translate(x, y)
-  const style = window.getComputedStyle(designImage);
+  const { x, y, width, height } = getTransformedDimensions(designImage);
+
+  // Draw the image at the correct position and size
+  ctx.drawImage(
+    designImage,
+    x,
+    y,
+    width,
+    height
+  );
+}
+
+function getTransformedDimensions(element) {
+  const style = window.getComputedStyle(element);
   const transform = style.transform;
 
   let translateX = 0;
@@ -86,17 +99,15 @@ function drawDesign(ctx, baseImage, designLayer) {
     }
   }
 
-  // ✅ Get original size (before scaling)
-  const width = designImage.naturalWidth || designImage.offsetWidth;
-  const height = designImage.naturalHeight || designImage.offsetHeight;
+  // Use original size (before scaling)
+  const width = element.naturalWidth || element.offsetWidth;
+  const height = element.naturalHeight || element.offsetHeight;
 
-  // Draw the image at the correct position and size
-  ctx.drawImage(
-    designImage,
-    translateX,
-    translateY,
+  return {
+    x: translateX,
+    y: translateY,
     width,
     height
-  );
+  };
   console.log("Drawing design at:", { translateX, translateY, width, height });
 }
