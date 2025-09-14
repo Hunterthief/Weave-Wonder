@@ -22,6 +22,10 @@ function generateAndDownloadDesign() {
     return;
   }
 
+  // Check if designs exist
+  const hasFrontDesign = frontLayer.querySelector('.design-image');
+  const hasBackDesign = backLayer.querySelector('.design-image');
+
   // Create canvas for front
   const frontCanvas = document.createElement('canvas');
   const frontCtx = frontCanvas.getContext('2d');
@@ -38,20 +42,20 @@ function generateAndDownloadDesign() {
   // Draw back design
   drawDesign(backCtx, backBaseImage, backLayer);
 
-  // Combine both designs side by side
-  const combinedCanvas = document.createElement('canvas');
-  const combinedCtx = combinedCanvas.getContext('2d');
-  combinedCanvas.width = frontCanvas.width * 2;
-  combinedCanvas.height = frontCanvas.height;
-
-  combinedCtx.drawImage(frontCanvas, 0, 0);
-  combinedCtx.drawImage(backCanvas, frontCanvas.width, 0);
-
-  // Trigger download
-  const link = document.createElement('a');
-  link.href = combinedCanvas.toDataURL('image/png');
-  link.download = 'design-preview.png';
-  link.click();
+  // Download logic
+  if (hasFrontDesign && hasBackDesign) {
+    // Download both as separate files
+    downloadImage(frontCanvas, 'front-preview.png');
+    downloadImage(backCanvas, 'back-preview.png');
+  } else if (hasFrontDesign) {
+    // Download only front
+    downloadImage(frontCanvas, 'front-preview.png');
+  } else if (hasBackDesign) {
+    // Download only back
+    downloadImage(backCanvas, 'back-preview.png');
+  } else {
+    alert("No design uploaded. Please upload a design first.");
+  }
 }
 
 function setCanvasSize(ctx, baseImage) {
@@ -68,20 +72,7 @@ function drawDesign(ctx, baseImage, designLayer) {
   if (!designImage || !designImage.src) return;
 
   // ✅ Parse transform: translate(x, y)
-  const { x, y, width, height } = getTransformedDimensions(designImage);
-
-  // Draw the image at the correct position and size
-  ctx.drawImage(
-    designImage,
-    x,
-    y,
-    width,
-    height
-  );
-}
-
-function getTransformedDimensions(element) {
-  const style = window.getComputedStyle(element);
+  const style = window.getComputedStyle(designImage);
   const transform = style.transform;
 
   let translateX = 0;
@@ -100,15 +91,22 @@ function getTransformedDimensions(element) {
   }
 
   // Use original size (before scaling)
-  const width = element.naturalWidth || element.offsetWidth;
-  const height = element.naturalHeight || element.offsetHeight;
-console.log("Drawing design at:", { translateX, translateY, width, height });
-  return {
-    x: translateX,
-    y: translateY,
+  const width = designImage.naturalWidth || designImage.offsetWidth;
+  const height = designImage.naturalHeight || designImage.offsetHeight;
+
+  // Draw the image at the correct position and size
+  ctx.drawImage(
+    designImage,
+    translateX,
+    translateY,
     width,
     height
-  };
-  
+  );
 }
 
+function downloadImage(canvas, filename) {
+  const link = document.createElement('a');
+  link.href = canvas.toDataURL('image/png');
+  link.download = filename;
+  link.click();
+}
