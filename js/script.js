@@ -962,13 +962,18 @@ if (isOutOfStock) {
   sizeOption.style.color = '#999';
 }
 
-    // Add click handler
+// Add click handler
 sizeOption.addEventListener('click', () => {
-  // Allow selection of low-stock, but don't allow purchase if no in-stock selected
+  // Remove selected from all options
   document.querySelectorAll('.size-option').forEach(opt => {
     opt.classList.remove('selected');
   });
-  sizeOption.classList.add('selected');
+
+  // Only mark as selected if it's IN STOCK (uppercase)
+  if (isInStock) {
+    sizeOption.classList.add('selected');
+  }
+
   updateOrderSummary();
 });
 
