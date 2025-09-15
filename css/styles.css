@@ -23,8 +23,6 @@ body {
   background-color: #f5f7fa;
   color: var(--dark);
   line-height: 1.6;
-  direction: rtl;
-  text-align: right;
 }
 header {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -62,7 +60,7 @@ h2::after {
   content: '';
   position: absolute;
   bottom: 0;
-  right: 0;
+  left: 0;
   width: 60px;
   height: 3px;
   background: var(--secondary);
@@ -104,7 +102,7 @@ h2::after {
 .design-layer {
   position: absolute;
   top: var(--boundary-top);
-  right: var(--boundary-left);
+  left: var(--boundary-left);
   width: var(--boundary-width);
   height: var(--boundary-height);
   pointer-events: none;
@@ -115,7 +113,7 @@ h2::after {
 .design-image {
   position: absolute;
   top: 0;
-  right: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -309,10 +307,10 @@ select:focus, input:focus, textarea:focus {
   background: var(--secondary);
   color: white;
 }
-.top-button { top: calc(var(--boundary-top) - 14px); right: calc(var(--boundary-left) + calc(var(--boundary-width) / 2) - 12px); }
-.right-button { top: calc(var(--boundary-top) + calc(var(--boundary-height) / 2) - 12px); right: calc(var(--boundary-left) + var(--boundary-width) - 14px); }
-.bottom-button { top: calc(var(--boundary-top) + var(--boundary-height) - 14px); right: calc(var(--boundary-left) + calc(var(--boundary-width) / 2) - 12px); }
-.left-button { top: calc(var(--boundary-top) + calc(var(--boundary-height) / 2) - 12px); right: calc(var(--boundary-left) - 14px); }
+.top-button { top: calc(var(--boundary-top) - 14px); left: calc(var(--boundary-left) + calc(var(--boundary-width) / 2) - 12px); }
+.right-button { top: calc(var(--boundary-top) + calc(var(--boundary-height) / 2) - 12px); left: calc(var(--boundary-left) + var(--boundary-width) - 14px); }
+.bottom-button { top: calc(var(--boundary-top) + var(--boundary-height) - 14px); left: calc(var(--boundary-left) + calc(var(--boundary-width) / 2) - 12px); }
+.left-button { top: calc(var(--boundary-top) + calc(var(--boundary-height) / 2) - 12px); left: calc(var(--boundary-left) - 14px); }
 @media (max-width: 768px) {
   .design-container {
     grid-template-columns: 1fr;
