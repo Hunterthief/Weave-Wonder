@@ -980,16 +980,25 @@ const legendContainer = document.createElement('div');
 legendContainer.className = 'size-legend';
 legendContainer.innerHTML = `
   <small>
-    <span class="legend-item"><strong>🟢 In Stock</strong> – Available</span> |
-    <span class="legend-item"><strong>🟡 Low Stock</strong> – Limited</span> |
-    <span class="legend-item"><strong>🔴 Out of Stock</strong> – Not Available</span>
+    <span class="legend-item in-stock">
+      <span class="legend-color in-stock"></span>
+      <strong>In Stock</strong> – Available
+    </span> |
+    <span class="legend-item low-stock">
+      <span class="legend-color low-stock"></span>
+      <strong>Low Stock</strong> – Limited
+    </span> |
+    <span class="legend-item disabled">
+      <span class="legend-color disabled"></span>
+      <strong>Out of Stock</strong> – Not Available
+    </span>
   </small>
 `;
 legendContainer.style.textAlign = 'center';
 legendContainer.style.marginTop = '0.5rem';
-legendContainer.style.color = '#666';
+legendContainer.style.color = '#555';
 legendContainer.style.fontSize = '0.85rem';
-
+legendContainer.style.lineHeight = '1.6';
 container.appendChild(legendContainer);
   // Auto-select first available (in-stock) size
   const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
