@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Weave Wonder - ملابس مخصصة</title>
+  <title>Weave Wonder - Custom Clothing</title>
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/interact.js/1.10.1/interact.min.js"></script>
@@ -11,99 +11,99 @@
 <body>
   <header>
     <h1>Weave Wonder</h1>
-    <p>ملابس مخصصة لكل أسلوب</p>
+    <p>Custom Designed Clothing for Every Style</p>
   </header>
   <main class="container">
     <section id="design-submission" class="hidden">
-      <h2>صمم تصميمك المخصص</h2>
+      <h2>Create Your Custom Design</h2>
       <div class="design-container">
         <div class="design-controls">
           <div class="control-group">
-            <label for="product-type">نوع المنتج</label>
+            <label for="product-type">Product Type</label>
             <select id="product-type">
-              <option value="tshirt">تي شيرت كلاسيكي</option>
-              <option value="oversized-tshirt">تي شيرت كبير الحجم</option>
-              <option value="longsleeve">تي شيرت بأكمام طويلة</option>
-              <option value="classic-sweatshirt">سترة كلاسيكية</option>
-              <option value="premium-hoodie">هودي بريميوم</option>
-              <option value="classic-hoodie">هودي كلاسيكي</option>
-              <option value="oversized-hoodie">هودي كبير الحجم</option>
+              <option value="tshirt">Classic T-Shirt</option>
+              <option value="oversized-tshirt">Oversized T-Shirt</option>
+              <option value="longsleeve">Long Sleeve T-Shirt</option>
+              <option value="classic-sweatshirt">Classic Sweatshirt</option>
+              <option value="premium-hoodie">Premium Hoodie</option>
+              <option value="classic-hoodie">Classic Hoodie</option>
+              <option value="oversized-hoodie">Oversized Hoodie</option>
             </select>
           </div>
           <div class="control-group">
-            <label for="color-picker">اللون</label>
+            <label for="color-picker">Color</label>
             <div class="color-options" id="color-options">
-              <!-- الألوان سيتم إنشاؤها هنا -->
+              <!-- Colors will be generated here -->
             </div>
           </div>
           <div class="design-upload">
-            <label for="front-design">تصميم الأمام</label>
+            <label for="front-design">Front Design</label>
             <input type="file" id="front-design" accept="image/*" class="hidden">
-            <button class="upload-btn" onclick="document.getElementById('front-design').click()">رفع تصميم الأمام</button>
+            <button class="upload-btn" onclick="document.getElementById('front-design').click()">Upload Front Design</button>
             <div id="front-preview" class="preview-image hidden"></div>
           </div>
           <div class="design-upload">
-            <label for="back-design">تصميم الخلف</label>
+            <label for="back-design">Back Design</label>
             <input type="file" id="back-design" accept="image/*" class="hidden">
-            <button class="upload-btn" onclick="document.getElementById('back-design').click()">رفع تصميم الخلف</button>
+            <button class="upload-btn" onclick="document.getElementById('back-design').click()">Upload Back Design</button>
             <div id="back-preview" class="preview-image hidden"></div>
           </div>
-          <button class="download-btn" id="download-design">تنزيل معاينة التصميم</button>
+          <button class="download-btn" id="download-design">Download Design Preview</button>
         </div>
         <div class="design-preview">
           <div class="product-view" id="front-view">
-            <img src="" alt="الوجه الأمامي" class="base-image">
+            <img src="" alt="Front View" class="base-image">
             <div class="design-layer" id="front-layer"></div>
           </div>
           <div class="product-view" id="back-view">
-            <img src="" alt="الوجه الخلفي" class="base-image">
+            <img src="" alt="Back View" class="base-image">
             <div class="design-layer" id="back-layer"></div>
           </div>
         </div>
       </div>
     </section>
     <section id="order-form" class="hidden">
-      <h2>أطلب الآن</h2>
+      <h2>Place Your Order</h2>
       <form id="order-form">
         <div class="control-group">
-          <label for="product-type-order">نوع المنتج</label>
+          <label for="product-type-order">Product Type</label>
           <select id="product-type-order" required>
-            <option value="">اختر المنتج</option>
+            <option value="">Select Product</option>
           </select>
         </div>
         <div class="control-group">
-          <label for="color-order">اللون</label>
+          <label for="color-order">Color</label>
           <select id="color-order" required>
-            <option value="">اختر اللون</option>
+            <option value="">Select Color</option>
           </select>
         </div>
         <div class="control-group">
-          <label for="size-order">الحجم</label>
+          <label for="size-order">Size</label>
           <div class="size-options" id="size-options">
-            <!-- الأحجام سيتم إنشاؤها هنا -->
+            <!-- Sizes will be generated here -->
           </div>
         </div>
         <div class="control-group">
-          <label for="quantity">الكمية</label>
-          <input type="number" id="quantity" min="1" value="1" required>
+          <label for="quantity">Quantity (1 only)</label>
+          <input type="number" id="quantity" min="1" max="1" value="1" readonly required>
         </div>
         <div class="control-group">
-          <label for="name">الاسم الكامل</label>
+          <label for="name">Full Name</label>
           <input type="text" id="name" required>
         </div>
         <div class="control-group">
-          <label for="phone">رقم الهاتف</label>
+          <label for="phone">Phone Number</label>
           <input type="tel" id="phone" required pattern="[0-9]{11}">
-          <div class="directions">أرقام مصرية فقط (11 رقم)</div>
+          <div class="directions">Egyptian numbers only (11 digits)</div>
         </div>
         <div class="control-group">
-          <label for="secondary-phone">رقم هاتف ثانوي (اختياري)</label>
+          <label for="secondary-phone">Secondary Phone (Optional)</label>
           <input type="tel" id="secondary-phone" pattern="[0-9]{11}">
         </div>
         <div class="control-group">
-          <label for="governorate">المحافظة</label>
+          <label for="governorate">Governorate</label>
           <select id="governorate" required>
-            <option value="">اختر المحافظة</option>
+            <option value="">Select Governorate</option>
             <option value="القاهرة">القاهرة [45]</option>
             <option value="جيزة">جيزة [45]</option>
             <option value="الإسكندرية">الإسكندرية [50]</option>
@@ -137,44 +137,44 @@
             <option value="البحر الأحمر">البحر الأحمر [130]</option>
             <option value="جنوب سيناء">جنوب سيناء [130]</option>
           </select>
-          <div class="shipping-cost">الشحن: <span id="shipping-cost">0</span> جنيه</div>
+          <div class="shipping-cost">Shipping: <span id="shipping-cost">0</span> EGP</div>
         </div>
         <div class="control-group">
-          <label for="address">العنوان بالتفصيل (المركز - الحي - الشارع - العمارة - رقم الشقة)</label>
+          <label for="address">Exact Address (المركز - الحي - الشارع - العمارة - رقم الشقة)</label>
           <textarea id="address" rows="3" required></textarea>
         </div>
         <div class="control-group">
-          <label for="delivery-notes">ملاحظات التسليم (اختياري)</label>
+          <label for="delivery-notes">Delivery Notes (Optional)</label>
           <textarea id="delivery-notes" rows="2"></textarea>
         </div>
         <div class="size-chart">
-          <img src="" alt="جدول المقاسات">
+          <img src="" alt="Size Chart">
         </div>
         <div class="order-summary">
-          <h3>ملخص الطلب</h3>
+          <h3>Order Summary</h3>
           <div class="summary-item">
-            <span>سعر المنتج:</span>
-            <span id="product-price">0 جنيه</span>
+            <span>Product Price:</span>
+            <span id="product-price">0 EGP</span>
           </div>
           <div class="summary-item">
-            <span>تكلفة الشحن:</span>
-            <span id="shipping-cost-summary">0 جنيه</span>
+            <span>Shipping Cost:</span>
+            <span id="shipping-cost-summary">0 EGP</span>
           </div>
           <div class="summary-item total">
-            <span>المجموع:</span>
-            <span id="total-price">0 جنيه</span>
+            <span>Total:</span>
+            <span id="total-price">0 EGP</span>
           </div>
         </div>
         <div class="payment-note">
-          الدفع عند استلام المنتج.
+          Payment is made upon receiving the product.
         </div>
-        <button type="submit" class="submit-btn">شراء</button>
+        <button type="submit" class="submit-btn">Purchase</button>
       </form>
     </section>
   </main>
   <footer class="footer">
-    <p>&copy; 2025 Weave Wonder. جميع الحقوق محفوظة.</p>
-    <p>ملابس مصممة خصيصًا لك</p>
+    <p>&copy; 2023 Weave Wonder. All rights reserved.</p>
+    <p>Custom clothing designed for you</p>
   </footer>
   <script src="js/script.js"></script>
   <script src="js/download.js"></script>
