@@ -855,24 +855,134 @@ function setupOrderForm() {
 function updateSizeOptions(type, color) {
   const container = document.getElementById('size-options');
   container.innerHTML = '';
-  const config = productsConfig[type];
-  if (!config || !config.colors[color]) return;
 
-  config.colors[color].sizes.forEach(size => {
+  // Define inventory map: Product → Color → Sizes (as string)
+  const inventory = {
+    "premium-hoodie": {
+      black: "M L 2XL",
+      white: "3XL",
+      gray: "XL"
+    },
+    "classic-hoodie": {
+      black: "XL 3XL",
+      white: "M L XL 3XL",
+      "light-blue": "M L XL 2XL 3XL",
+      magenta: "2XL",
+      beige: "",
+      "olive-green": "M L",
+      red: ""
+    },
+    "oversized-hoodie": {
+      black: "",
+      white: "M L",
+      "light-blue": "m",
+      magenta: "",
+      beige: "",
+      "olive-green": "M L",
+      red: "m l"
+    },
+    "tshirt": {
+      black: "",
+      white: "XL",
+      gray: "L 2XL 3XL",
+      blue: "XL",
+      red: "M L XL 2XL 3XL",
+      indigo: "",
+      "light-blue": "2XL",
+      "dark-light-blue": ""
+    },
+    "oversized-tshirt": {
+      black: "",
+      white: "",
+      indigo: "",
+      blue: "",
+      red: "M L",
+      "light-blue": "m l"
+    },
+    "longsleeve": {
+      black: "XL",
+      white: "M XL 3XL",
+      red: "M L XL 2XL 3XL",
+      gray: "M L XL 3XL"
+    },
+    "classic-sweatshirt": {
+      black: "M 3XL",
+      white: "M 2XL 3XL",
+      "light-blue": "M XL 2XL 3XL",
+      magenta: "M L XL 2XL 3XL",
+      beige: "M L XL 3XL",
+      "olive-green": "3XL"
+    }
+  };
+
+  // Normalize product type and color for lookup
+  const normalizedType = type.toLowerCase();
+  const normalizedColor = color.toLowerCase();
+
+  // Get available sizes as string, or empty if not found
+  const sizeString = inventory[normalizedType]?.[normalizedColor] || "";
+
+  // Split into array and clean up whitespace
+  const sizeList = sizeString.trim().split(/\s+/);
+
+  // If no sizes defined, show message
+  if (!sizeList.length || (sizeList.length === 1 && !sizeList[0])) {
+    container.innerHTML = '<div class="size-option disabled">No sizes available</div>';
+    return;
+  }
+
+  // Create size options
+  sizeList.forEach(size => {
     const sizeOption = document.createElement('div');
     sizeOption.className = 'size-option';
-    sizeOption.textContent = size;
+    sizeOption.textContent = size.toUpperCase(); // Display always uppercase
+
+    // Determine stock status
+    const isUpperCase = size === size.toUpperCase();
+    const isLowerCase = size === size.toLowerCase();
+    const isInStock = isUpperCase;
+    const isLowStock = isLowerCase;
+    const isOutOfStock = !isUpperCase && !isLowerCase; // shouldn't happen but safe
+
+    // Apply classes based on stock level
+    if (isOutOfStock) {
+      sizeOption.classList.add('disabled');
+      sizeOption.style.opacity = '0.5';
+      sizeOption.style.textDecoration = 'line-through';
+      sizeOption.style.color = '#999';
+      sizeOption.style.pointerEvents = 'none'; // Prevent click
+    } else if (isLowStock) {
+      sizeOption.classList.add('low-stock');
+      sizeOption.style.backgroundColor = '#FFD700'; // Yellow
+      sizeOption.style.color = '#333';
+      sizeOption.style.fontWeight = 'bold';
+    } else if (isInStock) {
+      sizeOption.classList.add('in-stock');
+      sizeOption.style.backgroundColor = '';
+      sizeOption.style.color = '';
+    }
+
+    // Add click handler
     sizeOption.addEventListener('click', () => {
-      document.querySelectorAll('.size-option').forEach(opt => opt.classList.remove('selected'));
+      if (isOutOfStock || isLowStock) return; // Prevent selection of non-in-stock
+
+      document.querySelectorAll('.size-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
       sizeOption.classList.add('selected');
       updateOrderSummary();
     });
+
     container.appendChild(sizeOption);
   });
 
-  // Select first size by default
-  if (container.children.length > 0) {
-    container.children[0].classList.add('selected');
+  // Auto-select first available (in-stock) size
+  const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
+  if (firstAvailable) {
+    firstAvailable.click();
+  } else {
+    // If none are selectable, clear selection
+    document.querySelectorAll('.size-option').forEach(opt => opt.classList.remove('selected'));
     updateOrderSummary();
   }
 }
