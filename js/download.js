@@ -71,47 +71,27 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // ✅ Get the current rendered size (what user sees)
+  // ✅ Get rendered size (what user sees after resize)
   const renderedWidth = designImage.offsetWidth;
   const renderedHeight = designImage.offsetHeight;
 
-  // ✅ Get the transform string — e.g., "translate(45px, 67px)"
-  const transform = window.getComputedStyle(designImage).transform;
+  // ✅ Parse transform: translate(x, y)
+  const style = window.getComputedStyle(designImage);
+  const transform = style.transform;
 
   let translateX = 0;
   let translateY = 0;
-  let scaleX = 1;
-  let scaleY = 1;
 
-  // Parse "translate(45px, 67px)"
   if (transform !== 'none') {
+    // Extract values from "translate(50px, 100px)"
     const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
     if (match) {
       translateX = parseFloat(match[1]);
       translateY = parseFloat(match[2]);
     }
-
-    // Optional: Handle scale if added later
-    const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
-    if (scaleMatch) {
-      const scaleVal = parseFloat(scaleMatch[1]);
-      scaleX = scaleVal;
-      scaleY = scaleVal;
-    }
   }
 
-  // Apply scale to final size
-  const finalWidth = renderedWidth * scaleX;
-  const finalHeight = renderedHeight * scaleY;
-
-  // Now we have:
-  // - finalWidth/finalHeight: resized + scaled size
-  // - translateX/translateY: position relative to top-left of .design-layer
-
-  // But — we need to map this to the CANVAS coordinate system!
-  // The .design-layer is positioned at (125, 101) inside the .product-view
-  // So we add that offset!
-
+  // ✅ Get the DESIGN-LAYER's position within the .product-view
   const productView = designLayer.closest('.product-view');
   const layerRect = designLayer.getBoundingClientRect();
   const viewRect = productView.getBoundingClientRect();
@@ -119,17 +99,17 @@ function drawDesign(ctx, baseImage, designLayer) {
   const layerOffsetX = layerRect.left - viewRect.left;
   const layerOffsetY = layerRect.top - viewRect.top;
 
-  // Final position on canvas = layer offset + design position within layer
+  // ✅ Final position on canvas = layer offset + design position within layer
   const canvasX = layerOffsetX + translateX;
   const canvasY = layerOffsetY + translateY;
 
-  // ✅ DRAW IT!
+  // ✅ Draw the image at correct position and size
   ctx.drawImage(
     designImage,
     canvasX,
     canvasY,
-    finalWidth,
-    finalHeight
+    renderedWidth,
+    renderedHeight
   );
 }
 
