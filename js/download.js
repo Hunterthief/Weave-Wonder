@@ -83,7 +83,12 @@ function drawDesign(ctx, baseImage, designLayer) {
 
   // Calculate final position and size
   const finalX = layerOffsetX + parsed.x;
-  const finalY = layerOffsetY + parsed.y;
+  let finalY = layerOffsetY + parsed.y; // Start with original Y
+
+  // 🚨 Apply 4% downward offset to match script.js visual positioning
+  const baseHeight = baseImage.naturalHeight || baseImage.height;
+  finalY += baseHeight * 0.04; // Shift down by 4%
+
   const finalWidth = designImage.offsetWidth * parsed.scaleX;
   const finalHeight = designImage.offsetHeight * parsed.scaleY;
 
@@ -137,3 +142,4 @@ function downloadImage(canvas, filename) {
   link.download = filename;
   link.click();
 }
+
