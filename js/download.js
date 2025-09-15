@@ -75,19 +75,19 @@ function drawDesign(ctx, baseImage, designLayer) {
   const width = designImage.offsetWidth;
   const height = designImage.offsetHeight;
 
-  // ✅ Get the computed transform value
+  // ✅ Parse transform: translate(x, y)
   const style = window.getComputedStyle(designImage);
   const transform = style.transform;
 
   let x = 0;
   let y = 0;
 
-  // ✅ PARSE "translate(75px, 85px)" using REGEX — NO MORE .split(',')
+  // ✅ Extract values from "translate(50px, 67px)"
   if (transform !== 'none') {
     const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
     if (match) {
-      x = parseFloat(match[1]);  // e.g., 75
-      y = parseFloat(match[2]);  // e.g., 85
+      x = parseFloat(match[1]);
+      y = parseFloat(match[2]);
     }
   }
 
