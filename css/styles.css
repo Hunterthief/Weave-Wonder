@@ -43,8 +43,8 @@ header {
   cursor: not-allowed !important;
 }
 
-/* Ensure selected style still works even when low/in stock */
-.size-option.selected {
+/* Only apply blue background to in-stock selected items */
+.size-option.in-stock.selected {
   background-color: #3498db;
   color: white;
   border-color: #3498db;
@@ -252,11 +252,6 @@ select:focus, input:focus, textarea:focus {
   cursor: pointer;
   transition: var(--transition);
 }
-.size-option.selected {
-  background: var(--secondary);
-  color: white;
-  border-color: var(--secondary);
-}
 .size-option.unavailable {
   opacity: 0.5;
   cursor: not-allowed;
@@ -409,9 +404,3 @@ select:focus, input:focus, textarea:focus {
     height: 250px;
   }
 }
-
-
-
-
-
-
