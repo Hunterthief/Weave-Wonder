@@ -2,8 +2,8 @@
 const productsConfig = {
   tshirt: {
     name: "Classic T-Shirt",
-    basePrice: 150,
-    frontBackPrice: 50,
+    basePrice: 350,
+    frontBackPrice: 20,
     colors: {
       black: {
         sizes: ["M", "L", "XL", "2XL", "3XL"],
@@ -40,8 +40,8 @@ const productsConfig = {
   },
   "oversized-tshirt": {
     name: "Oversized T-Shirt",
-    basePrice: 180,
-    frontBackPrice: 60,
+    basePrice: 400,
+    frontBackPrice: 20,
     colors: {
       black: {
         sizes: ["M", "L"],
