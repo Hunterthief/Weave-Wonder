@@ -45,22 +45,23 @@ header {
 
 /* Ensure selected style still works even when low/in stock */
 .size-option.selected {
-  background-color: #3498db !important;
-  color: white !important;
-  border-color: #3498db !important;
+  background-color: #3498db;
+  color: white;
+  border-color: #3498db;
 }
+
 /* Low stock: yellow background */
 .size-option.low-stock {
-  background-color: #FFD700 !important;
-  color: #333 !important;
-  font-weight: bold !important;
+  background-color: #FFD700;
+  color: #333;
+  font-weight: bold;
 }
 .size-option.low-stock.selected {
-  background-color: #FFD700 !important;
-  color: #333 !important;
-  border-color: #e6c200 !important;
-  border-width: 2px !important;
-  font-weight: bold !important;
+  background-color: #FFD700;
+  color: #333;
+  border-color: #e6c200;
+  border-width: 2px;
+  font-weight: bold;
 }
 .container {
   width: 90%;
@@ -408,6 +409,7 @@ select:focus, input:focus, textarea:focus {
     height: 250px;
   }
 }
+
 
 
 
