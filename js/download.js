@@ -71,33 +71,59 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // ✅ Parse transform: translate(x, y) — CORRECTLY
+  // ✅ Get the position and size of the .design-layer relative to the .product-view
+  const productView = designLayer.closest('.product-view');
+  const layerRect = designLayer.getBoundingClientRect();
+  const viewRect = productView.getBoundingClientRect();
+
+  // Calculate the offset of the layer within the product view
+  const layerOffsetX = layerRect.left - viewRect.left;
+  const layerOffsetY = layerRect.top - viewRect.top;
+
+  // ✅ Get the transform translate values from the design image
   const style = window.getComputedStyle(designImage);
   const transform = style.transform;
 
   let translateX = 0;
   let translateY = 0;
+  let scaleX = 1;
+  let scaleY = 1;
 
   if (transform !== 'none') {
-    // Extract values from "translate(50px, 100px)"
     const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
     if (match) {
       translateX = parseFloat(match[1]);
       translateY = parseFloat(match[2]);
     }
+
+    // Also extract scale if present (in case you add scaling later)
+    const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
+    if (scaleMatch) {
+      const scaleVal = parseFloat(scaleMatch[1]);
+      scaleX = scaleVal;
+      scaleY = scaleVal;
+    }
   }
 
-  // Use original size (before scaling)
-  const width = designImage.naturalWidth || designImage.offsetWidth;
-  const height = designImage.naturalHeight || designImage.offsetHeight;
+  // ✅ Original size of the design image
+  const originalWidth = designImage.naturalWidth || designImage.offsetWidth;
+  const originalHeight = designImage.naturalHeight || designImage.offsetHeight;
 
-  // Draw the image at the correct position and size
+  // ✅ Apply scale to get final rendered size
+  const finalWidth = originalWidth * scaleX;
+  const finalHeight = originalHeight * scaleY;
+
+  // ✅ Convert design image position from layer-relative to product-view-relative
+  const designX = layerOffsetX + translateX;
+  const designY = layerOffsetY + translateY;
+
+  // ✅ Draw the image at the correct position on the canvas
   ctx.drawImage(
     designImage,
-    translateX,
-    translateY,
-    width,
-    height
+    designX,
+    designY,
+    finalWidth,
+    finalHeight
   );
 }
 
