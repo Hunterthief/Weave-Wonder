@@ -34,13 +34,6 @@ header {
   top: 0;
   z-index: 100;
 }
-/* Low stock: yellow background */
-.size-option.low-stock {
-  background-color: #FFD700 !important;
-  color: #333 !important;
-  font-weight: bold !important;
-}
-
 /* Out of stock: grayed out and crossed out */
 .size-option.disabled {
   opacity: 0.5 !important;
@@ -55,6 +48,19 @@ header {
   background-color: #3498db !important;
   color: white !important;
   border-color: #3498db !important;
+}
+/* Low stock: yellow background */
+.size-option.low-stock {
+  background-color: #FFD700 !important;
+  color: #333 !important;
+  font-weight: bold !important;
+}
+.size-option.low-stock.selected {
+  background-color: #FFD700 !important;
+  color: #333 !important;
+  border-color: #e6c200 !important;
+  border-width: 2px !important;
+  font-weight: bold !important;
 }
 .container {
   width: 90%;
@@ -398,6 +404,7 @@ select:focus, input:focus, textarea:focus {
     height: 250px;
   }
 }
+
 
 
 
