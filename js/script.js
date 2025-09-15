@@ -798,17 +798,30 @@ function setupOrderForm() {
 
     // Update size chart image
     sizeChartImg.src = config.sizeChart;
- // Add this after initializing the form
-  document.getElementById('quantity').addEventListener('input', updateOrderSummary);
-    // Update size options
-    updateSizeOptions(type, 'black');
+
+    // Add quantity input listener
+    document.getElementById('quantity').addEventListener('input', updateOrderSummary);
+
+    // Reset size options to default state (no color selected)
+    sizeOptionsContainer.innerHTML = '<div class="size-option disabled">Please select a color</div>';
+    document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
+    updateOrderSummary();
   });
 
   // Color change
   colorSelect.addEventListener('change', (e) => {
     const type = productTypeSelect.value;
     const color = e.target.value;
-    if (!type || !color) return;
+
+    if (!type || !color) {
+      // If no color is selected, show message
+      sizeOptionsContainer.innerHTML = '<div class="size-option disabled">Please select a color</div>';
+      document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
+      updateOrderSummary();
+      return;
+    }
+
+    // Otherwise, update size options normally
     updateSizeOptions(type, color);
   });
 
@@ -835,7 +848,7 @@ function setupOrderForm() {
       productType: productsConfig[productTypeSelect.value].name,
       color: colorSelect.value,
       size: document.querySelector('.size-option.selected')?.textContent || '',
-      quantity: 1,
+      quantity: parseInt(document.getElementById('quantity').value) || 1,
       name: document.getElementById('name').value,
       phone: document.getElementById('phone').value,
       secondaryPhone: document.getElementById('secondary-phone').value,
@@ -855,7 +868,13 @@ function setupOrderForm() {
 function updateSizeOptions(type, color) {
   const container = document.getElementById('size-options');
   container.innerHTML = '';
-  
+   if (!color) {
+    const container = document.getElementById('size-options');
+    container.innerHTML = '<div class="size-option disabled">Please select a color</div>';
+    document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
+    updateOrderSummary();
+    return;
+  }
   // Define inventory map: Product → Color → Sizes (as string)
   // Lowercase = Low Stock | Uppercase = In Stock | Empty = Out of Stock
   const inventory = {
