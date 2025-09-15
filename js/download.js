@@ -67,57 +67,20 @@ function drawDesign(ctx, baseImage, designLayer) {
   const width = designImage.offsetWidth;
   const height = designImage.offsetHeight;
 
-  // ✅ Parse transform: translate(x, y) and scale(s)
-  const { x, y } = getTransformedDimensions(designImage);
-
-  // ✅ Get layer position inside .product-view
-  const productView = designLayer.closest('.product-view');
+  // ✅ Get real position using getBoundingClientRect()
+  const rect = designImage.getBoundingClientRect();
   const layerRect = designLayer.getBoundingClientRect();
+
+  // Calculate position relative to the .product-view
+  const productView = designLayer.closest('.product-view');
   const viewRect = productView.getBoundingClientRect();
 
-  const layerOffsetX = layerRect.left - viewRect.left;
-  const layerOffsetY = layerRect.top - viewRect.top;
-
-  // ✅ Final position = layer offset + transform offset
-  const finalX = layerOffsetX + x;
-  const finalY = layerOffsetY + y;
+  // Final X/Y on canvas = view offset + (rect offset - layer offset)
+  const finalX = viewRect.left + (rect.left - layerRect.left);
+  const finalY = viewRect.top + (rect.top - layerRect.top);
 
   // ✅ Draw it — size and position now match EXACTLY what user sees
   ctx.drawImage(designImage, finalX, finalY, width, height);
-}
-
-function getTransformedDimensions(element) {
-  const style = window.getComputedStyle(element);
-  const transform = style.transform;
-
-  let x = 0;
-  let y = 0;
-  let scaleX = 1;
-  let scaleY = 1;
-
-  if (transform !== 'none') {
-    // Extract translate values from "translate(50px, 67px)"
-    const translateMatch = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
-    if (translateMatch) {
-      x = parseFloat(translateMatch[1]);
-      y = parseFloat(translateMatch[2]);
-    }
-
-    // Extract scale values from "scale(1.5)"
-    const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
-    if (scaleMatch) {
-      const scaleVal = parseFloat(scaleMatch[1]);
-      scaleX = scaleVal;
-      scaleY = scaleVal;
-    }
-  }
-
-  return {
-    x,
-    y,
-    width: element.offsetWidth * scaleX,
-    height: element.offsetHeight * scaleY
-  };
 }
 
 function downloadImage(canvas, filename) {
