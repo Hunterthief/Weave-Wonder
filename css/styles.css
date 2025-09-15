@@ -41,10 +41,9 @@ header {
   color: #999 !important;
   pointer-events: none !important;
   cursor: not-allowed !important;
-  background: #e0e0e0 !important;
 }
 
-/* Low stock: yellow background */
+/* Low stock: yellow background - This must come before the selected style */
 .size-option.low-stock {
   background-color: #FFD700 !important;
   color: #333 !important;
@@ -52,14 +51,14 @@ header {
   border: 1px solid #e6c200 !important;
 }
 
-/* In-stock selected */
+/* In-stock selected style - Keep this but make sure it doesn't override low-stock */
 .size-option.in-stock.selected {
   background-color: #3498db !important;
   color: white !important;
   border-color: #3498db !important;
 }
 
-/* Low stock selected (should never happen as we don't select low-stock items) */
+/* For low-stock items that are selected (if they could be selected) */
 .size-option.low-stock.selected {
   background-color: #FFD700 !important;
   color: #333 !important;
@@ -68,9 +67,10 @@ header {
   font-weight: bold !important;
 }
 
-/* Remove any default selected style that might be causing issues */
+/* Remove any default selected style that might interfere */
 .size-option.selected {
-  /* This rule should be empty or not exist */
+  /* We don't want a default selected style that overrides low-stock */
+  /* This rule is intentionally left empty to avoid conflicts */
 }
 
 .container {
@@ -184,10 +184,6 @@ h2::after {
   object-fit: contain;
   display: block;
 }
-.size-option.low-stock:hover {
-  opacity: 0.9;
-  transition: opacity 0.2s ease;
-}
 .design-layer {
   position: absolute;
   top: var(--boundary-top);
@@ -262,7 +258,7 @@ select:focus, input:focus, textarea:focus {
   cursor: pointer;
   transition: var(--transition);
   /* Remove any default background color */
-  /* Removed background: transparent !important; */
+  background: transparent !important;
 }
 .size-option.unavailable {
   opacity: 0.5;
