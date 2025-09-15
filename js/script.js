@@ -859,9 +859,9 @@ function updateSizeOptions(type, color) {
   // Define inventory map: Product → Color → Sizes (as string)
   const inventory = {
     "premium-hoodie": {
-      black: "M L 2XL",
-      white: "3XL",
-      gray: "XL"
+      black: "M l 2xl",
+      white: "3xl",
+      gray: "xl"
     },
     "classic-hoodie": {
       black: "XL 3XL",
