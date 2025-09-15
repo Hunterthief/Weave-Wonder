@@ -811,7 +811,18 @@ function updateOrderSummary() {
   const frontBackPrice = config.frontBackPrice;
   const quantity = parseInt(document.getElementById('quantity').value) || 1;
   
-  const totalProductPrice = (basePrice + frontBackPrice) * quantity;
+  // Check if both front and back designs are uploaded
+  const frontLayer = document.getElementById('front-layer');
+  const backLayer = document.getElementById('back-layer');
+  const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
+  const hasBackDesign = backLayer.querySelector('.design-image') !== null;
+  
+  let additionalPrice = 0;
+  if (hasFrontDesign && hasBackDesign) {
+    additionalPrice = frontBackPrice;
+  }
+  
+  const totalProductPrice = (basePrice + additionalPrice) * quantity;
   document.getElementById('product-price').textContent = totalProductPrice.toFixed(2);
   
   const governorate = document.getElementById('governorate').value;
