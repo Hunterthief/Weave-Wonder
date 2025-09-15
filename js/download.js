@@ -16,38 +16,44 @@ function generateAndDownloadDesign() {
   const frontBaseImage = document.getElementById('front-view').querySelector('.base-image');
   const backBaseImage = document.getElementById('back-view').querySelector('.base-image');
 
+  // Ensure base images are loaded
   if (!frontBaseImage.complete || !backBaseImage.complete) {
     alert("Please wait for product images to load before downloading.");
     return;
   }
 
-  const hasFront = frontLayer.querySelector('.design-image');
-  const hasBack = backLayer.querySelector('.design-image');
+  // Check if designs exist
+  const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
+  const hasBackDesign = backLayer.querySelector('.design-image') !== null;
 
-  if (!hasFront && !hasBack) {
-    alert("No design uploaded.");
+  // If no design at all, warn user
+  if (!hasFrontDesign && !hasBackDesign) {
+    alert("No design uploaded. Please upload a design on front or back first.");
     return;
   }
 
-  // Front canvas
+  // Create canvas for front
   const frontCanvas = document.createElement('canvas');
   const frontCtx = frontCanvas.getContext('2d');
   setCanvasSize(frontCtx, frontBaseImage);
   drawDesign(frontCtx, frontBaseImage, frontLayer);
 
-  // Back canvas
+  // Create canvas for back
   const backCanvas = document.createElement('canvas');
   const backCtx = backCanvas.getContext('2d');
   setCanvasSize(backCtx, backBaseImage);
   drawDesign(backCtx, backBaseImage, backLayer);
 
-  // Download separately
-  if (hasFront && hasBack) {
+  // Download based on what exists
+  if (hasFrontDesign && hasBackDesign) {
+    // Download both separately
     downloadImage(frontCanvas, 'front-preview.png');
     downloadImage(backCanvas, 'back-preview.png');
-  } else if (hasFront) {
+  } else if (hasFrontDesign) {
+    // Only front
     downloadImage(frontCanvas, 'front-preview.png');
-  } else {
+  } else if (hasBackDesign) {
+    // Only back
     downloadImage(backCanvas, 'back-preview.png');
   }
 }
@@ -58,8 +64,10 @@ function setCanvasSize(ctx, baseImage) {
 }
 
 function drawDesign(ctx, baseImage, designLayer) {
+  // Draw the base product image
   ctx.drawImage(baseImage, 0, 0);
 
+  // Find the uploaded design image inside the layer
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
@@ -67,13 +75,14 @@ function drawDesign(ctx, baseImage, designLayer) {
   const width = designImage.offsetWidth;
   const height = designImage.offsetHeight;
 
-  // ✅ Get transform value — MUST be "translate(50px, 67px)"
+  // ✅ Parse transform: translate(x, y)
   const style = window.getComputedStyle(designImage);
   const transform = style.transform;
 
-  let x = 0, y = 0;
+  let x = 0;
+  let y = 0;
 
-  // ✅ PARSE TRANSFORM CORRECTLY — REGEX FOR "translate(a px, b px)"
+  // ✅ Extract values from "translate(50px, 67px)"
   if (transform !== 'none') {
     const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
     if (match) {
@@ -82,7 +91,7 @@ function drawDesign(ctx, baseImage, designLayer) {
     }
   }
 
-  // ✅ Get layer position inside .product-view
+  // ✅ Get the DESIGN-LAYER's position within the .product-view
   const productView = designLayer.closest('.product-view');
   const layerRect = designLayer.getBoundingClientRect();
   const viewRect = productView.getBoundingClientRect();
@@ -90,12 +99,18 @@ function drawDesign(ctx, baseImage, designLayer) {
   const layerOffsetX = layerRect.left - viewRect.left;
   const layerOffsetY = layerRect.top - viewRect.top;
 
-  // ✅ Final position = layer offset + transform offset
+  // ✅ Final position on canvas = layer offset + transform offset
   const finalX = layerOffsetX + x;
   const finalY = layerOffsetY + y;
 
-  // ✅ Draw it — size and position now match EXACTLY what user sees
-  ctx.drawImage(designImage, finalX, finalY, width, height);
+  // ✅ Draw the image at correct position and size
+  ctx.drawImage(
+    designImage,
+    finalX,
+    finalY,
+    width,
+    height
+  );
 }
 
 function downloadImage(canvas, filename) {
