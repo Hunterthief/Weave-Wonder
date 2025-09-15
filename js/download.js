@@ -67,20 +67,8 @@ function drawDesign(ctx, baseImage, designLayer) {
   const width = designImage.offsetWidth;
   const height = designImage.offsetHeight;
 
-  // ✅ Get transform value — MUST be "translate(50px, 67px)"
-  const style = window.getComputedStyle(designImage);
-  const transform = style.transform;
-
-  let x = 0, y = 0;
-
-  // ✅ PARSE TRANSFORM CORRECTLY — REGEX FOR "translate(a px, b px)"
-  if (transform !== 'none') {
-    const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
-    if (match) {
-      x = parseFloat(match[1]);
-      y = parseFloat(match[2]);
-    }
-  }
+  // ✅ Parse transform: translate(x, y) and scale(s)
+  const { x, y } = getTransformedDimensions(designImage);
 
   // ✅ Get layer position inside .product-view
   const productView = designLayer.closest('.product-view');
@@ -96,6 +84,40 @@ function drawDesign(ctx, baseImage, designLayer) {
 
   // ✅ Draw it — size and position now match EXACTLY what user sees
   ctx.drawImage(designImage, finalX, finalY, width, height);
+}
+
+function getTransformedDimensions(element) {
+  const style = window.getComputedStyle(element);
+  const transform = style.transform;
+
+  let x = 0;
+  let y = 0;
+  let scaleX = 1;
+  let scaleY = 1;
+
+  if (transform !== 'none') {
+    // Extract translate values from "translate(50px, 67px)"
+    const translateMatch = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
+    if (translateMatch) {
+      x = parseFloat(translateMatch[1]);
+      y = parseFloat(translateMatch[2]);
+    }
+
+    // Extract scale values from "scale(1.5)"
+    const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
+    if (scaleMatch) {
+      const scaleVal = parseFloat(scaleMatch[1]);
+      scaleX = scaleVal;
+      scaleY = scaleVal;
+    }
+  }
+
+  return {
+    x,
+    y,
+    width: element.offsetWidth * scaleX,
+    height: element.offsetHeight * scaleY
+  };
 }
 
 function downloadImage(canvas, filename) {
