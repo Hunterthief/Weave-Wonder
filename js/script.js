@@ -347,33 +347,60 @@ function setupDesignSubmission() {
         
         // Make draggable and resizable with boundaries
         interact('.design-image').draggable({
-          inertia: true,
-          modifiers: [
-            interact.modifiers.restrictRect({
-              restriction: {
-                top: 0,
-                left: 0,
-                width: BOUNDARY.WIDTH,
-                height: BOUNDARY.HEIGHT
-              },
-              endOnly: true
-            })
-          ],
-          listeners: {
-            move: (event) => {
-              const target = event.target;
-              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-              
-              // Update position directly without transform
-              target.style.left = x + 'px';
-              target.style.top = y + 'px';
-              target.setAttribute('data-x', x);
-              target.setAttribute('data-y', y);
-              target.style.transform = 'none'; // Reset transform to avoid conflicts
-            }
-          }
-        });
+  inertia: true,
+  modifiers: [
+    interact.modifiers.restrictRect({
+      restriction: {
+        top: 0,
+        left: 0,
+        width: BOUNDARY.WIDTH,
+        height: BOUNDARY.HEIGHT
+      },
+      endOnly: true
+    })
+  ],
+  listeners: {
+    // ✅ Set initial offset when drag starts
+    start: function (event) {
+      const target = event.target;
+      const rect = target.getBoundingClientRect();
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+
+      // Calculate offset from top-left of image to mouse click point
+      const offsetX = clientX - rect.left;
+      const offsetY = clientY - rect.top;
+
+      target.setAttribute('data-offset-x', offsetX);
+      target.setAttribute('data-offset-y', offsetY);
+    },
+
+    // ✅ Use offset to drag smoothly
+    move: function (event) {
+      const target = event.target;
+      const layer = target.closest('.design-layer');
+      const layerRect = layer.getBoundingClientRect();
+
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+
+      // Get saved offset
+      const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
+      const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
+
+      // Calculate position relative to layer's top-left
+      const x = clientX - layerRect.left - offsetX;
+      const y = clientY - layerRect.top - offsetY;
+
+      // Apply transform
+      target.style.transform = `translate(${x}px, ${y}px)`;
+
+      // Store for later use (optional)
+      target.setAttribute('data-x', x);
+      target.setAttribute('data-y', y);
+    }
+  }
+});
         
         interact('.design-image').resizable({
           edges: { left: true, right: true, top: true, bottom: true },
@@ -428,8 +455,6 @@ function setupDesignSubmission() {
         img.draggable = true;
         
         // Set initial size to match boundary
-        img.style.width = '100%';
-        img.style.height = '100%';
         img.style.position = 'absolute';
         img.style.top = '0';
         img.style.left = '0';
@@ -448,33 +473,60 @@ function setupDesignSubmission() {
         
         // Make draggable and resizable with boundaries
         interact('.design-image').draggable({
-          inertia: true,
-          modifiers: [
-            interact.modifiers.restrictRect({
-              restriction: {
-                top: 0,
-                left: 0,
-                width: BOUNDARY.WIDTH,
-                height: BOUNDARY.HEIGHT
-              },
-              endOnly: true
-            })
-          ],
-          listeners: {
-            move: (event) => {
-              const target = event.target;
-              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-              
-              // Update position directly without transform
-              target.style.left = x + 'px';
-              target.style.top = y + 'px';
-              target.setAttribute('data-x', x);
-              target.setAttribute('data-y', y);
-              target.style.transform = 'none'; // Reset transform to avoid conflicts
-            }
-          }
-        });
+  inertia: true,
+  modifiers: [
+    interact.modifiers.restrictRect({
+      restriction: {
+        top: 0,
+        left: 0,
+        width: BOUNDARY.WIDTH,
+        height: BOUNDARY.HEIGHT
+      },
+      endOnly: true
+    })
+  ],
+  listeners: {
+    // ✅ Set initial offset when drag starts
+    start: function (event) {
+      const target = event.target;
+      const rect = target.getBoundingClientRect();
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+
+      // Calculate offset from top-left of image to mouse click point
+      const offsetX = clientX - rect.left;
+      const offsetY = clientY - rect.top;
+
+      target.setAttribute('data-offset-x', offsetX);
+      target.setAttribute('data-offset-y', offsetY);
+    },
+
+    // ✅ Use offset to drag smoothly
+    move: function (event) {
+      const target = event.target;
+      const layer = target.closest('.design-layer');
+      const layerRect = layer.getBoundingClientRect();
+
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+
+      // Get saved offset
+      const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
+      const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
+
+      // Calculate position relative to layer's top-left
+      const x = clientX - layerRect.left - offsetX;
+      const y = clientY - layerRect.top - offsetY;
+
+      // Apply transform
+      target.style.transform = `translate(${x}px, ${y}px)`;
+
+      // Store for later use (optional)
+      target.setAttribute('data-x', x);
+      target.setAttribute('data-y', y);
+    }
+  }
+});
         
         interact('.design-image').resizable({
           edges: { left: true, right: true, top: true, bottom: true },
