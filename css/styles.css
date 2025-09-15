@@ -34,6 +34,28 @@ header {
   top: 0;
   z-index: 100;
 }
+/* Low stock: yellow background */
+.size-option.low-stock {
+  background-color: #FFD700 !important;
+  color: #333 !important;
+  font-weight: bold !important;
+}
+
+/* Out of stock: grayed out and crossed out */
+.size-option.disabled {
+  opacity: 0.5 !important;
+  text-decoration: line-through !important;
+  color: #999 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+}
+
+/* Ensure selected style still works even when low/in stock */
+.size-option.selected {
+  background-color: #3498db !important;
+  color: white !important;
+  border-color: #3498db !important;
+}
 .container {
   width: 90%;
   max-width: 1200px;
@@ -330,3 +352,4 @@ select:focus, input:focus, textarea:focus {
     height: 250px;
   }
 }
+
