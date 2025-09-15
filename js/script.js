@@ -321,16 +321,42 @@ function setupDesignSubmission() {
         frontLayer.innerHTML = '';
 
         // Create design image
-        const img = document.createElement('img');
-        img.src = event.target.result;
-        img.className = 'design-image';
-        img.draggable = true;
+const img = document.createElement('img');
+img.src = event.target.result;
+img.className = 'design-image';
+img.draggable = true;
 
-        // Set initial position and reset transform
-        img.style.position = 'absolute';
-        img.style.top = '0';
-        img.style.left = '0';
-        img.style.transform = 'none';
+// Wait for image to load to get natural dimensions
+img.onload = function() {
+  const naturalWidth = img.naturalWidth;
+  const naturalHeight = img.naturalHeight;
+  const layerWidth = BOUNDARY.WIDTH;   // 150
+  const layerHeight = BOUNDARY.HEIGHT; // 150
+
+  // Calculate scale to fit inside boundary while preserving aspect ratio
+  const scale = Math.min(layerWidth / naturalWidth, layerHeight / naturalHeight);
+  const width = naturalWidth * scale;
+  const height = naturalHeight * scale;
+
+  // Center the image in the layer
+  const left = (layerWidth - width) / 2;
+  const top = (layerHeight - height) / 2;
+
+  // Apply size and position — NO stretching!
+  img.style.width = width + 'px';
+  img.style.height = height + 'px';
+  img.style.position = 'absolute';
+  img.style.top = top + 'px';
+  img.style.left = left + 'px';
+  img.style.transform = 'translate(0, 0)';
+
+  // Store original dimensions for later use in resizable()
+  img.setAttribute('data-original-width', naturalWidth);
+  img.setAttribute('data-original-height', naturalHeight);
+};
+
+// Add to layer
+frontLayer.appendChild(img); // or backLayer.appendChild(img);
 
         // Add to layer
         frontLayer.appendChild(img);
@@ -414,8 +440,8 @@ function setupDesignSubmission() {
     // Store original dimensions on resize start
     start: function (event) {
       const target = event.target;
-      const naturalWidth = target.naturalWidth || target.offsetWidth;
-      const naturalHeight = target.naturalHeight || target.offsetHeight;
+      const naturalWidth = parseFloat(target.getAttribute('data-original-width')) || target.offsetWidth;
+      const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
       const aspectRatio = naturalWidth / naturalHeight;
       target.setAttribute('data-aspect-ratio', aspectRatio);
     },
