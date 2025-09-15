@@ -945,82 +945,67 @@ function updateSizeOptions(type, color) {
     const isOutOfStock = !isUpperCase && !isLowerCase; // shouldn't happen but safe
 
     // Apply classes based on stock level
-   // Apply classes based on stock level
-if (isOutOfStock) {
-  sizeOption.classList.add('disabled');
-} else if (isLowStock) {
-  sizeOption.classList.add('low-stock');
-} else if (isInStock) {
-  sizeOption.classList.add('in-stock');
-}
+    if (isOutOfStock) {
+      sizeOption.classList.add('disabled');
+    } else if (isLowStock) {
+      sizeOption.classList.add('low-stock');
+    } else if (isInStock) {
+      sizeOption.classList.add('in-stock');
+    }
 
-// Always set pointer events for disabled items
-if (isOutOfStock) {
-  sizeOption.style.pointerEvents = 'none';
-  sizeOption.style.opacity = '0.5';
-  sizeOption.style.textDecoration = 'line-through';
-  sizeOption.style.color = '#999';
-}
-
-// Add click handler
-sizeOption.addEventListener('click', () => {
-  // Remove selected from all options
-  document.querySelectorAll('.size-option').forEach(opt => {
-    opt.classList.remove('selected');
-  });
-
-  // Only mark as selected if it's IN STOCK (uppercase)
-  if (isInStock) {
-    sizeOption.classList.add('selected');
-  }
-
-  updateOrderSummary();
-});
+    // Add click handler
+    sizeOption.addEventListener('click', () => {
+      // Remove selected from all options
+      document.querySelectorAll('.size-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      
+      // Only mark as selected if it's IN STOCK (uppercase)
+      if (isInStock) {
+        sizeOption.classList.add('selected');
+      }
+      
+      updateOrderSummary();
+    });
 
     container.appendChild(sizeOption);
   });
-// --- ADD LEGEND BELOW SIZE OPTIONS ---
-const legendContainer = document.createElement('div');
-legendContainer.className = 'size-legend';
-legendContainer.innerHTML = `
-  <small>
-    <span class="legend-item in-stock">
-      <span class="legend-color in-stock"></span>
-      <strong>In Stock</strong> – Available
-    </span> |
-    <span class="legend-item low-stock">
-      <span class="legend-color low-stock"></span>
-      <strong>Low Stock</strong> – Limited
-    </span> |
-    <span class="legend-item disabled">
-      <span class="legend-color disabled"></span>
-      <strong>Out of Stock</strong> – Not Available
-    </span>
-  </small>
-`;
-legendContainer.style.textAlign = 'center';
-legendContainer.style.marginTop = '0.5rem';
-legendContainer.style.color = '#555';
-legendContainer.style.fontSize = '0.85rem';
-legendContainer.style.lineHeight = '1.6';
-container.appendChild(legendContainer);
+
+  // --- ADD LEGEND BELOW SIZE OPTIONS ---
+  const legendContainer = document.createElement('div');
+  legendContainer.className = 'size-legend';
+  legendContainer.innerHTML = `
+    <small>
+      <span class="legend-item in-stock">
+        <span class="legend-color in-stock"></span>
+        <strong>In Stock</strong> – Available
+      </span> |
+      <span class="legend-item low-stock">
+        <span class="legend-color low-stock"></span>
+        <strong>Low Stock</strong> – Limited
+      </span> |
+      <span class="legend-item disabled">
+        <span class="legend-color disabled"></span>
+        <strong>Out of Stock</strong> – Not Available
+      </span>
+    </small>
+  `;
+  legendContainer.style.textAlign = 'center';
+  legendContainer.style.marginTop = '0.5rem';
+  legendContainer.style.color = '#555';
+  legendContainer.style.fontSize = '0.85rem';
+  legendContainer.style.lineHeight = '1.6';
+  container.appendChild(legendContainer);
+
   // Auto-select first available (in-stock) size
-  const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
+  const firstAvailable = container.querySelector('.size-option.in-stock');
   if (firstAvailable) {
     firstAvailable.click();
   } else {
     // If none are selectable, clear selection
-    document.querySelectorAll('.size-option').forEach(opt => opt.classList.remove('selected'));
+    document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
     updateOrderSummary();
   }
-}
-
-function updateShippingCost() {
-  const governorate = document.getElementById('governorate').value;
-  const cost = shippingConfig[governorate] || 0;
-  document.getElementById('shipping-cost').textContent = cost;
-  document.getElementById('shipping-cost-summary').textContent = cost;
-  updateOrderSummary();
 }
 
 function updateOrderSummary() {
@@ -1045,13 +1030,21 @@ function updateOrderSummary() {
   const governorate = document.getElementById('governorate').value;
   const shippingCost = shippingConfig[governorate] || 0;
   const totalPrice = (totalProductPrice + shippingCost) * quantity;
-  
   document.getElementById('total-price').textContent = totalPrice;
-  // ✅ NEW: Warn if selected size is low stock
+  
+  // Check if a low stock size is selected
   const selectedSize = document.querySelector('.size-option.selected');
   if (selectedSize && selectedSize.classList.contains('low-stock')) {
     alert("⚠️ Warning: This size is low in stock. Only limited quantities available.");
   }
+}
+
+function updateShippingCost() {
+  const governorate = document.getElementById('governorate').value;
+  const cost = shippingConfig[governorate] || 0;
+  document.getElementById('shipping-cost').textContent = cost;
+  document.getElementById('shipping-cost-summary').textContent = cost;
+  updateOrderSummary();
 }
 
 function validateForm() {
