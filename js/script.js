@@ -716,7 +716,8 @@ function setupOrderForm() {
 
     // Update size chart image
     sizeChartImg.src = config.sizeChart;
-
+ // Add this after initializing the form
+  document.getElementById('quantity').addEventListener('input', updateOrderSummary);
     // Update size options
     updateSizeOptions(type, 'black');
   });
@@ -806,15 +807,25 @@ function updateOrderSummary() {
   const productType = document.getElementById('product-type-order').value;
   const config = productsConfig[productType];
   if (!config) return;
-
-  const basePrice = config.basePrice;
-  const frontBackPrice = config.frontBackPrice;
-  const totalProductPrice = basePrice + frontBackPrice;
-  document.getElementById('product-price').textContent = totalProductPrice;
-
+  
+  // Check if both front and back designs are uploaded
+  const frontLayer = document.getElementById('front-layer');
+  const backLayer = document.getElementById('back-layer');
+  const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
+  const hasBackDesign = backLayer.querySelector('.design-image') !== null;
+  
+  // Get quantity
+  const quantity = parseInt(document.getElementById('quantity').value) || 1;
+  
+  // Only add frontBackPrice if both designs are uploaded
+  const totalProductPrice = config.basePrice + (hasFrontDesign && hasBackDesign ? config.frontBackPrice : 0);
+  
+  document.getElementById('product-price').textContent = totalProductPrice * quantity;
+  
   const governorate = document.getElementById('governorate').value;
   const shippingCost = shippingConfig[governorate] || 0;
-  const totalPrice = totalProductPrice + shippingCost;
+  const totalPrice = (totalProductPrice + shippingCost) * quantity;
+  
   document.getElementById('total-price').textContent = totalPrice;
 }
 
