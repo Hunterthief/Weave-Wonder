@@ -58,29 +58,77 @@ function setCanvasSize(ctx, baseImage) {
 }
 
 function drawDesign(ctx, baseImage, designLayer) {
+  // Draw base image
   ctx.drawImage(baseImage, 0, 0);
 
+  // Draw design image if exists
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // ✅ Get rendered size (what user sees after resize)
-  const width = designImage.offsetWidth;
-  const height = designImage.offsetHeight;
-
-  // ✅ Get real position using getBoundingClientRect()
-  const rect = designImage.getBoundingClientRect();
-  const layerRect = designLayer.getBoundingClientRect();
-
-  // Calculate position relative to the .product-view
+  // Get product view (the container of the design layer)
   const productView = designLayer.closest('.product-view');
+  
+  // Get position of design layer inside product view
+  const layerRect = designLayer.getBoundingClientRect();
   const viewRect = productView.getBoundingClientRect();
+  const layerOffsetX = layerRect.left - viewRect.left;
+  const layerOffsetY = layerRect.top - viewRect.top;
 
-  // Final X/Y on canvas = view offset + (rect offset - layer offset)
-  const finalX = viewRect.left + (rect.left - layerRect.left);
-  const finalY = viewRect.top + (rect.top - layerRect.top);
+  // Get style and transform of design image
+  const style = window.getComputedStyle(designImage);
+  const transform = style.transform;
 
-  // ✅ Draw it — size and position now match EXACTLY what user sees
-  ctx.drawImage(designImage, finalX, finalY, width, height);
+  // Parse transform to get position and scale
+  const parsed = parseTransform(transform);
+
+  // Calculate final position and size
+  const finalX = layerOffsetX + parsed.x;
+  const finalY = layerOffsetY + parsed.y;
+  const finalWidth = designImage.offsetWidth * parsed.scaleX;
+  const finalHeight = designImage.offsetHeight * parsed.scaleY;
+
+  // Draw the image
+  ctx.drawImage(
+    designImage,
+    finalX,
+    finalY,
+    finalWidth,
+    finalHeight
+  );
+}
+
+function parseTransform(transformString) {
+  if (transformString === 'none') {
+    return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+  }
+  
+  // Try to match translate(x, y)
+  const translateMatch = transformString.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
+  if (translateMatch) {
+    return {
+      x: parseFloat(translateMatch[1]),
+      y: parseFloat(translateMatch[2]),
+      scaleX: 1,
+      scaleY: 1
+    };
+  }
+  
+  // Try to match matrix(a, b, c, d, tx, ty)
+  const matrixMatch = transformString.match(/matrix\(([^)]+)\)/);
+  if (matrixMatch) {
+    const values = matrixMatch[1].split(',').map(n => parseFloat(n.trim()));
+    if (values.length >= 6) {
+      return {
+        x: values[4],
+        y: values[5],
+        scaleX: values[0],
+        scaleY: values[3]
+      };
+    }
+  }
+  
+  // Default to identity transform
+  return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
 }
 
 function downloadImage(canvas, filename) {
