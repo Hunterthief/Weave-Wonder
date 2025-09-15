@@ -432,6 +432,7 @@ function setupDesignSubmission() {
           const target = event.target;
           target.style.transform = 'none';
         });
+         updateOrderSummary();
       };
       reader.readAsDataURL(file);
     }
@@ -558,6 +559,7 @@ function setupDesignSubmission() {
           const target = event.target;
           target.style.transform = 'none';
         });
+        updateOrderSummary();
       };
       reader.readAsDataURL(file);
     }
