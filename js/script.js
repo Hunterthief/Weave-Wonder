@@ -963,15 +963,14 @@ if (isOutOfStock) {
 }
 
     // Add click handler
-    sizeOption.addEventListener('click', () => {
-      if (isOutOfStock || isLowStock) return; // Prevent selection of non-in-stock
-
-      document.querySelectorAll('.size-option').forEach(opt => {
-        opt.classList.remove('selected');
-      });
-      sizeOption.classList.add('selected');
-      updateOrderSummary();
-    });
+sizeOption.addEventListener('click', () => {
+  // Allow selection of low-stock, but don't allow purchase if no in-stock selected
+  document.querySelectorAll('.size-option').forEach(opt => {
+    opt.classList.remove('selected');
+  });
+  sizeOption.classList.add('selected');
+  updateOrderSummary();
+});
 
     container.appendChild(sizeOption);
   });
@@ -1043,6 +1042,11 @@ function updateOrderSummary() {
   const totalPrice = (totalProductPrice + shippingCost) * quantity;
   
   document.getElementById('total-price').textContent = totalPrice;
+  // ✅ NEW: Warn if selected size is low stock
+  const selectedSize = document.querySelector('.size-option.selected');
+  if (selectedSize && selectedSize.classList.contains('low-stock')) {
+    alert("⚠️ Warning: This size is low in stock. Only limited quantities available.");
+  }
 }
 
 function validateForm() {
