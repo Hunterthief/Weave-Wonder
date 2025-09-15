@@ -942,48 +942,28 @@ function updateSizeOptions(type, color) {
     const isLowerCase = size === size.toLowerCase();
     const isInStock = isUpperCase;
     const isLowStock = isLowerCase;
-    const isOutOfStock = !isUpperCase && !isLowerCase; // shouldn't happen but safe
+    const isOutOfStock = !isUpperCase && !isLowerCase;
 
-    // Apply classes based on stock level
+    // Apply classes based on stock level — NO INLINE STYLING!
     if (isOutOfStock) {
       sizeOption.classList.add('disabled');
-      sizeOption.style.opacity = '0.5';
-      sizeOption.style.textDecoration = 'line-through';
-      sizeOption.style.color = '#999';
-      sizeOption.style.pointerEvents = 'none'; // Prevent click
     } else if (isLowStock) {
       sizeOption.classList.add('low-stock');
-      // Set the yellow background directly with !important to ensure it's applied
-      sizeOption.style.backgroundColor = '#FFD700 !important';
-      sizeOption.style.color = '#333 !important';
-      sizeOption.style.fontWeight = 'bold !important';
-      sizeOption.style.border = '1px solid #e6c200 !important';
     } else if (isInStock) {
       sizeOption.classList.add('in-stock');
-      // Reset any previous styles
-      sizeOption.style.backgroundColor = '';
-      sizeOption.style.color = '';
-      sizeOption.style.fontWeight = '';
-      sizeOption.style.border = '';
     }
 
     // Add click handler
     sizeOption.addEventListener('click', () => {
-      // Only allow selection of in-stock items
-      if (isOutOfStock || isLowStock) {
-        // Show warning for low stock but don't select
-        if (isLowStock) {
-          alert("⚠️ Warning: This size is low in stock. Only limited quantities available.");
-        }
-        return;
-      }
-      
-      // Remove selected from all options
+      // Prevent selection of out-of-stock or low-stock
+      if (isOutOfStock || isLowStock) return;
+
+      // Deselect all others
       document.querySelectorAll('.size-option').forEach(opt => {
         opt.classList.remove('selected');
       });
-      
-      // Mark as selected only for in-stock items
+
+      // Select this one
       sizeOption.classList.add('selected');
       updateOrderSummary();
     });
