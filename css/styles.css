@@ -41,28 +41,38 @@ header {
   color: #999 !important;
   pointer-events: none !important;
   cursor: not-allowed !important;
-}
-
-/* Only apply blue background to in-stock selected items */
-.size-option.in-stock.selected {
-  background-color: #3498db;
-  color: white;
-  border-color: #3498db;
+  background: #e0e0e0 !important;
 }
 
 /* Low stock: yellow background */
 .size-option.low-stock {
-  background-color: #FFD700;
-  color: #333;
-  font-weight: bold;
+  background-color: #FFD700 !important;
+  color: #333 !important;
+  font-weight: bold !important;
+  border: 1px solid #e6c200 !important;
 }
+
+/* In-stock selected */
+.size-option.in-stock.selected {
+  background-color: #3498db !important;
+  color: white !important;
+  border-color: #3498db !important;
+}
+
+/* Low stock selected (should never happen as we don't select low-stock items) */
 .size-option.low-stock.selected {
-  background-color: #FFD700;
-  color: #333;
-  border-color: #e6c200;
-  border-width: 2px;
-  font-weight: bold;
+  background-color: #FFD700 !important;
+  color: #333 !important;
+  border-color: #e6c200 !important;
+  border-width: 2px !important;
+  font-weight: bold !important;
 }
+
+/* Remove any default selected style that might be causing issues */
+.size-option.selected {
+  /* This rule should be empty or not exist */
+}
+
 .container {
   width: 90%;
   max-width: 1200px;
@@ -251,6 +261,8 @@ select:focus, input:focus, textarea:focus {
   border-radius: 5px;
   cursor: pointer;
   transition: var(--transition);
+  /* Remove any default background color */
+  background: transparent !important;
 }
 .size-option.unavailable {
   opacity: 0.5;
