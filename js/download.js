@@ -61,7 +61,6 @@ function generateAndDownloadDesign() {
 function setCanvasSize(ctx, baseImage) {
   ctx.canvas.width = baseImage.naturalWidth || baseImage.width;
   ctx.canvas.height = baseImage.naturalHeight || baseImage.height;
-  console.log(`Canvas size set to: ${ctx.canvas.width}x${ctx.canvas.height}`);
 }
 
 function drawDesign(ctx, baseImage, designLayer) {
@@ -70,16 +69,49 @@ function drawDesign(ctx, baseImage, designLayer) {
 
   // Find the uploaded design image inside the layer
   const designImage = designLayer.querySelector('.design-image');
-  if (!designImage || !designImage.src) {
-    console.log("No design image found in layer");
-    return;
+  if (!designImage || !designImage.src) return;
+
+  // ✅ Get the current rendered size (what user sees)
+  const renderedWidth = designImage.offsetWidth;
+  const renderedHeight = designImage.offsetHeight;
+
+  // ✅ Get the transform string — e.g., "translate(45px, 67px)"
+  const transform = window.getComputedStyle(designImage).transform;
+
+  let translateX = 0;
+  let translateY = 0;
+  let scaleX = 1;
+  let scaleY = 1;
+
+  // Parse "translate(45px, 67px)"
+  if (transform !== 'none') {
+    const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
+    if (match) {
+      translateX = parseFloat(match[1]);
+      translateY = parseFloat(match[2]);
+    }
+
+    // Optional: Handle scale if added later
+    const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
+    if (scaleMatch) {
+      const scaleVal = parseFloat(scaleMatch[1]);
+      scaleX = scaleVal;
+      scaleY = scaleVal;
+    }
   }
 
-  // --- STEP 1: Get the BASE IMAGE dimensions (mockup) ---
-  const mockupWidth = baseImage.naturalWidth || baseImage.width;
-  const mockupHeight = baseImage.naturalHeight || baseImage.height;
+  // Apply scale to final size
+  const finalWidth = renderedWidth * scaleX;
+  const finalHeight = renderedHeight * scaleY;
 
-  // --- STEP 2: Get the DESIGN-LAYER's position and size RELATIVE TO THE MOCKUP ---
+  // Now we have:
+  // - finalWidth/finalHeight: resized + scaled size
+  // - translateX/translateY: position relative to top-left of .design-layer
+
+  // But — we need to map this to the CANVAS coordinate system!
+  // The .design-layer is positioned at (125, 101) inside the .product-view
+  // So we add that offset!
+
   const productView = designLayer.closest('.product-view');
   const layerRect = designLayer.getBoundingClientRect();
   const viewRect = productView.getBoundingClientRect();
@@ -87,48 +119,17 @@ function drawDesign(ctx, baseImage, designLayer) {
   const layerOffsetX = layerRect.left - viewRect.left;
   const layerOffsetY = layerRect.top - viewRect.top;
 
-  const layerWidth = designLayer.offsetWidth;   // 150px
-  const layerHeight = designLayer.offsetHeight; // 150px
+  // Final position on canvas = layer offset + design position within layer
+  const canvasX = layerOffsetX + translateX;
+  const canvasY = layerOffsetY + translateY;
 
-  // --- STEP 3: Get the DESIGN IMAGE'S current rendered position and size ---
-  // ✅ USE left/top — THIS IS WHAT YOU SET IN script.js!
-  const computedStyle = window.getComputedStyle(designImage);
-  const left = parseFloat(computedStyle.left);  // e.g., 39px
-  const top = parseFloat(computedStyle.top);    // e.g., 34px
-  const width = designImage.offsetWidth;        // e.g., 120px (user-resized)
-  const height = designImage.offsetHeight;      // e.g., 121px (user-resized)
-
-  // --- STEP 4: CONVERT FROM LAYER SPACE TO CANVAS SPACE ---
-  const scaleXRatio = mockupWidth / layerWidth;   // e.g., 400 / 150 = 2.667
-  const scaleYRatio = mockupHeight / layerHeight; // e.g., 440 / 150 = 2.933
-
-  // Map design position from layer-relative to canvas-relative
-  const canvasX = layerOffsetX + (left * scaleXRatio);
-  const canvasY = layerOffsetY + (top * scaleYRatio);
-
-  // Map design size from layer-relative to canvas-relative
-  const canvasWidth = width * scaleXRatio;
-  const canvasHeight = height * scaleYRatio;
-
-  // --- STEP 5: DEBUG LOG ---
-  console.group("🎨 Design Mapping Debug Info");
-  console.log("Mockup size:", mockupWidth, "x", mockupHeight);
-  console.log("Layer offset (within view):", Math.round(layerOffsetX), Math.round(layerOffsetY));
-  console.log("Layer size:", layerWidth, "x", layerHeight);
-  console.log("Design rendered size (on screen):", Math.round(width), "x", Math.round(height));
-  console.log("Design position in layer (left/top):", Math.round(left), "px,", Math.round(top), "px");
-  console.log("Scaling ratio (mockup/layer):", scaleXRatio.toFixed(3), "x", scaleYRatio.toFixed(3));
-  console.log("Design pos on canvas:", Math.round(canvasX), ",", Math.round(canvasY));
-  console.log("Design size on canvas:", Math.round(canvasWidth), "x", Math.round(canvasHeight));
-  console.groupEnd();
-
-  // --- STEP 6: DRAW THE DESIGN ON THE CANVAS ---
+  // ✅ DRAW IT!
   ctx.drawImage(
     designImage,
     canvasX,
     canvasY,
-    canvasWidth,
-    canvasHeight
+    finalWidth,
+    finalHeight
   );
 }
 
