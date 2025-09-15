@@ -90,71 +90,39 @@ function drawDesign(ctx, baseImage, designLayer) {
   const layerWidth = designLayer.offsetWidth;   // 150px
   const layerHeight = designLayer.offsetHeight; // 150px
 
-  // --- STEP 3: Get the DESIGN IMAGE'S current rendered size and transform ---
-  const style = window.getComputedStyle(designImage);
-  const transform = style.transform;
+  // --- STEP 3: Get the DESIGN IMAGE'S current rendered position and size ---
+  // ✅ USE left/top — THIS IS WHAT YOU SET IN script.js!
+  const computedStyle = window.getComputedStyle(designImage);
+  const left = parseFloat(computedStyle.left);  // e.g., 39px
+  const top = parseFloat(computedStyle.top);    // e.g., 34px
+  const width = designImage.offsetWidth;        // e.g., 120px (user-resized)
+  const height = designImage.offsetHeight;      // e.g., 121px (user-resized)
 
-  let translateX = 0;
-  let translateY = 0;
-  let scaleX = 1;
-  let scaleY = 1;
-
-  // Parse transform: translate(x, y)
-  if (transform !== 'none') {
-    const translateMatch = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
-    if (translateMatch) {
-      translateX = parseFloat(translateMatch[1]);
-      translateY = parseFloat(translateMatch[2]);
-    }
-
-    // Parse scale: scale(s)
-    const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
-    if (scaleMatch) {
-      const scaleVal = parseFloat(scaleMatch[1]);
-      scaleX = scaleVal;
-      scaleY = scaleVal;
-    }
-  }
-
-  // --- STEP 4: USE RENDERED SIZE (WHAT USER SEES ON SCREEN) — NOT naturalWidth! ---
-  const renderedWidth = designImage.offsetWidth;     // e.g., 128px (after resize)
-  const renderedHeight = designImage.offsetHeight;   // e.g., 136px (after resize)
-
-  // Apply scale to get final rendered size
-  const finalWidth = renderedWidth * scaleX;
-  const finalHeight = renderedHeight * scaleY;
-
-  // --- STEP 5: CONVERT FROM LAYER SPACE TO CANVAS SPACE ---
+  // --- STEP 4: CONVERT FROM LAYER SPACE TO CANVAS SPACE ---
   const scaleXRatio = mockupWidth / layerWidth;   // e.g., 400 / 150 = 2.667
   const scaleYRatio = mockupHeight / layerHeight; // e.g., 440 / 150 = 2.933
 
-  // Design position within layer (from transform)
-  const designInLayerX = translateX;
-  const designInLayerY = translateY;
+  // Map design position from layer-relative to canvas-relative
+  const canvasX = layerOffsetX + (left * scaleXRatio);
+  const canvasY = layerOffsetY + (top * scaleYRatio);
 
-  // Map to canvas space
-  const canvasX = layerOffsetX + (designInLayerX * scaleXRatio);
-  const canvasY = layerOffsetY + (designInLayerY * scaleYRatio);
+  // Map design size from layer-relative to canvas-relative
+  const canvasWidth = width * scaleXRatio;
+  const canvasHeight = height * scaleYRatio;
 
-  // Map size to canvas space
-  const canvasWidth = finalWidth * scaleXRatio;
-  const canvasHeight = finalHeight * scaleYRatio;
-
-  // --- STEP 6: DEBUG LOG ---
+  // --- STEP 5: DEBUG LOG ---
   console.group("🎨 Design Mapping Debug Info");
   console.log("Mockup size:", mockupWidth, "x", mockupHeight);
   console.log("Layer offset (within view):", Math.round(layerOffsetX), Math.round(layerOffsetY));
   console.log("Layer size:", layerWidth, "x", layerHeight);
-  console.log("Design rendered size (on screen):", renderedWidth, "x", renderedHeight);
-  console.log("Design scale (transform):", scaleX.toFixed(3), "x", scaleY.toFixed(3));
-  console.log("Final size after scale:", finalWidth.toFixed(1), "x", finalHeight.toFixed(1));
+  console.log("Design rendered size (on screen):", Math.round(width), "x", Math.round(height));
+  console.log("Design position in layer (left/top):", Math.round(left), "px,", Math.round(top), "px");
   console.log("Scaling ratio (mockup/layer):", scaleXRatio.toFixed(3), "x", scaleYRatio.toFixed(3));
-  console.log("Design pos in layer:", designInLayerX.toFixed(1), ",", designInLayerY.toFixed(1));
   console.log("Design pos on canvas:", Math.round(canvasX), ",", Math.round(canvasY));
   console.log("Design size on canvas:", Math.round(canvasWidth), "x", Math.round(canvasHeight));
   console.groupEnd();
 
-  // --- STEP 7: DRAW THE DESIGN ON THE CANVAS ---
+  // --- STEP 6: DRAW THE DESIGN ON THE CANVAS ---
   ctx.drawImage(
     designImage,
     canvasX,
