@@ -1,9 +1,9 @@
 // Product configuration
 const productsConfig = {
   tshirt: {
-    name: "تي شيرت كلاسيكي",
-    basePrice: 350,
-    frontBackPrice: 20,
+    name: "Classic T-Shirt",
+    basePrice: 150,
+    frontBackPrice: 50,
     colors: {
       black: {
         sizes: ["M", "L", "XL", "2XL", "3XL"],
@@ -39,9 +39,9 @@ const productsConfig = {
     sizeChart: 'Tshirt/tshirt-size-table-on-egymerch.jpg'
   },
   "oversized-tshirt": {
-    name: "تي شيرت كبير الحجم",
-    basePrice: 400,
-    frontBackPrice: 20,
+    name: "Oversized T-Shirt",
+    basePrice: 180,
+    frontBackPrice: 60,
     colors: {
       black: {
         sizes: ["M", "L"],
@@ -72,7 +72,7 @@ const productsConfig = {
     sizeChart: 'Oversized Tshirt/oversize-tshirt-size-table-on-egymerch.jpg'
   },
   longsleeve: {
-    name: "تي شيرت بأكمام طويلة",
+    name: "Long Sleeve T-Shirt",
     basePrice: 200,
     frontBackPrice: 70,
     colors: {
@@ -100,7 +100,7 @@ const productsConfig = {
     sizeChart: 'Long sleeve Tshirt/longsleeve-tshirt-size-table-on-egymerch.jpg'
   },
   "classic-sweatshirt": {
-    name: "سترة كلاسيكية",
+    name: "Classic Sweatshirt",
     basePrice: 250,
     frontBackPrice: 80,
     colors: {
@@ -133,7 +133,7 @@ const productsConfig = {
     sizeChart: 'Classic Sweatshirt/sweatshirt-size-table-on-egymerch.jpg'
   },
   "premium-hoodie": {
-    name: "هودي بريميوم",
+    name: "Premium Hoodie",
     basePrice: 300,
     frontBackPrice: 100,
     colors: {
@@ -156,7 +156,7 @@ const productsConfig = {
     sizeChart: 'Premium Hoodie/premium-hoodie-size-table-on-egymerch.jpg'
   },
   "classic-hoodie": {
-    name: "هودي كلاسيكي",
+    name: "Classic Hoodie",
     basePrice: 280,
     frontBackPrice: 90,
     colors: {
@@ -199,7 +199,7 @@ const productsConfig = {
     sizeChart: 'Classic Hoodie/classic-hoodie-size-table-on-egymerch.jpg'
   },
   "oversized-hoodie": {
-    name: "هودي كبير الحجم",
+    name: "Oversized Hoodie",
     basePrice: 320,
     frontBackPrice: 110,
     colors: {
@@ -290,10 +290,10 @@ function setupDesignSubmission() {
   const backView = document.getElementById('back-view');
   const frontPreview = document.getElementById('front-preview');
   const backPreview = document.getElementById('back-preview');
-  
+
   // Initial setup
   updateColorOptions('tshirt');
-  
+
   // Product type change
   productTypeSelect.addEventListener('change', (e) => {
     const newProductType = e.target.value;
@@ -301,7 +301,7 @@ function setupDesignSubmission() {
     // Only update the base images, don't reset the design
     updateProductImage(document.querySelector('.color-option.selected')?.dataset.color);
   });
-  
+
   // Color selection
   colorOptionsContainer.addEventListener('click', (e) => {
     if (e.target.classList.contains('color-option')) {
@@ -310,7 +310,7 @@ function setupDesignSubmission() {
       updateProductImage(e.target.dataset.color);
     }
   });
-  
+
   // Front design upload
   document.getElementById('front-design').addEventListener('change', (e) => {
     if (e.target.files.length) {
@@ -319,32 +319,30 @@ function setupDesignSubmission() {
       reader.onload = (event) => {
         // Clear existing design
         frontLayer.innerHTML = '';
-        
+
         // Create design image
         const img = document.createElement('img');
         img.src = event.target.result;
         img.className = 'design-image';
         img.draggable = true;
-        
-        // Set initial size to match boundary
-        img.style.width = '100%';
-        img.style.height = '100%';
+
+        // Set initial position and reset transform
         img.style.position = 'absolute';
         img.style.top = '0';
         img.style.left = '0';
         img.style.transform = 'none';
-        
+
         // Add to layer
         frontLayer.appendChild(img);
-        
+
         // Show preview
         frontPreview.innerHTML = '';
         frontPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
         frontPreview.classList.remove('hidden');
-        
+
         // Add boundary buttons
         addBoundaryButtons(frontLayer);
-        
+
         // Make draggable and resizable with boundaries
         interact('.design-image').draggable({
           inertia: true,
@@ -360,20 +358,48 @@ function setupDesignSubmission() {
             })
           ],
           listeners: {
-            move: (event) => {
+            // ✅ Set initial offset when drag starts
+            start: function (event) {
               const target = event.target;
-              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-              // Update position directly without transform
-              target.style.left = x + 'px';
-              target.style.top = y + 'px';
+              const rect = target.getBoundingClientRect();
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Calculate how far the click was from the top-left of the image
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
+            },
+
+            // ✅ Use offset to drag smoothly — no more jumping!
+            move: function (event) {
+              const target = event.target;
+              const layer = target.closest('.design-layer');
+              const layerRect = layer.getBoundingClientRect();
+
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Get saved offset
+              const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
+              const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
+
+              // Calculate position relative to layer's top-left
+              const x = clientX - layerRect.left - offsetX;
+              const y = clientY - layerRect.top - offsetY;
+
+              // Apply transform — THIS IS WHAT download.js WILL READ
+              target.style.transform = `translate(${x}px, ${y}px)`;
+
+              // Store for debugging (optional)
               target.setAttribute('data-x', x);
               target.setAttribute('data-y', y);
-              target.style.transform = 'none'; // Reset transform to avoid conflicts
             }
           }
         });
-        
+
         interact('.design-image').resizable({
           edges: { left: true, right: true, top: true, bottom: true },
           modifiers: [
@@ -389,10 +415,10 @@ function setupDesignSubmission() {
               const target = event.target;
               let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
               let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
-              
+
               width += event.deltaRect.width;
               height += event.deltaRect.height;
-              
+
               // Apply size changes
               target.style.width = width + 'px';
               target.style.height = height + 'px';
@@ -401,7 +427,7 @@ function setupDesignSubmission() {
             }
           }
         });
-        
+
         interact('.design-image').on('resizeend', (event) => {
           const target = event.target;
           target.style.transform = 'none';
@@ -410,7 +436,7 @@ function setupDesignSubmission() {
       reader.readAsDataURL(file);
     }
   });
-  
+
   // Back design upload
   document.getElementById('back-design').addEventListener('change', (e) => {
     if (e.target.files.length) {
@@ -419,32 +445,30 @@ function setupDesignSubmission() {
       reader.onload = (event) => {
         // Clear existing design
         backLayer.innerHTML = '';
-        
+
         // Create design image
         const img = document.createElement('img');
         img.src = event.target.result;
         img.className = 'design-image';
         img.draggable = true;
-        
-        // Set initial size to match boundary
-        img.style.width = '100%';
-        img.style.height = '100%';
+
+        // Set initial position and reset transform
         img.style.position = 'absolute';
         img.style.top = '0';
         img.style.left = '0';
         img.style.transform = 'none';
-        
+
         // Add to layer
         backLayer.appendChild(img);
-        
+
         // Show preview
         backPreview.innerHTML = '';
         backPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
         backPreview.classList.remove('hidden');
-        
+
         // Add boundary buttons
         addBoundaryButtons(backLayer);
-        
+
         // Make draggable and resizable with boundaries
         interact('.design-image').draggable({
           inertia: true,
@@ -460,20 +484,48 @@ function setupDesignSubmission() {
             })
           ],
           listeners: {
-            move: (event) => {
+            // ✅ Set initial offset when drag starts
+            start: function (event) {
               const target = event.target;
-              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-              // Update position directly without transform
-              target.style.left = x + 'px';
-              target.style.top = y + 'px';
+              const rect = target.getBoundingClientRect();
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Calculate how far the click was from the top-left of the image
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
+            },
+
+            // ✅ Use offset to drag smoothly — no more jumping!
+            move: function (event) {
+              const target = event.target;
+              const layer = target.closest('.design-layer');
+              const layerRect = layer.getBoundingClientRect();
+
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Get saved offset
+              const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
+              const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
+
+              // Calculate position relative to layer's top-left
+              const x = clientX - layerRect.left - offsetX;
+              const y = clientY - layerRect.top - offsetY;
+
+              // Apply transform — THIS IS WHAT download.js WILL READ
+              target.style.transform = `translate(${x}px, ${y}px)`;
+
+              // Store for debugging (optional)
               target.setAttribute('data-x', x);
               target.setAttribute('data-y', y);
-              target.style.transform = 'none'; // Reset transform to avoid conflicts
             }
           }
         });
-        
+
         interact('.design-image').resizable({
           edges: { left: true, right: true, top: true, bottom: true },
           modifiers: [
@@ -489,10 +541,10 @@ function setupDesignSubmission() {
               const target = event.target;
               let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
               let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
-              
+
               width += event.deltaRect.width;
               height += event.deltaRect.height;
-              
+
               // Apply size changes
               target.style.width = width + 'px';
               target.style.height = height + 'px';
@@ -501,7 +553,7 @@ function setupDesignSubmission() {
             }
           }
         });
-        
+
         interact('.design-image').on('resizeend', (event) => {
           const target = event.target;
           target.style.transform = 'none';
@@ -517,7 +569,7 @@ function updateColorOptions(productType) {
   container.innerHTML = '';
   const config = productsConfig[productType];
   if (!config) return;
-  
+
   Object.keys(config.colors).forEach(color => {
     const colorOption = document.createElement('div');
     colorOption.className = 'color-option';
@@ -533,7 +585,7 @@ function updateColorOptions(productType) {
                                       color === 'magenta' ? '#FF00FF' : '#000';
     container.appendChild(colorOption);
   });
-  
+
   // Select first color by default
   if (container.children.length > 0) {
     container.children[0].classList.add('selected');
@@ -545,10 +597,10 @@ function updateProductImage(color) {
   const productType = document.getElementById('product-type').value;
   const config = productsConfig[productType];
   if (!config || !config.colors[color]) return;
-  
+
   const frontImageSrc = config.colors[color].frontImage;
   const backImageSrc = config.colors[color].backImage;
-  
+
   document.getElementById('front-view').querySelector('.base-image').src = frontImageSrc;
   document.getElementById('back-view').querySelector('.base-image').src = backImageSrc;
 }
@@ -558,14 +610,14 @@ function resetDesign() {
   const backLayer = document.getElementById('back-layer');
   const frontPreview = document.getElementById('front-preview');
   const backPreview = document.getElementById('back-preview');
-  
+
   frontLayer.innerHTML = '';
   backLayer.innerHTML = '';
   frontPreview.innerHTML = '';
   backPreview.innerHTML = '';
   frontPreview.classList.add('hidden');
   backPreview.classList.add('hidden');
-  
+
   // Remove boundary buttons
   document.querySelectorAll('.boundary-button').forEach(btn => btn.remove());
 }
@@ -574,7 +626,7 @@ function addBoundaryButtons(layer) {
   // Remove existing buttons
   const existingButtons = layer.querySelectorAll('.boundary-button');
   existingButtons.forEach(btn => btn.remove());
-  
+
   // Create new buttons
   const buttons = [
     { className: 'top-button', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>' },
@@ -582,7 +634,7 @@ function addBoundaryButtons(layer) {
     { className: 'bottom-button', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>' },
     { className: 'left-button', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>' }
   ];
-  
+
   buttons.forEach(btn => {
     const button = document.createElement('div');
     button.className = `boundary-button ${btn.className}`;
@@ -590,7 +642,7 @@ function addBoundaryButtons(layer) {
     button.addEventListener('click', () => {
       const img = layer.querySelector('.design-image');
       if (!img) return;
-      
+
       switch(btn.className) {
         case 'top-button':
           centerDesignVertically(layer, img);
@@ -638,7 +690,7 @@ function setupOrderForm() {
   const shippingCostSummary = document.getElementById('shipping-cost-summary');
   const totalPriceElement = document.getElementById('total-price');
   const sizeChartImg = document.querySelector('.size-chart img');
-  
+
   // Populate product types
   Object.keys(productsConfig).forEach(type => {
     const option = document.createElement('option');
@@ -646,14 +698,14 @@ function setupOrderForm() {
     option.textContent = productsConfig[type].name;
     productTypeSelect.appendChild(option);
   });
-  
+
   // Product type change
   productTypeSelect.addEventListener('change', (e) => {
     const type = e.target.value;
     if (!type) return;
-    
+
     // Update color options
-    colorSelect.innerHTML = '<option value="">اختر اللون</option>';
+    colorSelect.innerHTML = '<option value="">Select Color</option>';
     const config = productsConfig[type];
     Object.keys(config.colors).forEach(color => {
       const option = document.createElement('option');
@@ -661,14 +713,14 @@ function setupOrderForm() {
       option.textContent = color.charAt(0).toUpperCase() + color.slice(1);
       colorSelect.appendChild(option);
     });
-    
+
     // Update size chart image
     sizeChartImg.src = config.sizeChart;
-    
+
     // Update size options
     updateSizeOptions(type, 'black');
   });
-  
+
   // Color change
   colorSelect.addEventListener('change', (e) => {
     const type = productTypeSelect.value;
@@ -676,31 +728,31 @@ function setupOrderForm() {
     if (!type || !color) return;
     updateSizeOptions(type, color);
   });
-  
+
   // Governorate change
   governorateSelect.addEventListener('change', updateShippingCost);
-  
+
   // Initial setup
   if (productTypeSelect.options.length > 0) {
     productTypeSelect.value = Object.keys(productsConfig)[0];
     productTypeSelect.dispatchEvent(new Event('change'));
   }
-  
+
   // Order form submission
   document.getElementById('order-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    
+
     // Validate form
     if (!validateForm()) {
       return;
     }
-    
+
     // Collect data
     const formData = {
       productType: productsConfig[productTypeSelect.value].name,
       color: colorSelect.value,
       size: document.querySelector('.size-option.selected')?.textContent || '',
-      quantity: parseInt(document.getElementById('quantity').value) || 1,
+      quantity: 1,
       name: document.getElementById('name').value,
       phone: document.getElementById('phone').value,
       secondaryPhone: document.getElementById('secondary-phone').value,
@@ -711,7 +763,7 @@ function setupOrderForm() {
       shippingCost: parseFloat(shippingCostElement.textContent),
       totalPrice: parseFloat(totalPriceElement.textContent)
     };
-    
+
     // Send email
     sendOrderEmail(formData);
   });
@@ -722,7 +774,7 @@ function updateSizeOptions(type, color) {
   container.innerHTML = '';
   const config = productsConfig[type];
   if (!config || !config.colors[color]) return;
-  
+
   config.colors[color].sizes.forEach(size => {
     const sizeOption = document.createElement('div');
     sizeOption.className = 'size-option';
@@ -734,7 +786,7 @@ function updateSizeOptions(type, color) {
     });
     container.appendChild(sizeOption);
   });
-  
+
   // Select first size by default
   if (container.children.length > 0) {
     container.children[0].classList.add('selected');
@@ -754,26 +806,15 @@ function updateOrderSummary() {
   const productType = document.getElementById('product-type-order').value;
   const config = productsConfig[productType];
   if (!config) return;
-  
+
   const basePrice = config.basePrice;
   const frontBackPrice = config.frontBackPrice;
-  
-  // Check if both front and back designs are uploaded
-  const frontLayer = document.getElementById('front-layer');
-  const backLayer = document.getElementById('back-layer');
-  const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
-  const hasBackDesign = backLayer.querySelector('.design-image') !== null;
-  
-  // Only add frontBackPrice if both designs are uploaded
-  const totalProductPrice = basePrice + (hasFrontDesign && hasBackDesign ? frontBackPrice : 0);
-  
+  const totalProductPrice = basePrice + frontBackPrice;
   document.getElementById('product-price').textContent = totalProductPrice;
-  
+
   const governorate = document.getElementById('governorate').value;
   const shippingCost = shippingConfig[governorate] || 0;
-  const quantity = parseInt(document.getElementById('quantity').value) || 1;
-  const totalPrice = (totalProductPrice + shippingCost) * quantity;
-  
+  const totalPrice = totalProductPrice + shippingCost;
   document.getElementById('total-price').textContent = totalPrice;
 }
 
@@ -782,36 +823,36 @@ function validateForm() {
   const phone = document.getElementById('phone').value;
   const governorate = document.getElementById('governorate').value;
   const address = document.getElementById('address').value;
-  
+
   if (!name) {
-    alert('يرجى إدخال اسمك الكامل');
+    alert('Please enter your full name');
     return false;
   }
-  
+
   if (!phone || phone.length !== 11 || !/^[0-9]{11}$/.test(phone)) {
-    alert('يرجى إدخال رقم هاتف مصري صالح (11 رقم)');
+    alert('Please enter a valid 11-digit Egyptian phone number');
     return false;
   }
-  
+
   if (!governorate) {
-    alert('يرجى اختيار المحافظة');
+    alert('Please select a governorate');
     return false;
   }
-  
+
   if (!address) {
-    alert('يرجى إدخال عنوانك بالتفصيل');
+    alert('Please enter your exact address');
     return false;
   }
-  
+
   return true;
 }
 
 function sendOrderEmail(data) {
   // In a real implementation, you would use EmailJS with your credentials
   // For demo purposes, we'll show an alert
-  alert('تم تقديم الطلب! في التطبيق الحقيقي، سيتم إرسال بريد إلكتروني إلى hassanwaelhh@proton.me');
-  console.log('الطلب ', data);
-  
+  alert('Order submitted! In a real implementation, this would send an email to hassanwaelhh@proton.me');
+  console.log('Order ', data);
+
   // Reset form
   document.getElementById('order-form').reset();
   document.getElementById('product-type-order').dispatchEvent(new Event('change'));
