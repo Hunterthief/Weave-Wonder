@@ -39,7 +39,7 @@ const productsConfig = {
     sizeChart: 'Tshirt/tshirt-size-table-on-egymerch.jpg'
   },
   "oversized-tshirt": {
-    name: "تي شيرت واسع",
+    name: "تي شيرت كبير الحجم",
     basePrice: 400,
     frontBackPrice: 20,
     colors: {
@@ -72,9 +72,9 @@ const productsConfig = {
     sizeChart: 'Oversized Tshirt/oversize-tshirt-size-table-on-egymerch.jpg'
   },
   longsleeve: {
-    name: "تي شيرت طويل الأكمام",
-    basePrice: 380,
-    frontBackPrice: 20,
+    name: "تي شيرت بأكمام طويلة",
+    basePrice: 200,
+    frontBackPrice: 70,
     colors: {
       black: {
         sizes: ["M", "L", "XL", "2XL", "3XL"],
@@ -100,9 +100,9 @@ const productsConfig = {
     sizeChart: 'Long sleeve Tshirt/longsleeve-tshirt-size-table-on-egymerch.jpg'
   },
   "classic-sweatshirt": {
-    name: "بلوزة كلاسيكية",
-    basePrice: 420,
-    frontBackPrice: 20,
+    name: "سترة كلاسيكية",
+    basePrice: 250,
+    frontBackPrice: 80,
     colors: {
       black: {
         sizes: ["M", "L", "XL", "2XL", "3XL"],
@@ -133,9 +133,9 @@ const productsConfig = {
     sizeChart: 'Classic Sweatshirt/sweatshirt-size-table-on-egymerch.jpg'
   },
   "premium-hoodie": {
-    name: "هودي فاخر",
-    basePrice: 450,
-    frontBackPrice: 20,
+    name: "هودي بريميوم",
+    basePrice: 300,
+    frontBackPrice: 100,
     colors: {
       black: {
         sizes: ["M", "L", "XL", "2XL", "3XL"],
@@ -157,8 +157,8 @@ const productsConfig = {
   },
   "classic-hoodie": {
     name: "هودي كلاسيكي",
-    basePrice: 430,
-    frontBackPrice: 20,
+    basePrice: 280,
+    frontBackPrice: 90,
     colors: {
       black: {
         sizes: ["M", "L", "XL", "2XL", "3XL"],
@@ -199,9 +199,9 @@ const productsConfig = {
     sizeChart: 'Classic Hoodie/classic-hoodie-size-table-on-egymerch.jpg'
   },
   "oversized-hoodie": {
-    name: "هودي واسع",
-    basePrice: 470,
-    frontBackPrice: 20,
+    name: "هودي كبير الحجم",
+    basePrice: 320,
+    frontBackPrice: 110,
     colors: {
       black: {
         sizes: ["M", "L"],
@@ -326,7 +326,9 @@ function setupDesignSubmission() {
         img.className = 'design-image';
         img.draggable = true;
         
-        // Set initial position and reset transform
+        // Set initial size to match boundary
+        img.style.width = '100%';
+        img.style.height = '100%';
         img.style.position = 'absolute';
         img.style.top = '0';
         img.style.left = '0';
@@ -358,44 +360,16 @@ function setupDesignSubmission() {
             })
           ],
           listeners: {
-            // Set initial offset when drag starts
-            start: function (event) {
+            move: (event) => {
               const target = event.target;
-              const rect = target.getBoundingClientRect();
-              const clientX = event.clientX;
-              const clientY = event.clientY;
-              
-              // Calculate how far the click was from the top-left of the image
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              
-              target.setAttribute('data-offset-x', offsetX);
-              target.setAttribute('data-offset-y', offsetY);
-            },
-            
-            // Use offset to drag smoothly — no more jumping!
-            move: function (event) {
-              const target = event.target;
-              const layer = target.closest('.design-layer');
-              const layerRect = layer.getBoundingClientRect();
-              
-              const clientX = event.clientX;
-              const clientY = event.clientY;
-              
-              // Get saved offset
-              const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
-              const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-              
-              // Calculate position relative to layer's top-left
-              const x = clientX - layerRect.left - offsetX;
-              const y = clientY - layerRect.top - offsetY;
-              
-              // Apply transform — THIS IS WHAT download.js WILL READ
-              target.style.transform = `translate(${x}px, ${y}px)`;
-              
-              // Store for debugging (optional)
+              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+              // Update position directly without transform
+              target.style.left = x + 'px';
+              target.style.top = y + 'px';
               target.setAttribute('data-x', x);
               target.setAttribute('data-y', y);
+              target.style.transform = 'none'; // Reset transform to avoid conflicts
             }
           }
         });
@@ -452,7 +426,9 @@ function setupDesignSubmission() {
         img.className = 'design-image';
         img.draggable = true;
         
-        // Set initial position and reset transform
+        // Set initial size to match boundary
+        img.style.width = '100%';
+        img.style.height = '100%';
         img.style.position = 'absolute';
         img.style.top = '0';
         img.style.left = '0';
@@ -484,44 +460,16 @@ function setupDesignSubmission() {
             })
           ],
           listeners: {
-            // Set initial offset when drag starts
-            start: function (event) {
+            move: (event) => {
               const target = event.target;
-              const rect = target.getBoundingClientRect();
-              const clientX = event.clientX;
-              const clientY = event.clientY;
-              
-              // Calculate how far the click was from the top-left of the image
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              
-              target.setAttribute('data-offset-x', offsetX);
-              target.setAttribute('data-offset-y', offsetY);
-            },
-            
-            // Use offset to drag smoothly — no more jumping!
-            move: function (event) {
-              const target = event.target;
-              const layer = target.closest('.design-layer');
-              const layerRect = layer.getBoundingClientRect();
-              
-              const clientX = event.clientX;
-              const clientY = event.clientY;
-              
-              // Get saved offset
-              const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
-              const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-              
-              // Calculate position relative to layer's top-left
-              const x = clientX - layerRect.left - offsetX;
-              const y = clientY - layerRect.top - offsetY;
-              
-              // Apply transform — THIS IS WHAT download.js WILL READ
-              target.style.transform = `translate(${x}px, ${y}px)`;
-              
-              // Store for debugging (optional)
+              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+              // Update position directly without transform
+              target.style.left = x + 'px';
+              target.style.top = y + 'px';
               target.setAttribute('data-x', x);
               target.setAttribute('data-y', y);
+              target.style.transform = 'none'; // Reset transform to avoid conflicts
             }
           }
         });
@@ -809,7 +757,6 @@ function updateOrderSummary() {
   
   const basePrice = config.basePrice;
   const frontBackPrice = config.frontBackPrice;
-  const quantity = parseInt(document.getElementById('quantity').value) || 1;
   
   // Check if both front and back designs are uploaded
   const frontLayer = document.getElementById('front-layer');
@@ -817,18 +764,17 @@ function updateOrderSummary() {
   const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
   const hasBackDesign = backLayer.querySelector('.design-image') !== null;
   
-  let additionalPrice = 0;
-  if (hasFrontDesign && hasBackDesign) {
-    additionalPrice = frontBackPrice;
-  }
+  // Only add frontBackPrice if both designs are uploaded
+  const totalProductPrice = basePrice + (hasFrontDesign && hasBackDesign ? frontBackPrice : 0);
   
-  const totalProductPrice = (basePrice + additionalPrice) * quantity;
-  document.getElementById('product-price').textContent = totalProductPrice.toFixed(2);
+  document.getElementById('product-price').textContent = totalProductPrice;
   
   const governorate = document.getElementById('governorate').value;
   const shippingCost = shippingConfig[governorate] || 0;
-  const totalPrice = totalProductPrice + shippingCost;
-  document.getElementById('total-price').textContent = totalPrice.toFixed(2);
+  const quantity = parseInt(document.getElementById('quantity').value) || 1;
+  const totalPrice = (totalProductPrice + shippingCost) * quantity;
+  
+  document.getElementById('total-price').textContent = totalPrice;
 }
 
 function validateForm() {
@@ -836,7 +782,6 @@ function validateForm() {
   const phone = document.getElementById('phone').value;
   const governorate = document.getElementById('governorate').value;
   const address = document.getElementById('address').value;
-  const quantity = parseInt(document.getElementById('quantity').value) || 1;
   
   if (!name) {
     alert('يرجى إدخال اسمك الكامل');
@@ -854,12 +799,7 @@ function validateForm() {
   }
   
   if (!address) {
-    alert('يرجى إدخال عنوانك الدقيق');
-    return false;
-  }
-  
-  if (quantity < 1 || quantity > 100) {
-    alert('الكمية يجب أن تكون بين 1 و100');
+    alert('يرجى إدخال عنوانك بالتفصيل');
     return false;
   }
   
@@ -869,7 +809,7 @@ function validateForm() {
 function sendOrderEmail(data) {
   // In a real implementation, you would use EmailJS with your credentials
   // For demo purposes, we'll show an alert
-  alert('تم إرسال الطلب! في تطبيق حقيقي، سيتم إرسال بريد إلكتروني إلى hassanwaelhh@proton.me');
+  alert('تم تقديم الطلب! في التطبيق الحقيقي، سيتم إرسال بريد إلكتروني إلى hassanwaelhh@proton.me');
   console.log('الطلب ', data);
   
   // Reset form
