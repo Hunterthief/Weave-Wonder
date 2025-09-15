@@ -857,6 +857,7 @@ function updateSizeOptions(type, color) {
   container.innerHTML = '';
   
   // Define inventory map: Product → Color → Sizes (as string)
+  // Lowercase = Low Stock | Uppercase = In Stock | Empty = Out of Stock
   const inventory = {
     "premium-hoodie": {
       black: "M l 2xl",
@@ -864,31 +865,31 @@ function updateSizeOptions(type, color) {
       gray: "xl"
     },
     "classic-hoodie": {
-      black: "XL 3XL",
-      white: "M L XL 3XL",
-      "light-blue": "M L XL 2XL 3XL",
-      magenta: "2XL",
+      black: "xl 3xl",
+      white: "m l xl 3xl",
+      "light-blue": "m l xl 2xl 3xl",
+      magenta: "2xl",
       beige: "",
-      "olive-green": "M L",
+      "olive-green": "m l",
       red: ""
     },
     "oversized-hoodie": {
       black: "",
-      white: "M L",
+      white: "M l",
       "light-blue": "m",
       magenta: "",
       beige: "",
-      "olive-green": "M L",
+      "olive-green": "M l",
       red: "m l"
     },
     "tshirt": {
       black: "",
-      white: "XL",
-      gray: "L 2XL 3XL",
-      blue: "XL",
-      red: "M L XL 2XL 3XL",
+      white: "xl",
+      gray: "l 2xl 3xl",
+      blue: "xl",
+      red: "M L xl 2XL 3XL",
       indigo: "",
-      "light-blue": "2XL",
+      "light-blue": "2xl",
       "dark-light-blue": ""
     },
     "oversized-tshirt": {
@@ -896,22 +897,22 @@ function updateSizeOptions(type, color) {
       white: "",
       indigo: "",
       blue: "",
-      red: "M L",
+      red: "M l",
       "light-blue": "m l"
     },
     "longsleeve": {
-      black: "XL",
-      white: "M XL 3XL",
-      red: "M L XL 2XL 3XL",
-      gray: "M L XL 3XL"
+      black: "xl",
+      white: "m xl 3xl",
+      red: "m L xl 2xl 3XL",
+      gray: "m l xl 3xl"
     },
     "classic-sweatshirt": {
-      black: "M 3XL",
-      white: "M 2XL 3XL",
-      "light-blue": "M XL 2XL 3XL",
-      magenta: "M L XL 2XL 3XL",
-      beige: "M L XL 3XL",
-      "olive-green": "3XL"
+      black: "m 3xl",
+      white: "M 2xl 3xl",
+      "light-blue": "m xl 2XL 3xl",
+      magenta: "m L XL 2XL 3XL",
+      beige: "m l XL 3xl",
+      "olive-green": "3xl"
     }
   };
   
@@ -937,7 +938,7 @@ function updateSizeOptions(type, color) {
     sizeOption.className = 'size-option';
     sizeOption.textContent = size.toUpperCase(); // Display always uppercase
     
-    // Determine stock status
+    // Determine stock status based on original case
     const isUpperCase = size === size.toUpperCase();
     const isLowerCase = size === size.toLowerCase();
     const isInStock = isUpperCase;
