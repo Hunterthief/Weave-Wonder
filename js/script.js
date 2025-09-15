@@ -401,32 +401,59 @@ function setupDesignSubmission() {
         });
 
         interact('.design-image').resizable({
-          edges: { left: true, right: true, top: true, bottom: true },
-          modifiers: [
-            interact.modifiers.restrictSize({
-              restriction: {
-                min: { width: 50, height: 50 },
-                max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
-              }
-            })
-          ],
-          listeners: {
-            move: (event) => {
-              const target = event.target;
-              let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
-              let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
+  edges: { left: true, right: true, top: true, bottom: true },
+  modifiers: [
+    interact.modifiers.restrictSize({
+      restriction: {
+        min: { width: 50, height: 50 },
+        max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
+      }
+    })
+  ],
+  listeners: {
+    // Store original dimensions on resize start
+    start: function (event) {
+      const target = event.target;
+      const naturalWidth = target.naturalWidth || target.offsetWidth;
+      const naturalHeight = target.naturalHeight || target.offsetHeight;
+      const aspectRatio = naturalWidth / naturalHeight;
+      target.setAttribute('data-aspect-ratio', aspectRatio);
+    },
 
-              width += event.deltaRect.width;
-              height += event.deltaRect.height;
+    // Maintain aspect ratio during resize
+    move: function (event) {
+      const target = event.target;
+      let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
+      let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
 
-              // Apply size changes
-              target.style.width = width + 'px';
-              target.style.height = height + 'px';
-              target.setAttribute('data-width', width);
-              target.setAttribute('data-height', height);
-            }
-          }
-        });
+      // Apply delta
+      width += event.deltaRect.width;
+      height += event.deltaRect.height;
+
+      // Get stored aspect ratio
+      const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
+
+      // If resizing from left/right (horizontal), adjust height proportionally
+      if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
+        // Width changed more → base height on width
+        height = width / aspectRatio;
+      } else {
+        // Height changed more → base width on height
+        width = height * aspectRatio;
+      }
+
+      // Enforce min/max boundaries
+      width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
+      height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
+
+      // Apply new size
+      target.style.width = width + 'px';
+      target.style.height = height + 'px';
+      target.setAttribute('data-width', width);
+      target.setAttribute('data-height', height);
+    }
+  }
+});
 
         interact('.design-image').on('resizeend', (event) => {
           const target = event.target;
@@ -528,32 +555,59 @@ function setupDesignSubmission() {
         });
 
         interact('.design-image').resizable({
-          edges: { left: true, right: true, top: true, bottom: true },
-          modifiers: [
-            interact.modifiers.restrictSize({
-              restriction: {
-                min: { width: 50, height: 50 },
-                max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
-              }
-            })
-          ],
-          listeners: {
-            move: (event) => {
-              const target = event.target;
-              let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
-              let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
+  edges: { left: true, right: true, top: true, bottom: true },
+  modifiers: [
+    interact.modifiers.restrictSize({
+      restriction: {
+        min: { width: 50, height: 50 },
+        max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
+      }
+    })
+  ],
+  listeners: {
+    // Store original dimensions on resize start
+    start: function (event) {
+      const target = event.target;
+      const naturalWidth = target.naturalWidth || target.offsetWidth;
+      const naturalHeight = target.naturalHeight || target.offsetHeight;
+      const aspectRatio = naturalWidth / naturalHeight;
+      target.setAttribute('data-aspect-ratio', aspectRatio);
+    },
 
-              width += event.deltaRect.width;
-              height += event.deltaRect.height;
+    // Maintain aspect ratio during resize
+    move: function (event) {
+      const target = event.target;
+      let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
+      let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
 
-              // Apply size changes
-              target.style.width = width + 'px';
-              target.style.height = height + 'px';
-              target.setAttribute('data-width', width);
-              target.setAttribute('data-height', height);
-            }
-          }
-        });
+      // Apply delta
+      width += event.deltaRect.width;
+      height += event.deltaRect.height;
+
+      // Get stored aspect ratio
+      const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
+
+      // If resizing from left/right (horizontal), adjust height proportionally
+      if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
+        // Width changed more → base height on width
+        height = width / aspectRatio;
+      } else {
+        // Height changed more → base width on height
+        width = height * aspectRatio;
+      }
+
+      // Enforce min/max boundaries
+      width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
+      height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
+
+      // Apply new size
+      target.style.width = width + 'px';
+      target.style.height = height + 'px';
+      target.setAttribute('data-width', width);
+      target.setAttribute('data-height', height);
+    }
+  }
+});
 
         interact('.design-image').on('resizeend', (event) => {
           const target = event.target;
