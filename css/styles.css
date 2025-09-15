@@ -105,6 +105,18 @@ h2::after {
   align-items: center;
   gap: 1.5rem;
 }
+/* Size Legend Styling */
+.size-legend {
+  text-align: center;
+  margin-top: 0.5rem;
+  color: #666;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.legend-item {
+  margin: 0 0.3rem;
+}
 .product-view {
   position: relative;
   width: 100%;
@@ -352,4 +364,5 @@ select:focus, input:focus, textarea:focus {
     height: 250px;
   }
 }
+
 
