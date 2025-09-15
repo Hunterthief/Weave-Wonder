@@ -945,22 +945,22 @@ function updateSizeOptions(type, color) {
     const isOutOfStock = !isUpperCase && !isLowerCase; // shouldn't happen but safe
 
     // Apply classes based on stock level
-    if (isOutOfStock) {
-      sizeOption.classList.add('disabled');
-      sizeOption.style.opacity = '0.5';
-      sizeOption.style.textDecoration = 'line-through';
-      sizeOption.style.color = '#999';
-      sizeOption.style.pointerEvents = 'none'; // Prevent click
-    } else if (isLowStock) {
-      sizeOption.classList.add('low-stock');
-      sizeOption.style.backgroundColor = '#FFD700'; // Yellow
-      sizeOption.style.color = '#333';
-      sizeOption.style.fontWeight = 'bold';
-    } else if (isInStock) {
-      sizeOption.classList.add('in-stock');
-      sizeOption.style.backgroundColor = '';
-      sizeOption.style.color = '';
-    }
+   // Apply classes based on stock level
+if (isOutOfStock) {
+  sizeOption.classList.add('disabled');
+} else if (isLowStock) {
+  sizeOption.classList.add('low-stock');
+} else if (isInStock) {
+  sizeOption.classList.add('in-stock');
+}
+
+// Always set pointer events for disabled items
+if (isOutOfStock) {
+  sizeOption.style.pointerEvents = 'none';
+  sizeOption.style.opacity = '0.5';
+  sizeOption.style.textDecoration = 'line-through';
+  sizeOption.style.color = '#999';
+}
 
     // Add click handler
     sizeOption.addEventListener('click', () => {
@@ -975,7 +975,22 @@ function updateSizeOptions(type, color) {
 
     container.appendChild(sizeOption);
   });
+// --- ADD LEGEND BELOW SIZE OPTIONS ---
+const legendContainer = document.createElement('div');
+legendContainer.className = 'size-legend';
+legendContainer.innerHTML = `
+  <small>
+    <span class="legend-item"><strong>🟢 In Stock</strong> – Available</span> |
+    <span class="legend-item"><strong>🟡 Low Stock</strong> – Limited</span> |
+    <span class="legend-item"><strong>🔴 Out of Stock</strong> – Not Available</span>
+  </small>
+`;
+legendContainer.style.textAlign = 'center';
+legendContainer.style.marginTop = '0.5rem';
+legendContainer.style.color = '#666';
+legendContainer.style.fontSize = '0.85rem';
 
+container.appendChild(legendContainer);
   // Auto-select first available (in-stock) size
   const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
   if (firstAvailable) {
