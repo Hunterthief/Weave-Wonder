@@ -345,8 +345,8 @@ function setupDesignSubmission() {
         // Add boundary buttons
         addBoundaryButtons(frontLayer);
         
-        // Make draggable and resizable with boundaries
-        interact('.design-image').draggable({
+        // FRONT DESIGN DRAG & RESIZE (REPLACE ENTIRE BLOCK)
+interact('.design-image').draggable({
   inertia: true,
   modifiers: [
     interact.modifiers.restrictRect({
@@ -367,7 +367,7 @@ function setupDesignSubmission() {
       const clientX = event.clientX;
       const clientY = event.clientY;
 
-      // Calculate offset from top-left of image to mouse click point
+      // Calculate how far the click was from the top-left of the image
       const offsetX = clientX - rect.left;
       const offsetY = clientY - rect.top;
 
@@ -375,7 +375,7 @@ function setupDesignSubmission() {
       target.setAttribute('data-offset-y', offsetY);
     },
 
-    // ✅ Use offset to drag smoothly
+    // ✅ Use offset to drag smoothly — no more jumping!
     move: function (event) {
       const target = event.target;
       const layer = target.closest('.design-layer');
@@ -392,10 +392,10 @@ function setupDesignSubmission() {
       const x = clientX - layerRect.left - offsetX;
       const y = clientY - layerRect.top - offsetY;
 
-      // Apply transform
+      // Apply transform — THIS IS WHAT download.js WILL READ
       target.style.transform = `translate(${x}px, ${y}px)`;
 
-      // Store for later use (optional)
+      // Store for debugging (optional)
       target.setAttribute('data-x', x);
       target.setAttribute('data-y', y);
     }
@@ -472,7 +472,8 @@ function setupDesignSubmission() {
         addBoundaryButtons(backLayer);
         
         // Make draggable and resizable with boundaries
-        interact('.design-image').draggable({
+        // FRONT DESIGN DRAG & RESIZE (REPLACE ENTIRE BLOCK)
+interact('.design-image').draggable({
   inertia: true,
   modifiers: [
     interact.modifiers.restrictRect({
@@ -493,7 +494,7 @@ function setupDesignSubmission() {
       const clientX = event.clientX;
       const clientY = event.clientY;
 
-      // Calculate offset from top-left of image to mouse click point
+      // Calculate how far the click was from the top-left of the image
       const offsetX = clientX - rect.left;
       const offsetY = clientY - rect.top;
 
@@ -501,7 +502,7 @@ function setupDesignSubmission() {
       target.setAttribute('data-offset-y', offsetY);
     },
 
-    // ✅ Use offset to drag smoothly
+    // ✅ Use offset to drag smoothly — no more jumping!
     move: function (event) {
       const target = event.target;
       const layer = target.closest('.design-layer');
@@ -518,10 +519,10 @@ function setupDesignSubmission() {
       const x = clientX - layerRect.left - offsetX;
       const y = clientY - layerRect.top - offsetY;
 
-      // Apply transform
+      // Apply transform — THIS IS WHAT download.js WILL READ
       target.style.transform = `translate(${x}px, ${y}px)`;
 
-      // Store for later use (optional)
+      // Store for debugging (optional)
       target.setAttribute('data-x', x);
       target.setAttribute('data-y', y);
     }
