@@ -369,7 +369,7 @@ frontLayer.appendChild(img); // or backLayer.appendChild(img);
         // Add boundary buttons
         addBoundaryButtons(frontLayer);
 
-         // Make draggable and resizable with boundaries
+        // Make draggable and resizable with boundaries
         interact('.design-image').draggable({
           inertia: true,
           modifiers: [
