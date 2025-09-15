@@ -262,7 +262,7 @@ select:focus, input:focus, textarea:focus {
   cursor: pointer;
   transition: var(--transition);
   /* Remove any default background color */
-  background: transparent !important;
+  /* Removed background: transparent !important; */
 }
 .size-option.unavailable {
   opacity: 0.5;
