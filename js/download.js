@@ -71,7 +71,7 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // ✅ Get rendered size (what user sees after resize)
+  // ✅ Get the current rendered size (what user sees after resize)
   const renderedWidth = designImage.offsetWidth;
   const renderedHeight = designImage.offsetHeight;
 
@@ -83,7 +83,7 @@ function drawDesign(ctx, baseImage, designLayer) {
   let translateY = 0;
 
   if (transform !== 'none') {
-    // Extract values from "translate(50px, 100px)"
+    // Extract values from "translate(50px, 67px)"
     const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
     if (match) {
       translateX = parseFloat(match[1]);
