@@ -944,7 +944,7 @@ function updateSizeOptions(type, color) {
     const isLowStock = isLowerCase;
     const isOutOfStock = !isUpperCase && !isLowerCase;
     
-    // Apply appropriate classes based on stock status
+    // Apply appropriate styles based on stock status
     if (isOutOfStock) {
       sizeOption.classList.add('disabled');
       sizeOption.style.opacity = '0.5';
@@ -957,21 +957,17 @@ function updateSizeOptions(type, color) {
       sizeOption.style.borderRadius = '5px';
       sizeOption.style.cursor = 'not-allowed';
     } else if (isLowStock) {
-      // Force yellow styling for low stock
-      sizeOption.classList.add('low-stock');
-      sizeOption.style.backgroundColor = '#FFD700';
+      // Bright yellow for low stock - more vibrant than previous
+      sizeOption.style.backgroundColor = '#FFECB3'; // Lighter, brighter yellow
       sizeOption.style.color = '#333';
       sizeOption.style.fontWeight = 'bold';
-      sizeOption.style.border = '1px solid #e6c200';
+      sizeOption.style.border = '1px solid #FFD54F'; // Brighter border
       sizeOption.style.padding = '0.5rem 1rem';
       sizeOption.style.borderRadius = '5px';
-      sizeOption.style.cursor = 'not-allowed';
-      sizeOption.style.boxShadow = 'none';
-      sizeOption.style.transform = 'none';
+      sizeOption.style.cursor = 'pointer'; // Allow selection
     } else if (isInStock) {
-      // Blue styling for in-stock
-      sizeOption.classList.add('in-stock');
-      sizeOption.style.backgroundColor = '#e0e0e0'; // Default gray
+      // Default gray for in-stock (will change when selected)
+      sizeOption.style.backgroundColor = '#e0e0e0';
       sizeOption.style.color = '#333';
       sizeOption.style.border = '1px solid #ddd';
       sizeOption.style.padding = '0.5rem 1rem';
@@ -981,7 +977,8 @@ function updateSizeOptions(type, color) {
     
     // Add click handler
     sizeOption.addEventListener('click', () => {
-      if (isOutOfStock || isLowStock) return; // Prevent selection of non-in-stock
+      // Prevent selection of out-of-stock items
+      if (isOutOfStock) return;
       
       // Remove selected class from all size options
       document.querySelectorAll('.size-option').forEach(opt => {
@@ -995,11 +992,18 @@ function updateSizeOptions(type, color) {
       // Select this option
       sizeOption.classList.add('selected');
       
-      // Apply selected style only to in-stock items
+      // Apply selected style based on stock status
       if (isInStock) {
+        // Blue selection for in-stock
         sizeOption.style.backgroundColor = '#3498db';
         sizeOption.style.color = 'white';
         sizeOption.style.border = '1px solid #2980b9';
+      } else if (isLowStock) {
+        // Brighter yellow selection for low-stock
+        sizeOption.style.backgroundColor = '#FFF176'; // Even brighter yellow for selected state
+        sizeOption.style.color = '#333';
+        sizeOption.style.border = '1px solid #FFD54F';
+        sizeOption.style.fontWeight = 'bold';
       }
       
       updateOrderSummary();
@@ -1034,8 +1038,8 @@ function updateSizeOptions(type, color) {
   legendContainer.style.lineHeight = '1.6';
   container.appendChild(legendContainer);
   
-  // Auto-select first available (in-stock) size
-  const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
+  // Auto-select first available (in-stock or low-stock) size
+  const firstAvailable = container.querySelector('.size-option:not(.disabled)');
   if (firstAvailable) {
     firstAvailable.click();
   } else {
