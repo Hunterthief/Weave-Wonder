@@ -173,6 +173,10 @@ h2::after {
   object-fit: contain;
   display: block;
 }
+.size-option.low-stock:hover {
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
 .design-layer {
   position: absolute;
   top: var(--boundary-top);
@@ -404,6 +408,7 @@ select:focus, input:focus, textarea:focus {
     height: 250px;
   }
 }
+
 
 
 
