@@ -942,29 +942,65 @@ function updateSizeOptions(type, color) {
     const isLowerCase = size === size.toLowerCase();
     const isInStock = isUpperCase;
     const isLowStock = isLowerCase;
-    const isOutOfStock = !isUpperCase && !isLowerCase; // shouldn't happen but safe
+    const isOutOfStock = !isUpperCase && !isLowerCase;
 
-    // Apply classes based on stock level
+    // BRUTE FORCE - Set styles directly via JavaScript (ignores CSS conflicts)
     if (isOutOfStock) {
-      sizeOption.classList.add('disabled');
+      sizeOption.style.opacity = '0.5';
+      sizeOption.style.textDecoration = 'line-through';
+      sizeOption.style.color = '#999';
+      sizeOption.style.pointerEvents = 'none';
+      sizeOption.style.backgroundColor = '#e0e0e0';
+      sizeOption.style.border = '1px solid #ccc';
+      sizeOption.style.padding = '0.5rem 1rem';
+      sizeOption.style.borderRadius = '5px';
+      sizeOption.style.cursor = 'not-allowed';
     } else if (isLowStock) {
-      sizeOption.classList.add('low-stock');
+      // BRUTE FORCE YELLOW - This will override ALL CSS
+      sizeOption.style.backgroundColor = '#FFD700' + '!important'; // Force yellow
+      sizeOption.style.color = '#333' + '!important';
+      sizeOption.style.fontWeight = 'bold' + '!important';
+      sizeOption.style.border = '1px solid #e6c200' + '!important';
+      sizeOption.style.padding = '0.5rem 1rem' + '!important';
+      sizeOption.style.borderRadius = '5px' + '!important';
+      sizeOption.style.cursor = 'not-allowed' + '!important';
+      sizeOption.style.boxShadow = 'none' + '!important';
+      sizeOption.style.transform = 'none' + '!important';
+      
+      // Also set important via CSS variable
+      sizeOption.setAttribute('style', 
+        sizeOption.getAttribute('style') + 
+        '; background-color: #FFD700 !important; ' +
+        'color: #333 !important; font-weight: bold !important; ' +
+        'border: 1px solid #e6c200 !important; padding: 0.5rem 1rem !important; ' +
+        'border-radius: 5px !important; cursor: not-allowed !important;'
+      );
     } else if (isInStock) {
-      sizeOption.classList.add('in-stock');
+      sizeOption.style.backgroundColor = '#e0e0e0';
+      sizeOption.style.color = '#333';
+      sizeOption.style.border = '1px solid #ddd';
+      sizeOption.style.padding = '0.5rem 1rem';
+      sizeOption.style.borderRadius = '5px';
+      sizeOption.style.cursor = 'pointer';
     }
 
     // Add click handler
     sizeOption.addEventListener('click', () => {
-      // Remove selected from all options
+      if (isOutOfStock || isLowStock) return; // Prevent selection of non-in-stock
       document.querySelectorAll('.size-option').forEach(opt => {
         opt.classList.remove('selected');
+        // Reset any selected styling
+        opt.style.backgroundColor = '';
+        opt.style.color = '';
+        opt.style.border = '';
       });
-      
-      // Only mark as selected if it's IN STOCK (uppercase)
+      sizeOption.classList.add('selected');
+      // Apply selected style only to in-stock items
       if (isInStock) {
-        sizeOption.classList.add('selected');
+        sizeOption.style.backgroundColor = '#3498db';
+        sizeOption.style.color = 'white';
+        sizeOption.style.border = '1px solid #2980b9';
       }
-      
       updateOrderSummary();
     });
 
@@ -998,7 +1034,7 @@ function updateSizeOptions(type, color) {
   container.appendChild(legendContainer);
 
   // Auto-select first available (in-stock) size
-  const firstAvailable = container.querySelector('.size-option.in-stock');
+  const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
   if (firstAvailable) {
     firstAvailable.click();
   } else {
