@@ -84,15 +84,13 @@ function drawDesign(ctx, baseImage, designLayer) {
   const layerRect = designLayer.getBoundingClientRect();
   const viewRect = productView.getBoundingClientRect();
 
-  // Offset of layer within the product view (mockup container)
   const layerOffsetX = layerRect.left - viewRect.left;
   const layerOffsetY = layerRect.top - viewRect.top;
 
-  // Size of the layer (always 150x150px as defined in CSS)
-  const layerWidth = designLayer.offsetWidth;
-  const layerHeight = designLayer.offsetHeight;
+  const layerWidth = designLayer.offsetWidth;   // 150px
+  const layerHeight = designLayer.offsetHeight; // 150px
 
-  // --- STEP 3: Get the DESIGN IMAGE'S actual rendered position and scale ---
+  // --- STEP 3: Get the DESIGN IMAGE'S current rendered size and transform ---
   const style = window.getComputedStyle(designImage);
   const transform = style.transform;
 
@@ -103,10 +101,10 @@ function drawDesign(ctx, baseImage, designLayer) {
 
   // Parse transform: translate(x, y)
   if (transform !== 'none') {
-    const match = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
-    if (match) {
-      translateX = parseFloat(match[1]);
-      translateY = parseFloat(match[2]);
+    const translateMatch = transform.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
+    if (translateMatch) {
+      translateX = parseFloat(translateMatch[1]);
+      translateY = parseFloat(translateMatch[2]);
     }
 
     // Parse scale: scale(s)
@@ -118,43 +116,40 @@ function drawDesign(ctx, baseImage, designLayer) {
     }
   }
 
-  // --- STEP 4: Get original design image size (before any scaling) ---
-  const originalWidth = designImage.naturalWidth || designImage.offsetWidth;
-  const originalHeight = designImage.naturalHeight || designImage.offsetHeight;
+  // --- STEP 4: USE RENDERED SIZE (WHAT USER SEES ON SCREEN) — NOT naturalWidth! ---
+  const renderedWidth = designImage.offsetWidth;     // e.g., 128px (after resize)
+  const renderedHeight = designImage.offsetHeight;   // e.g., 136px (after resize)
 
-  // Final rendered size after scaling
-  const finalWidth = originalWidth * scaleX;
-  const finalHeight = originalHeight * scaleY;
+  // Apply scale to get final rendered size
+  const finalWidth = renderedWidth * scaleX;
+  const finalHeight = renderedHeight * scaleY;
 
   // --- STEP 5: CONVERT FROM LAYER SPACE TO CANVAS SPACE ---
-  // The layer is 150x150px, but the mockup is much bigger (e.g., 800x1000)
-  // So we need to scale the design's position and size proportionally
+  const scaleXRatio = mockupWidth / layerWidth;   // e.g., 400 / 150 = 2.667
+  const scaleYRatio = mockupHeight / layerHeight; // e.g., 440 / 150 = 2.933
 
-  const scaleXRatio = mockupWidth / layerWidth;   // e.g., 800 / 150 = 5.33
-  const scaleYRatio = mockupHeight / layerHeight; // e.g., 1000 / 150 = 6.67
-
-  // Position of design within the layer (0,0 = top-left of layer)
+  // Design position within layer (from transform)
   const designInLayerX = translateX;
   const designInLayerY = translateY;
 
-  // Scale that position to canvas space
+  // Map to canvas space
   const canvasX = layerOffsetX + (designInLayerX * scaleXRatio);
   const canvasY = layerOffsetY + (designInLayerY * scaleYRatio);
 
-  // Scale the design size to canvas space
+  // Map size to canvas space
   const canvasWidth = finalWidth * scaleXRatio;
   const canvasHeight = finalHeight * scaleYRatio;
 
-  // --- STEP 6: LOG FOR DEBUGGING ---
+  // --- STEP 6: DEBUG LOG ---
   console.group("🎨 Design Mapping Debug Info");
   console.log("Mockup size:", mockupWidth, "x", mockupHeight);
-  console.log("Layer offset (within view):", layerOffsetX, layerOffsetY);
+  console.log("Layer offset (within view):", Math.round(layerOffsetX), Math.round(layerOffsetY));
   console.log("Layer size:", layerWidth, "x", layerHeight);
-  console.log("Design original size:", originalWidth, "x", originalHeight);
-  console.log("Design scale (transform):", scaleX, "x", scaleY);
-  console.log("Design final size (after scale):", finalWidth, "x", finalHeight);
+  console.log("Design rendered size (on screen):", renderedWidth, "x", renderedHeight);
+  console.log("Design scale (transform):", scaleX.toFixed(3), "x", scaleY.toFixed(3));
+  console.log("Final size after scale:", finalWidth.toFixed(1), "x", finalHeight.toFixed(1));
   console.log("Scaling ratio (mockup/layer):", scaleXRatio.toFixed(3), "x", scaleYRatio.toFixed(3));
-  console.log("Design pos in layer:", designInLayerX, ",", designInLayerY);
+  console.log("Design pos in layer:", designInLayerX.toFixed(1), ",", designInLayerY.toFixed(1));
   console.log("Design pos on canvas:", Math.round(canvasX), ",", Math.round(canvasY));
   console.log("Design size on canvas:", Math.round(canvasWidth), "x", Math.round(canvasHeight));
   console.groupEnd();
