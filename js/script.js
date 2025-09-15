@@ -945,65 +945,78 @@ function updateSizeOptions(type, color) {
     const isOutOfStock = !isUpperCase && !isLowerCase; // shouldn't happen but safe
 
     // Apply classes based on stock level
-   // Apply classes based on stock level
-if (isOutOfStock) {
-  sizeOption.classList.add('disabled');
-} else if (isLowStock) {
-  sizeOption.classList.add('low-stock');
-} else if (isInStock) {
-  sizeOption.classList.add('in-stock');
-}
+    if (isOutOfStock) {
+      sizeOption.classList.add('disabled');
+      sizeOption.style.opacity = '0.5';
+      sizeOption.style.textDecoration = 'line-through';
+      sizeOption.style.color = '#999';
+      sizeOption.style.pointerEvents = 'none'; // Prevent click
+    } else if (isLowStock) {
+      sizeOption.classList.add('low-stock');
+      // Set the yellow background directly with !important to ensure it's applied
+      sizeOption.style.backgroundColor = '#FFD700 !important';
+      sizeOption.style.color = '#333 !important';
+      sizeOption.style.fontWeight = 'bold !important';
+      sizeOption.style.border = '1px solid #e6c200 !important';
+    } else if (isInStock) {
+      sizeOption.classList.add('in-stock');
+      // Reset any previous styles
+      sizeOption.style.backgroundColor = '';
+      sizeOption.style.color = '';
+      sizeOption.style.fontWeight = '';
+      sizeOption.style.border = '';
+    }
 
-// Always set pointer events for disabled items
-if (isOutOfStock) {
-  sizeOption.style.pointerEvents = 'none';
-  sizeOption.style.opacity = '0.5';
-  sizeOption.style.textDecoration = 'line-through';
-  sizeOption.style.color = '#999';
-}
-
-// Add click handler
-sizeOption.addEventListener('click', () => {
-  // Remove selected from all options
-  document.querySelectorAll('.size-option').forEach(opt => {
-    opt.classList.remove('selected');
-  });
-
-  // Only mark as selected if it's IN STOCK (uppercase)
-  if (isInStock) {
-    sizeOption.classList.add('selected');
-  }
-
-  updateOrderSummary();
-});
+    // Add click handler
+    sizeOption.addEventListener('click', () => {
+      // Only allow selection of in-stock items
+      if (isOutOfStock || isLowStock) {
+        // Show warning for low stock but don't select
+        if (isLowStock) {
+          alert("⚠️ Warning: This size is low in stock. Only limited quantities available.");
+        }
+        return;
+      }
+      
+      // Remove selected from all options
+      document.querySelectorAll('.size-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      
+      // Mark as selected only for in-stock items
+      sizeOption.classList.add('selected');
+      updateOrderSummary();
+    });
 
     container.appendChild(sizeOption);
   });
-// --- ADD LEGEND BELOW SIZE OPTIONS ---
-const legendContainer = document.createElement('div');
-legendContainer.className = 'size-legend';
-legendContainer.innerHTML = `
-  <small>
-    <span class="legend-item in-stock">
-      <span class="legend-color in-stock"></span>
-      <strong>In Stock</strong> – Available
-    </span> |
-    <span class="legend-item low-stock">
-      <span class="legend-color low-stock"></span>
-      <strong>Low Stock</strong> – Limited
-    </span> |
-    <span class="legend-item disabled">
-      <span class="legend-color disabled"></span>
-      <strong>Out of Stock</strong> – Not Available
-    </span>
-  </small>
-`;
-legendContainer.style.textAlign = 'center';
-legendContainer.style.marginTop = '0.5rem';
-legendContainer.style.color = '#555';
-legendContainer.style.fontSize = '0.85rem';
-legendContainer.style.lineHeight = '1.6';
-container.appendChild(legendContainer);
+
+  // --- ADD LEGEND BELOW SIZE OPTIONS ---
+  const legendContainer = document.createElement('div');
+  legendContainer.className = 'size-legend';
+  legendContainer.innerHTML = `
+    <small>
+      <span class="legend-item in-stock">
+        <span class="legend-color in-stock"></span>
+        <strong>In Stock</strong> – Available
+      </span> |
+      <span class="legend-item low-stock">
+        <span class="legend-color low-stock"></span>
+        <strong>Low Stock</strong> – Limited
+      </span> |
+      <span class="legend-item disabled">
+        <span class="legend-color disabled"></span>
+        <strong>Out of Stock</strong> – Not Available
+      </span>
+    </small>
+  `;
+  legendContainer.style.textAlign = 'center';
+  legendContainer.style.marginTop = '0.5rem';
+  legendContainer.style.color = '#555';
+  legendContainer.style.fontSize = '0.85rem';
+  legendContainer.style.lineHeight = '1.6';
+  container.appendChild(legendContainer);
+
   // Auto-select first available (in-stock) size
   const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
   if (firstAvailable) {
