@@ -1,3 +1,4 @@
+// Download Preview Image Functionality
 document.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('download-design');
   if (!downloadBtn) {
