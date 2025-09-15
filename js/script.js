@@ -855,7 +855,7 @@ function setupOrderForm() {
 function updateSizeOptions(type, color) {
   const container = document.getElementById('size-options');
   container.innerHTML = '';
-
+  
   // Define inventory map: Product → Color → Sizes (as string)
   const inventory = {
     "premium-hoodie": {
@@ -914,38 +914,39 @@ function updateSizeOptions(type, color) {
       "olive-green": "3XL"
     }
   };
-
+  
   // Normalize product type and color for lookup
   const normalizedType = type.toLowerCase();
   const normalizedColor = color.toLowerCase();
-
+  
   // Get available sizes as string, or empty if not found
   const sizeString = inventory[normalizedType]?.[normalizedColor] || "";
-
+  
   // Split into array and clean up whitespace
   const sizeList = sizeString.trim().split(/\s+/);
-
+  
   // If no sizes defined, show message
   if (!sizeList.length || (sizeList.length === 1 && !sizeList[0])) {
     container.innerHTML = '<div class="size-option disabled">No sizes available</div>';
     return;
   }
-
+  
   // Create size options
   sizeList.forEach(size => {
     const sizeOption = document.createElement('div');
     sizeOption.className = 'size-option';
     sizeOption.textContent = size.toUpperCase(); // Display always uppercase
-
+    
     // Determine stock status
     const isUpperCase = size === size.toUpperCase();
     const isLowerCase = size === size.toLowerCase();
     const isInStock = isUpperCase;
     const isLowStock = isLowerCase;
     const isOutOfStock = !isUpperCase && !isLowerCase;
-
-    // BRUTE FORCE - Set styles directly via JavaScript (ignores CSS conflicts)
+    
+    // Apply appropriate classes based on stock status
     if (isOutOfStock) {
+      sizeOption.classList.add('disabled');
       sizeOption.style.opacity = '0.5';
       sizeOption.style.textDecoration = 'line-through';
       sizeOption.style.color = '#999';
@@ -956,37 +957,33 @@ function updateSizeOptions(type, color) {
       sizeOption.style.borderRadius = '5px';
       sizeOption.style.cursor = 'not-allowed';
     } else if (isLowStock) {
-      // BRUTE FORCE YELLOW - This will override ALL CSS
-      sizeOption.style.backgroundColor = '#FFD700' + '!important'; // Force yellow
-      sizeOption.style.color = '#333' + '!important';
-      sizeOption.style.fontWeight = 'bold' + '!important';
-      sizeOption.style.border = '1px solid #e6c200' + '!important';
-      sizeOption.style.padding = '0.5rem 1rem' + '!important';
-      sizeOption.style.borderRadius = '5px' + '!important';
-      sizeOption.style.cursor = 'not-allowed' + '!important';
-      sizeOption.style.boxShadow = 'none' + '!important';
-      sizeOption.style.transform = 'none' + '!important';
-      
-      // Also set important via CSS variable
-      sizeOption.setAttribute('style', 
-        sizeOption.getAttribute('style') + 
-        '; background-color: #FFD700 !important; ' +
-        'color: #333 !important; font-weight: bold !important; ' +
-        'border: 1px solid #e6c200 !important; padding: 0.5rem 1rem !important; ' +
-        'border-radius: 5px !important; cursor: not-allowed !important;'
-      );
+      // Force yellow styling for low stock
+      sizeOption.classList.add('low-stock');
+      sizeOption.style.backgroundColor = '#FFD700';
+      sizeOption.style.color = '#333';
+      sizeOption.style.fontWeight = 'bold';
+      sizeOption.style.border = '1px solid #e6c200';
+      sizeOption.style.padding = '0.5rem 1rem';
+      sizeOption.style.borderRadius = '5px';
+      sizeOption.style.cursor = 'not-allowed';
+      sizeOption.style.boxShadow = 'none';
+      sizeOption.style.transform = 'none';
     } else if (isInStock) {
-      sizeOption.style.backgroundColor = '#e0e0e0';
+      // Blue styling for in-stock
+      sizeOption.classList.add('in-stock');
+      sizeOption.style.backgroundColor = '#e0e0e0'; // Default gray
       sizeOption.style.color = '#333';
       sizeOption.style.border = '1px solid #ddd';
       sizeOption.style.padding = '0.5rem 1rem';
       sizeOption.style.borderRadius = '5px';
       sizeOption.style.cursor = 'pointer';
     }
-
+    
     // Add click handler
     sizeOption.addEventListener('click', () => {
       if (isOutOfStock || isLowStock) return; // Prevent selection of non-in-stock
+      
+      // Remove selected class from all size options
       document.querySelectorAll('.size-option').forEach(opt => {
         opt.classList.remove('selected');
         // Reset any selected styling
@@ -994,19 +991,23 @@ function updateSizeOptions(type, color) {
         opt.style.color = '';
         opt.style.border = '';
       });
+      
+      // Select this option
       sizeOption.classList.add('selected');
+      
       // Apply selected style only to in-stock items
       if (isInStock) {
         sizeOption.style.backgroundColor = '#3498db';
         sizeOption.style.color = 'white';
         sizeOption.style.border = '1px solid #2980b9';
       }
+      
       updateOrderSummary();
     });
-
+    
     container.appendChild(sizeOption);
   });
-
+  
   // --- ADD LEGEND BELOW SIZE OPTIONS ---
   const legendContainer = document.createElement('div');
   legendContainer.className = 'size-legend';
@@ -1032,7 +1033,7 @@ function updateSizeOptions(type, color) {
   legendContainer.style.fontSize = '0.85rem';
   legendContainer.style.lineHeight = '1.6';
   container.appendChild(legendContainer);
-
+  
   // Auto-select first available (in-stock) size
   const firstAvailable = container.querySelector('.size-option:not(.disabled):not(.low-stock)');
   if (firstAvailable) {
