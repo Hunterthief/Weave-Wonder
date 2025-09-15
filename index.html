@@ -13,6 +13,24 @@
     <h1>Weave Wonder</h1>
     <p>Custom Designed Clothing for Every Style</p>
   </header>
+  <script>
+// Force all low-stock buttons to be yellow immediately after page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait a bit for elements to render
+  setTimeout(() => {
+    const lowStockButtons = document.querySelectorAll('.size-option.low-stock');
+    lowStockButtons.forEach(button => {
+      button.style.backgroundColor = '#FFD700 !important';
+      button.style.color = '#333 !important';
+      button.style.fontWeight = 'bold !important';
+      button.style.border = '1px solid #e6c200 !important';
+      button.style.padding = '0.5rem 1rem !important';
+      button.style.borderRadius = '5px !important';
+      button.style.cursor = 'not-allowed !important';
+    });
+  }, 100);
+});
+</script>
   <main class="container">
     <section id="design-submission" class="hidden">
       <h2>Create Your Custom Design</h2>
@@ -180,3 +198,4 @@
   <script src="js/download.js"></script>
 </body>
 </html>
+
