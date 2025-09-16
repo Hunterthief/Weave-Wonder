@@ -1,7 +1,7 @@
 emailjs.init("kMkCJJdFsA9rILDiO");
 
 // 🚀 Initialize Supabase — FIXED: NO TRAILING SPACE!
-const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co'; // ✅ Fixed
+const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
 
 // Create Supabase client
@@ -92,16 +92,16 @@ async function sendOrderEmail(data) {
     const totalPrice = (data.totalPrice != null ? parseFloat(data.totalPrice) : 0);
     const shippingCost = (data.shippingCost != null ? parseFloat(data.shippingCost) : 0);
 
-    // Default values for design previews
-    let frontPreviewHtml = 'No design uploaded';
-    let backPreviewHtml = 'No design uploaded';
+    // Default values for design links
+    let frontLinkHtml = 'No design uploaded';
+    let backLinkHtml = 'No design uploaded';
 
     // ✅ Handle front design
     if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
       const frontCompressed = await compressImage(data.front_design_url);
       const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
       if (frontUrl && frontUrl !== 'No design uploaded') {
-        frontPreviewHtml = `<img src="${frontUrl}" alt="Front Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`;
+        frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">View Front Design</a>`;
       }
     }
 
@@ -110,7 +110,7 @@ async function sendOrderEmail(data) {
       const backCompressed = await compressImage(data.back_design_url);
       const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
       if (backUrl && backUrl !== 'No design uploaded') {
-        backPreviewHtml = `<img src="${backUrl}" alt="Back Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`;
+        backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">View Back Design</a>`;
       }
     }
 
@@ -138,9 +138,9 @@ async function sendOrderEmail(data) {
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
 
-      // ✅ Pre-rendered HTML — template just displays it
-      front_design_preview: frontPreviewHtml,
-      back_design_preview: backPreviewHtml,
+      // ✅ Send clickable text links — NO IMAGE PREVIEWS
+      front_design_link: frontLinkHtml,
+      back_design_link: backLinkHtml,
 
       // Add warning if low stock size was selected
       warning_message: data.size && data.size.toLowerCase() !== data.size
