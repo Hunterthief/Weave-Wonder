@@ -103,8 +103,8 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 }
 
 /**
- * Generates a base64 data URL of the final mockup by calling the existing downloadPreview function.
- * This ensures perfect consistency with what the user sees.
+ * Generates a base64 data URL of the final mockup image by compositing the base product and user's design.
+ * This function no longer relies on an external `downloadPreview` function.
  * @param {string} side - 'front' or 'back'
  * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
  */
@@ -117,63 +117,99 @@ async function generateMockupFromDownloadPreview(side) {
     const designLayer = document.getElementById(layerId);
     const designImage = designLayer.querySelector('.design-image');
 
+    // If no design is uploaded, return early
     if (!designImage) {
       resolve('No design uploaded');
       return;
     }
 
-    // Save the original downloadPreview function if it exists
-    const originalDownloadPreview = window.downloadPreview;
-
-    // Override downloadPreview to capture the base64 data
-    window.downloadPreview = function(base64Data, filename) {
-      // Restore the original function immediately
-      if (originalDownloadPreview) {
-        window.downloadPreview = originalDownloadPreview;
-      }
-      // Resolve with the captured base64 data (THIS IS THE FIX)
-      resolve(base64Data);
-      // Do NOT trigger actual download
-    };
-
     // Get the base image
     const baseImage = viewContainer.querySelector('.base-image');
-    const boundary = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
-
-    // Get design image's current style and transform
-    const computedStyle = window.getComputedStyle(designImage);
-    const left = parseFloat(computedStyle.left) || 0;
-    const top = parseFloat(computedStyle.top) || 0;
-    let translateX = 0, translateY = 0;
-
-    const transform = computedStyle.transform;
-    if (transform && transform !== 'none') {
-      const matrix = new DOMMatrix(transform);
-      translateX = matrix.e;
-      translateY = matrix.f;
+    if (!baseImage) {
+      resolve('No design uploaded');
+      return;
     }
 
-    // Calculate final position
-    const finalX = left + translateX;
-    const finalY = top + translateY;
+    // Define the boundary (same as in script.js)
+    const boundary = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
 
-    // Get size
-    const width = parseFloat(designImage.style.width) || designImage.offsetWidth;
-    const height = parseFloat(designImage.style.height) || designImage.offsetHeight;
-
-    // Call downloadPreview with the captured parameters
-    downloadPreview(baseImage, designImage, finalX, finalY, width, height, boundary, `${side}-preview.jpg`);
-
-    // Fallback timeout
-    setTimeout(() => {
-      if (window.downloadPreview !== originalDownloadPreview) {
-        if (originalDownloadPreview) {
-          window.downloadPreview = originalDownloadPreview;
-        }
-        console.warn('Fallback: Mockup generation timed out.');
+    // Wait for the base image to load to get its natural dimensions
+    if (!baseImage.complete) {
+      baseImage.onload = () => {
+        generateCompositeImage();
+      };
+      baseImage.onerror = () => {
+        console.error('Failed to load base image for mockup generation.');
         resolve('No design uploaded');
+      };
+    } else {
+      generateCompositeImage();
+    }
+
+    function generateCompositeImage() {
+      // Create a canvas with the same dimensions as the base image
+      const canvas = document.createElement('canvas');
+      canvas.width = baseImage.naturalWidth;
+      canvas.height = baseImage.naturalHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Draw the base image
+      ctx.drawImage(baseImage, 0, 0);
+
+      // Get design image's current style and transform
+      const computedStyle = window.getComputedStyle(designImage);
+      const left = parseFloat(computedStyle.left) || 0;
+      const top = parseFloat(computedStyle.top) || 0;
+      let translateX = 0, translateY = 0;
+
+      const transform = computedStyle.transform;
+      if (transform && transform !== 'none') {
+        const matrix = new DOMMatrix(transform);
+        translateX = matrix.e;
+        translateY = matrix.f;
       }
-    }, 5000);
+
+      // Calculate final position on the design layer
+      const finalX = left + translateX;
+      const finalY = top + translateY;
+
+      // Get size
+      const width = parseFloat(designImage.style.width) || designImage.offsetWidth;
+      const height = parseFloat(designImage.style.height) || designImage.offsetHeight;
+
+      // Calculate the scale from the preview boundary to the actual base image
+      const scaleX = baseImage.naturalWidth / boundary.WIDTH;
+      const scaleY = baseImage.naturalHeight / boundary.HEIGHT;
+
+      // Calculate the actual position and size on the full-size base image
+      const actualX = (boundary.LEFT + finalX) * scaleX;
+      const actualY = (boundary.TOP + finalY) * scaleY;
+      const actualWidth = width * scaleX;
+      const actualHeight = height * scaleY;
+
+      // Wait for the design image to load
+      if (!designImage.complete) {
+        designImage.onload = () => {
+          drawDesignImage();
+        };
+        designImage.onerror = () => {
+          console.error('Failed to load design image for mockup generation.');
+          resolve('No design uploaded');
+        };
+      } else {
+        drawDesignImage();
+      }
+
+      function drawDesignImage() {
+        // Draw the design image onto the canvas
+        ctx.drawImage(designImage, actualX, actualY, actualWidth, actualHeight);
+
+        // Convert canvas to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+        resolve(dataUrl);
+      }
+    }
   });
 }
 
@@ -194,7 +230,7 @@ async function sendOrderEmail(data) {
     let frontSourceLinkHtml = 'No design uploaded';
     let backSourceLinkHtml = 'No design uploaded';
 
-    // ✅ Generate and handle front PRODUCT PREVIEW using the downloadPreview function
+    // ✅ Generate and handle front PRODUCT PREVIEW
     if (data.has_front_design) {
       const frontMockupUrl = await generateMockupFromDownloadPreview('front');
       if (frontMockupUrl && frontMockupUrl !== 'No design uploaded') {
@@ -206,7 +242,7 @@ async function sendOrderEmail(data) {
       }
     }
 
-    // ✅ Generate and handle back PRODUCT PREVIEW using the downloadPreview function
+    // ✅ Generate and handle back PRODUCT PREVIEW
     if (data.has_back_design) {
       const backMockupUrl = await generateMockupFromDownloadPreview('back');
       if (backMockupUrl && backMockupUrl !== 'No design uploaded') {
