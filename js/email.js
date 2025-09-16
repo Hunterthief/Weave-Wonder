@@ -103,46 +103,82 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 }
 
 /**
- * Generates a base64 data URL of the final mockup image by reading the preview container.
- * This function reads the image that script.js has already generated and displayed
- * in the #front-preview or #back-preview containers. This ensures 100% consistency
- * with what the user sees without any additional calculation.
+ * Generates a base64 data URL of the final mockup by calling the existing downloadPreview function in script.js.
+ * This ensures perfect consistency with what the user sees.
  * @param {string} side - 'front' or 'back'
  * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
  */
 async function generateMockupFromDownloadPreview(side) {
   return new Promise((resolve) => {
-    // Get the preview container for the specified side
-    const previewContainerId = side === 'front' ? 'front-preview' : 'back-preview';
-    const previewContainer = document.getElementById(previewContainerId);
+    const viewId = side === 'front' ? 'front-view' : 'back-view';
+    const layerId = side === 'front' ? 'front-layer' : 'back-layer';
 
-    // Check if the container exists and is not hidden (meaning a design is uploaded)
-    if (!previewContainer || previewContainer.classList.contains('hidden')) {
+    const viewContainer = document.getElementById(viewId);
+    const designLayer = document.getElementById(layerId);
+    const designImage = designLayer.querySelector('.design-image');
+
+    if (!designImage) {
       resolve('No design uploaded');
       return;
     }
 
-    // Get the preview image element inside the container
-    const previewImage = previewContainer.querySelector('.preview-image');
+    // Save the original downloadPreview function
+    const originalDownloadPreview = window.downloadPreview;
 
-    // If no image is found, return early
-    if (!previewImage) {
-      resolve('No design uploaded');
-      return;
+    // Override downloadPreview to capture the base64 data
+    window.downloadPreview = function(base64Data, filename) {
+      // Immediately restore the original function
+      if (originalDownloadPreview) {
+        window.downloadPreview = originalDownloadPreview;
+      }
+      // Resolve with the captured base64 data — DO NOT trigger download
+      resolve(base64Data);
+    };
+
+    // Get the base image
+    const baseImage = viewContainer.querySelector('.base-image');
+    const boundary = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
+
+    // Get design image's current style and transform
+    const computedStyle = window.getComputedStyle(designImage);
+    const left = parseFloat(computedStyle.left) || 0;
+    const top = parseFloat(computedStyle.top) || 0;
+    let translateX = 0, translateY = 0;
+
+    const transform = computedStyle.transform;
+    if (transform && transform !== 'none') {
+      const matrix = new DOMMatrix(transform);
+      translateX = matrix.e;
+      translateY = matrix.f;
     }
 
-    // Get the base64 data URL from the image's src attribute
-    const base64DataUrl = previewImage.src;
+    // Calculate final position
+    const finalX = left + translateX;
+    const finalY = top + translateY;
 
-    // Validate that it's a data URL
-    if (!base64DataUrl || !base64DataUrl.startsWith('data:image/')) {
-      console.error('Preview image src is not a valid data URL:', base64DataUrl);
+    // Get size
+    const width = parseFloat(designImage.style.width) || designImage.offsetWidth;
+    const height = parseFloat(designImage.style.height) || designImage.offsetHeight;
+
+    // ✅ Call the existing downloadPreview function from script.js
+    // This will now trigger our overridden version, which captures the data.
+    if (typeof window.downloadPreview === 'function') {
+      window.downloadPreview(baseImage, designImage, finalX, finalY, width, height, boundary, `${side}-preview.jpg`);
+    } else {
+      console.error('downloadPreview function is not defined in script.js');
       resolve('No design uploaded');
-      return;
     }
 
-    // Resolve with the base64 data URL
-    resolve(base64DataUrl);
+    // Fallback timeout
+    setTimeout(() => {
+      if (window.downloadPreview !== originalDownloadPreview) {
+        if (originalDownloadPreview) {
+          window.downloadPreview = originalDownloadPreview;
+        }
+        console.warn('Fallback: Mockup generation timed out.');
+        resolve('No design uploaded');
+      }
+    }, 5000);
   });
 }
 
@@ -163,7 +199,7 @@ async function sendOrderEmail(data) {
     let frontSourceLinkHtml = 'No design uploaded';
     let backSourceLinkHtml = 'No design uploaded';
 
-    // ✅ Generate and handle front PRODUCT PREVIEW
+    // ✅ Generate and handle front PRODUCT PREVIEW using the downloadPreview function
     if (data.has_front_design) {
       const frontMockupUrl = await generateMockupFromDownloadPreview('front');
       if (frontMockupUrl && frontMockupUrl !== 'No design uploaded') {
@@ -175,7 +211,7 @@ async function sendOrderEmail(data) {
       }
     }
 
-    // ✅ Generate and handle back PRODUCT PREVIEW
+    // ✅ Generate and handle back PRODUCT PREVIEW using the downloadPreview function
     if (data.has_back_design) {
       const backMockupUrl = await generateMockupFromDownloadPreview('back');
       if (backMockupUrl && backMockupUrl !== 'No design uploaded') {
@@ -188,6 +224,7 @@ async function sendOrderEmail(data) {
     }
 
     // ✅ Handle front SOURCE design (Raw Upload) - TEXT LINK ONLY
+    // This logic is untouched as requested.
     if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
       const frontSourceCompressed = await compressImage(data.front_design_url);
       const frontSourceUrl = await uploadImageToSupabase(frontSourceCompressed, 'front_source/');
@@ -197,6 +234,7 @@ async function sendOrderEmail(data) {
     }
 
     // ✅ Handle back SOURCE design (Raw Upload) - TEXT LINK ONLY
+    // This logic is untouched as requested.
     if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
       const backSourceCompressed = await compressImage(data.back_design_url);
       const backSourceUrl = await uploadImageToSupabase(backSourceCompressed, 'back_source/');
