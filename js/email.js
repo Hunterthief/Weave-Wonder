@@ -32,7 +32,7 @@ async function sendOrderEmail(data) {
 
     const response = await emailjs.send(
       "service_f0illrv",
-      "template_new_order_plain_v1", // ✅ NEW ID
+      "template_em0s82a", // ✅ NEW ID
       templateParams
     );
 
