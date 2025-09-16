@@ -1,6 +1,6 @@
 // EmailJS Configuration - Initialize with your public key
 // You need to set this up at https://www.emailjs.com/
-emailjs.init("vob8IbRr130DYlPqt"); // Your actual EmailJS public key
+emailjs.init("kMkCJJdFsA9rILDiO"); // Your actual EmailJS public key
 
 /**
  * Formats the order data into a clean HTML email template
