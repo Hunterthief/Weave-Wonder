@@ -834,15 +834,27 @@ function setupOrderForm() {
     productTypeSelect.dispatchEvent(new Event('change'));
   }
 
-  // Order form submission
-  document.getElementById('order-form').addEventListener('submit', (e) => {
+    // Order form submission
+  document.getElementById('order-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-
+    
     // Validate form
     if (!validateForm()) {
       return;
     }
-
+    
+    // Check if design is uploaded
+    const hasFrontDesign = document.getElementById('front-layer').querySelector('.design-image') !== null;
+    const hasBackDesign = document.getElementById('back-layer').querySelector('.design-image') !== null;
+    
+    // If no designs uploaded, show warning and ask for confirmation
+    if (!hasFrontDesign && !hasBackDesign) {
+      const confirmSubmit = await confirmNoDesignSubmission();
+      if (!confirmSubmit) {
+        return; // User cancelled submission
+      }
+    }
+    
     // Collect data
     const formData = {
       productType: productsConfig[productTypeSelect.value].name,
@@ -857,11 +869,27 @@ function setupOrderForm() {
       deliveryNotes: document.getElementById('delivery-notes').value,
       productPrice: parseFloat(productPriceElement.textContent),
       shippingCost: parseFloat(shippingCostElement.textContent),
-      totalPrice: parseFloat(totalPriceElement.textContent)
+      totalPrice: parseFloat(totalPriceElement.textContent),
+      hasFrontDesign: hasFrontDesign,
+      hasBackDesign: hasBackDesign,
+      frontDesignUrl: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
+      backDesignUrl: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
     };
-
+    
     // Send email
-    sendOrderEmail(formData);
+    const emailSent = await sendOrderEmail(formData);
+    
+    if (emailSent) {
+      // Show success message
+      alert('Thank you for your order! We will process it shortly.');
+      
+      // Reset form
+      document.getElementById('order-form').reset();
+      document.getElementById('product-type-order').dispatchEvent(new Event('change'));
+      
+      // Reset design area
+      resetDesign();
+    }
   });
 }
 
