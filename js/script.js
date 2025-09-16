@@ -857,24 +857,25 @@ function setupOrderForm() {
     }
     
     // Collect data
-    const formData = {
-  productType: productsConfig[productTypeSelect.value].name,
+   // ✅ NEW - snake_case — MATCHES YOUR EMAILJS TEMPLATE EXACTLY
+const formData = {
+  product_type: productsConfig[productTypeSelect.value].name,
   color: colorSelect.value,
   size: document.querySelector('.size-option.selected')?.textContent || '',
   quantity: parseInt(document.getElementById('quantity').value) || 1,
   name: document.getElementById('name').value,
   phone: document.getElementById('phone').value,
-  secondaryPhone: document.getElementById('secondary-phone').value,
+  secondary_phone: document.getElementById('secondary-phone').value || null, // 👈 Set to null if empty
   governorate: governorateSelect.value,
   address: document.getElementById('address').value,
-  deliveryNotes: document.getElementById('delivery-notes').value,
-  productPrice: parseFloat(productPriceElement.textContent),
-  shippingCost: parseFloat(shippingCostElement.textContent),
-  totalPrice: parseFloat(totalPriceElement.textContent),
-  hasFrontDesign: hasFrontDesign,
-  hasBackDesign: hasBackDesign,
-  frontDesignUrl: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
-  backDesignUrl: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
+  delivery_notes: document.getElementById('delivery-notes').value || null, // 👈 Set to null if empty
+  product_price: parseFloat(productPriceElement.textContent),
+  shipping_cost: parseFloat(shippingCostElement.textContent),
+  total_price: parseFloat(totalPriceElement.textContent),
+  has_front_design: hasFrontDesign,
+  has_back_design: hasBackDesign,
+  front_design_url: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
+  back_design_url: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
 };
     
     // Send email (defined in email.js)
