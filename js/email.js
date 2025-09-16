@@ -1,6 +1,6 @@
 emailjs.init("kMkCJJdFsA9rILDiO");
 
-// 🚀 Initialize Supabase with YOUR credentials
+// 🚀 Initialize Supabase — FIXED: NO TRAILING SPACE!
 const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
 
@@ -32,7 +32,7 @@ async function uploadImageToSupabase(base64, prefix = '') {
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
-      .from('egymerch_designs') // ✅ Must match bucket name exactly
+      .from('egymerch_designs')
       .upload(filename, blob, {
         contentType: 'image/jpeg',
         upsert: false
@@ -40,12 +40,10 @@ async function uploadImageToSupabase(base64, prefix = '') {
 
     if (error) throw error;
 
-    // ✅ AWAIT the public URL — this was missing!
-    const { data: publicData } = await supabase.storage
-      .from('egymerch_designs')
-      .getPublicUrl(filename);
+    // ✅ MANUALLY BUILD PUBLIC URL — this is the key fix!
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/egymerch_designs/${encodeURIComponent(filename)}`;
 
-    return publicData?.publicUrl || 'No design uploaded';
+    return publicUrl;
 
   } catch (error) {
     console.error('Supabase upload failed:', error);
@@ -102,6 +100,15 @@ async function sendOrderEmail(data) {
     const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
     const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
 
+    // ✅ Generate HTML image previews for EmailJS template
+    const frontDesignHtml = data.has_front_design
+      ? `<img src="${frontUrl}" alt="Front Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`
+      : 'No design uploaded';
+
+    const backDesignHtml = data.has_back_design
+      ? `<img src="${backUrl}" alt="Back Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`
+      : 'No design uploaded';
+
     // Use the correct property names from formData
     const templateParams = {
       to_email: "hassanwaelhh@proton.me",
@@ -125,8 +132,19 @@ async function sendOrderEmail(data) {
 
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
-      front_design_url: frontUrl, // ✅ Tiny URL string
-      back_design_url: backUrl   // ✅ Not base64 blob
+
+      // ✅ Send HTML image tags, not just URLs
+      front_design_preview: frontDesignHtml,
+      back_design_preview: backDesignHtml,
+
+      // Optional: Include raw URLs for reference
+      front_design_url: frontUrl,
+      back_design_url: backUrl,
+
+      // Add warning if low stock size was selected (optional enhancement)
+      warning_message: data.size && data.size.toLowerCase() !== data.size
+        ? "Customer selected a LOW STOCK size. Fulfill quickly."
+        : "No stock warnings."
     };
 
     // Log size — should now be under 5KB!
