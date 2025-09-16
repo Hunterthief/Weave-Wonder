@@ -1,161 +1,168 @@
 // EmailJS Configuration - Initialize with your public key
-emailjs.init("kMkCJJdFsA9rILDiO");
+// You need to set this up at https://www.emailjs.com/
+emailjs.init("vob8IbRr130DYlPqt"); // Your actual EmailJS public key
 
 /**
- * Compresses an image to reduce file size while maintaining quality
- * @param {string} base64Image - Base64 string of the image
- * @param {number} maxWidth - Maximum width (default: 800)
- * @param {number} quality - JPEG quality 0-1 (default: 0.7)
- * @returns {Promise<string>} - Compressed Base64 image string
+ * Formats the order data into a clean HTML email template
+ * @param {Object} data - Order data object
+ * @returns {string} - Formatted HTML email content
  */
-async function compressImage(base64Image, maxWidth = 800, quality = 0.7) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = function() {
-      // Calculate new dimensions while preserving aspect ratio
-      let width = img.width;
-      let height = img.height;
-      if (width > maxWidth) {
-        height = (height * maxWidth) / width;
-        width = maxWidth;
-      }
+function formatOrderEmail(data) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Order - Weave Wonder</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2c3e50; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { padding: 20px; background-color: #f8f9fa; }
+            .section { margin-bottom: 20px; }
+            .section h3 { color: #2c3e50; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+            .item { display: flex; justify-content: space-between; margin: 10px 0; }
+            .label { font-weight: 600; }
+            .value { color: #555; }
+            .warning { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 0 4px 4px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 0.9em; }
+            .product-image { max-width: 150px; height: auto; margin: 10px 0; border: 1px solid #ddd; }
+            .highlight { background-color: #e3f2fd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Weave Wonder</h1>
+                <p>New Order Received</p>
+            </div>
+            
+            <div class="content">
+                <div class="section">
+                    <h3>Customer Information</h3>
+                    <div class="item"><span class="label">Name:</span> <span class="value">${data.name}</span></div>
+                    <div class="item"><span class="label">Phone:</span> <span class="value">${data.phone}</span></div>
+                    ${data.secondaryPhone ? `<div class="item"><span class="label">Secondary Phone:</span> <span class="value">${data.secondaryPhone}</span></div>` : ''}
+                    <div class="item"><span class="label">Governorate:</span> <span class="value">${data.governorate}</span></div>
+                    <div class="item"><span class="label">Address:</span> <span class="value">${data.address}</span></div>
+                    ${data.deliveryNotes ? `<div class="item"><span class="label">Delivery Notes:</span> <span class="value">${data.deliveryNotes}</span></div>` : ''}
+                </div>
+                
+                <div class="section">
+                    <h3>Order Details</h3>
+                    <div class="item"><span class="label">Product:</span> <span class="value">${data.productType}</span></div>
+                    <div class="item"><span class="label">Color:</span> <span class="value">${data.color || 'Not specified'}</span></div>
+                    <div class="item"><span class="label">Size:</span> <span class="value">${data.size || 'Not selected'}</span></div>
+                    <div class="item"><span class="label">Quantity:</span> <span class="value">${data.quantity}</span></div>
+                </div>
+                
+                <div class="section">
+                    <h3>Payment Summary</h3>
+                    <div class="item"><span class="label">Product Price:</span> <span class="value">${data.productPrice.toFixed(2)} EGP</span></div>
+                    <div class="item"><span class="label">Shipping Cost:</span> <span class="value">${data.shippingCost.toFixed(2)} EGP</span></div>
+                    <div class="item"><span class="label" style="font-size: 1.1em;">Total:</span> <span class="value" style="font-size: 1.1em; color: #e74c3c;">${data.totalPrice.toFixed(2)} EGP</span></div>
+                </div>
+                
+                <div class="section">
+                    <h3>Design Information</h3>
+                    ${data.hasFrontDesign ? `
+                        <div class="highlight">
+                            <strong>Front Design:</strong> Uploaded
+                            <img src="${data.frontDesignUrl}" alt="Front Design" class="product-image">
+                        </div>
+                    ` : '<p>No front design uploaded.</p>'}
+                    
+                    ${data.hasBackDesign ? `
+                        <div class="highlight">
+                            <strong>Back Design:</strong> Uploaded
+                            <img src="${data.backDesignUrl}" alt="Back Design" class="product-image">
+                        </div>
+                    ` : '<p>No back design uploaded.</p>'}
 
-      // Create canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-
-      // Draw image to canvas
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Convert to compressed JPEG
-      let compressedBase64;
-      if (base64Image.includes('image/png') || base64Image.includes('image/webp')) {
-        compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-      } else {
-        compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-      }
-
-      resolve(compressedBase64);
-    };
-    img.src = base64Image;
-  });
+                    ${!data.hasFrontDesign && !data.hasBackDesign ? `
+                        <div class="warning">
+                            <strong>⚠️ Warning:</strong> No designs were uploaded for this order. 
+                            The product will be printed without any custom design unless the customer uploads one later.
+                            Please contact the customer to confirm if they want a plain product.
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="footer">
+                    <p>This email was generated automatically by Weave Wonder's ordering system.</p>
+                    <p>&copy; 2025 Weave Wonder. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+  `;
 }
 
 /**
- * Enhanced version of sendOrderEmail that attaches compressed design images directly
- * @param {Object} data - Order data object from script.js
- * @returns {Promise<boolean>} - Resolves to true if email sent successfully
+ * Sends an order email using EmailJS
+ * @param {Object} data - Order data object
+ * @returns {Promise} - Promise that resolves when email is sent
  */
 async function sendOrderEmail(data) {
   try {
-    // Clone data to avoid mutating original
-    const emailData = { ...data };
-
-    // Check if any designs are uploaded
-    const hasAnyDesign = emailData.has_front_design || emailData.has_back_design;
+    // Format the email content
+    const emailContent = formatOrderEmail(data);
     
-    // If no designs are uploaded, warn the user
-    if (!hasAnyDesign) {
-      const confirmed = confirm(
-        "⚠️ WARNING: You haven't uploaded any designs.\n\n" +
-        "The product will be printed as a plain item with no custom designs.\n\n" +
-        "Are you sure you want to proceed with a plain product?"
-      );
-      
-      if (!confirmed) {
-        return false; // Cancel order if user doesn't confirm
-      }
-    }
-
-    // Prepare attachments object
-    const attachments = {};
-
-    // Process front design
-    if (emailData.has_front_design && emailData.front_design_url?.startsWith('data:')) {
-      console.log('Compressing front design...');
-      const compressedImg = await compressImage(emailData.front_design_url, 800, 0.7);
-      attachments.front_design = compressedImg;
-      console.log('✅ Front design compressed and attached');
-    }
-
-    // Process back design
-    if (emailData.has_back_design && emailData.back_design_url?.startsWith('data:')) {
-      console.log('Compressing back design...');
-      const compressedImg = await compressImage(emailData.back_design_url, 800, 0.7);
-      attachments.back_design = compressedImg;
-      console.log('✅ Back design compressed and attached');
-    }
-
-    // Prepare template parameters — match your EmailJS template
+    // Prepare EmailJS parameters
     const templateParams = {
-      to_email: "hassanwaelhh@proton.me",
-      from_name: emailData.name,
-      subject: `New Order - ${emailData.productType}`,
-
-      customer_name: emailData.name,
-      phone: emailData.phone,
-      secondary_phone: emailData.secondaryPhone || 'Not provided',
-      governorate: emailData.governorate,
-      address: emailData.address,
-      delivery_notes: emailData.deliveryNotes || 'Not provided',
-
-      product_type: emailData.productType,
-      color: emailData.color || 'Not specified',
-      size: emailData.size || 'Not selected',
-      quantity: emailData.quantity,
-
-      total_price: (emailData.totalPrice || 0).toFixed(2),
-      shipping_cost: (emailData.shippingCost || 0).toFixed(2),
-
-      has_front_design: emailData.has_front_design ? 'Yes' : 'No',
-      has_back_design: emailData.has_back_design ? 'Yes' : 'No',
-      front_design_url: emailData.has_front_design ? 'See attached file: front_design.jpg' : 'No design uploaded',
-      back_design_url: emailData.has_back_design ? 'See attached file: back_design.jpg' : 'No design uploaded'
+      to_email: "hassanwaelhh@proton.me", // Your email address
+      from_name: data.name,
+      from_email: "noreply@weavewonder.com",
+      subject: `New Order - ${data.productType}`,
+      message_html: emailContent,
+      product_type: data.productType,
+      color: data.color,
+      size: data.size,
+      quantity: data.quantity,
+      total_price: data.totalPrice.toFixed(2),
+      customer_name: data.name,
+      phone: data.phone,
+      governorate: data.governorate,
+      address: data.address,
+      delivery_notes: data.deliveryNotes,
+      has_front_design: data.hasFrontDesign ? 'Yes' : 'No',
+      has_back_design: data.hasBackDesign ? 'Yes' : 'No'
     };
-
-    console.log('Sending final template params:', templateParams);
-
-    // Send email with attachments
+    
+    // Send email using EmailJS
     const response = await emailjs.send(
-      "service_f0illrv",
-      "template_em0s82a",
-      templateParams,
-      {
-        attachments: attachments
-      }
+      "service_f0illrv", // Your EmailJS service ID
+      "template_em0s82a", // Your EmailJS template ID
+      templateParams
     );
-
-    console.log('✅ Email sent successfully:', response.status, response.text);
     
-    // Show success message to user
-    if (hasAnyDesign) {
-      alert('Order submitted successfully! We will contact you soon. Your design files have been sent to our team.');
-    } else {
-      alert('Order submitted successfully! Your plain product will be prepared without any designs.');
-    }
-    
-    // Reset form
-    document.getElementById('order-form').reset();
-    document.getElementById('product-type-order').dispatchEvent(new Event('change'));
-    
+    console.log('Email sent successfully:', response.status, response.text);
     return true;
-
+    
   } catch (error) {
-    console.error('❌ Failed to send email:', error);
-    alert('There was an error sending your order. Please contact support or try again later.');
+    console.error('Failed to send email:', error);
+    alert('There was an error sending your order. Please contact support.');
     return false;
   }
 }
 
+/**
+ * Validates if the user has uploaded at least one design
+ * @returns {boolean} - True if at least one design is uploaded
+ */
 function hasDesignUploaded() {
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
-  return frontLayer?.querySelector('.design-image') !== null ||
-         backLayer?.querySelector('.design-image') !== null;
+  return frontLayer.querySelector('.design-image') !== null || 
+         backLayer.querySelector('.design-image') !== null;
 }
 
+/**
+ * Shows a confirmation dialog when user tries to submit without designs
+ * @returns {Promise<boolean>} - Resolves to true if user confirms submission
+ */
 function confirmNoDesignSubmission() {
   return new Promise((resolve) => {
     const confirmed = confirm(
@@ -167,9 +174,11 @@ function confirmNoDesignSubmission() {
   });
 }
 
+// Export functions for use in other files
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     sendOrderEmail,
+    formatOrderEmail,
     hasDesignUploaded,
     confirmNoDesignSubmission
   };
