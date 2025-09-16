@@ -274,15 +274,20 @@ const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', () => {
+  // Setup design submission
   setupDesignSubmission();
+  // Setup order form
   setupOrderForm();
 });
 
 function setupDesignSubmission() {
+  // Product type selection
   const productTypeSelect = document.getElementById('product-type');
   const colorOptionsContainer = document.getElementById('color-options');
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
+  const frontView = document.getElementById('front-view');
+  const backView = document.getElementById('back-view');
   const frontPreview = document.getElementById('front-preview');
   const backPreview = document.getElementById('back-preview');
 
@@ -293,6 +298,7 @@ function setupDesignSubmission() {
   productTypeSelect.addEventListener('change', (e) => {
     const newProductType = e.target.value;
     updateColorOptions(newProductType);
+    // Only update the base images, don't reset the design
     updateProductImage(document.querySelector('.color-option.selected')?.dataset.color);
   });
 
@@ -305,274 +311,338 @@ function setupDesignSubmission() {
     }
   });
 
-  // Front design upload — NO IMGUR HERE — USE FILE READER AS BEFORE
+  // Front design upload
   document.getElementById('front-design').addEventListener('change', (e) => {
-    if (!e.target.files.length) return;
+    if (e.target.files.length) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        // Clear existing design
+        frontLayer.innerHTML = '';
 
-    const file = e.target.files[0];
-    const reader = new FileReader();
+        // Create design image
+const img = document.createElement('img');
+img.src = event.target.result;
+img.className = 'design-image';
+img.draggable = true;
 
-    reader.onload = (event) => {
-      // Clear existing design
-      frontLayer.innerHTML = '';
+// Wait for image to load to get natural dimensions
+img.onload = function() {
+  const naturalWidth = img.naturalWidth;
+  const naturalHeight = img.naturalHeight;
+  const layerWidth = BOUNDARY.WIDTH;   // 150
+  const layerHeight = BOUNDARY.HEIGHT; // 150
 
-      // Create design image
-      const img = document.createElement('img');
-      img.src = event.target.result;
-      img.className = 'design-image';
-      img.draggable = true;
+  // Calculate scale to fit inside boundary while preserving aspect ratio
+  const scale = Math.min(layerWidth / naturalWidth, layerHeight / naturalHeight);
+  const width = naturalWidth * scale;
+  const height = naturalHeight * scale;
 
-      // Wait for image to load to get natural dimensions
-      img.onload = function() {
-        const naturalWidth = img.naturalWidth;
-        const naturalHeight = img.naturalHeight;
-        const layerWidth = BOUNDARY.WIDTH;
-        const layerHeight = BOUNDARY.HEIGHT;
-        const scale = Math.min(layerWidth / naturalWidth, layerHeight / naturalHeight);
-        const width = naturalWidth * scale;
-        const height = naturalHeight * scale;
-        const left = (layerWidth - width) / 2;
-        const top = (layerHeight - height) / 2;
+  // Center the image in the layer
+  const left = (layerWidth - width) / 2;
+  const top = (layerHeight - height) / 2;
 
-        img.style.width = width + 'px';
-        img.style.height = height + 'px';
-        img.style.position = 'absolute';
-        img.style.top = top + 'px';
-        img.style.left = left + 'px';
-        img.setAttribute('data-original-width', naturalWidth);
-        img.setAttribute('data-original-height', naturalHeight);
-      };
+  // Apply size and position — NO stretching!
+  img.style.width = width + 'px';
+  img.style.height = height + 'px';
+  img.style.position = 'absolute';
+  img.style.top = top + 'px';
+  img.style.left = left + 'px';
+  img.style.transform = 'translate(0, 0)';
 
-      frontLayer.appendChild(img);
+  // Store original dimensions for later use in resizable()
+  img.setAttribute('data-original-width', naturalWidth);
+  img.setAttribute('data-original-height', naturalHeight);
+};
 
-      // Show preview
-      frontPreview.innerHTML = '';
-      frontPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
-      frontPreview.classList.remove('hidden');
+// Add to layer
+frontLayer.appendChild(img); // or backLayer.appendChild(img);
 
-      // Add boundary buttons
-      addBoundaryButtons(frontLayer);
+        // Add to layer
+        frontLayer.appendChild(img);
 
-      // Make draggable and resizable
-      interact('.design-image').draggable({
-        inertia: true,
-        modifiers: [
-          interact.modifiers.restrictRect({
-            restriction: {
-              top: 0,
-              left: 0,
-              width: BOUNDARY.WIDTH,
-              height: BOUNDARY.HEIGHT
+        // Show preview
+        frontPreview.innerHTML = '';
+        frontPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
+        frontPreview.classList.remove('hidden');
+
+        // Add boundary buttons
+        addBoundaryButtons(frontLayer);
+
+        // Make draggable and resizable with boundaries
+        interact('.design-image').draggable({
+          inertia: true,
+          modifiers: [
+            interact.modifiers.restrictRect({
+              restriction: {
+                top: 0,
+                left: 0,
+                width: BOUNDARY.WIDTH,
+                height: BOUNDARY.HEIGHT
+              },
+              endOnly: true
+            })
+          ],
+          listeners: {
+            // ✅ Set initial offset when drag starts
+            start: function (event) {
+              const target = event.target;
+              const rect = target.getBoundingClientRect();
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Calculate how far the click was from the top-left of the image
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
             },
-            endOnly: true
-          })
-        ],
-        listeners: {
-          start: function (event) {
-            const target = event.target;
-            const rect = target.getBoundingClientRect();
-            const offsetX = event.clientX - rect.left;
-            const offsetY = event.clientY - rect.top;
-            target.setAttribute('data-offset-x', offsetX);
-            target.setAttribute('data-offset-y', offsetY);
-          },
-          move: function (event) {
-            const target = event.target;
-            const layer = target.closest('.design-layer');
-            const layerRect = layer.getBoundingClientRect();
-            const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
-            const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-            const x = event.clientX - layerRect.left - offsetX;
-            const y = event.clientY - layerRect.top - offsetY;
-            target.style.transform = `translate(${x}px, ${y}px)`;
-            target.setAttribute('data-x', x);
-            target.setAttribute('data-y', y);
-          }
-        }
-      });
 
-      interact('.design-image').resizable({
-        edges: { left: true, right: true, top: true, bottom: true },
-        modifiers: [
-          interact.modifiers.restrictSize({
-            restriction: {
-              min: { width: 50, height: 50 },
-              max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
+            // ✅ Use offset to drag smoothly — no more jumping!
+            move: function (event) {
+              const target = event.target;
+              const layer = target.closest('.design-layer');
+              const layerRect = layer.getBoundingClientRect();
+
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Get saved offset
+              const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
+              const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
+
+              // Calculate position relative to layer's top-left
+              const x = clientX - layerRect.left - offsetX;
+              const y = clientY - layerRect.top - offsetY;
+
+              // Apply transform — THIS IS WHAT download.js WILL READ
+              target.style.transform = `translate(${x}px, ${y}px)`;
+
+              // Store for debugging (optional)
+              target.setAttribute('data-x', x);
+              target.setAttribute('data-y', y);
             }
-          })
-        ],
-        listeners: {
-          start: function (event) {
-            const target = event.target;
-            const naturalWidth = parseFloat(target.getAttribute('data-original-width')) || target.offsetWidth;
-            const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
-            const aspectRatio = naturalWidth / naturalHeight;
-            target.setAttribute('data-aspect-ratio', aspectRatio);
-          },
-          move: function (event) {
-            const target = event.target;
-            let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
-            let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
-            width += event.deltaRect.width;
-            height += event.deltaRect.height;
-            const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
-            if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
-              height = width / aspectRatio;
-            } else {
-              width = height * aspectRatio;
-            }
-            width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
-            height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
-            target.style.width = width + 'px';
-            target.style.height = height + 'px';
-            target.setAttribute('data-width', width);
-            target.setAttribute('data-height', height);
           }
-        }
-      });
+        });
 
-      interact('.design-image').on('resizeend', (event) => {
-        const target = event.target;
-        target.style.transform = 'none';
-      });
+        interact('.design-image').resizable({
+  edges: { left: true, right: true, top: true, bottom: true },
+  modifiers: [
+    interact.modifiers.restrictSize({
+      restriction: {
+        min: { width: 50, height: 50 },
+        max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
+      }
+    })
+  ],
+  listeners: {
+    // Store original dimensions on resize start
+    start: function (event) {
+      const target = event.target;
+      const naturalWidth = parseFloat(target.getAttribute('data-original-width')) || target.offsetWidth;
+      const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
+      const aspectRatio = naturalWidth / naturalHeight;
+      target.setAttribute('data-aspect-ratio', aspectRatio);
+    },
 
-      updateOrderSummary();
-    };
-    reader.readAsDataURL(file);
+    // Maintain aspect ratio during resize
+    move: function (event) {
+      const target = event.target;
+      let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
+      let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
+
+      // Apply delta
+      width += event.deltaRect.width;
+      height += event.deltaRect.height;
+
+      // Get stored aspect ratio
+      const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
+
+      // If resizing from left/right (horizontal), adjust height proportionally
+      if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
+        // Width changed more → base height on width
+        height = width / aspectRatio;
+      } else {
+        // Height changed more → base width on height
+        width = height * aspectRatio;
+      }
+
+      // Enforce min/max boundaries
+      width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
+      height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
+
+      // Apply new size
+      target.style.width = width + 'px';
+      target.style.height = height + 'px';
+      target.setAttribute('data-width', width);
+      target.setAttribute('data-height', height);
+    }
+  }
+});
+
+        interact('.design-image').on('resizeend', (event) => {
+          const target = event.target;
+          target.style.transform = 'none';
+        });
+         updateOrderSummary();
+      };
+      reader.readAsDataURL(file);
+    }
   });
 
-  // Back design upload — NO IMGUR HERE — USE FILE READER AS BEFORE
+  // Back design upload
   document.getElementById('back-design').addEventListener('change', (e) => {
-    if (!e.target.files.length) return;
+    if (e.target.files.length) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        // Clear existing design
+        backLayer.innerHTML = '';
 
-    const file = e.target.files[0];
-    const reader = new FileReader();
+        // Create design image
+        const img = document.createElement('img');
+        img.src = event.target.result;
+        img.className = 'design-image';
+        img.draggable = true;
 
-    reader.onload = (event) => {
-      // Clear existing design
-      backLayer.innerHTML = '';
-
-      const img = document.createElement('img');
-      img.src = event.target.result;
-      img.className = 'design-image';
-      img.draggable = true;
-
-      img.onload = function() {
-        const naturalWidth = img.naturalWidth;
-        const naturalHeight = img.naturalHeight;
-        const layerWidth = BOUNDARY.WIDTH;
-        const layerHeight = BOUNDARY.HEIGHT;
-        const scale = Math.min(layerWidth / naturalWidth, layerHeight / naturalHeight);
-        const width = naturalWidth * scale;
-        const height = naturalHeight * scale;
-        const left = (layerWidth - width) / 2;
-        const top = (layerHeight - height) / 2;
-
-        img.style.width = width + 'px';
-        img.style.height = height + 'px';
+        // Set initial position and reset transform
         img.style.position = 'absolute';
-        img.style.top = top + 'px';
-        img.style.left = left + 'px';
-        img.setAttribute('data-original-width', naturalWidth);
-        img.setAttribute('data-original-height', naturalHeight);
-      };
+        img.style.top = '0';
+        img.style.left = '0';
+        img.style.transform = 'none';
 
-      backLayer.appendChild(img);
+        // Add to layer
+        backLayer.appendChild(img);
 
-      // Show preview
-      backPreview.innerHTML = '';
-      backPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
-      backPreview.classList.remove('hidden');
+        // Show preview
+        backPreview.innerHTML = '';
+        backPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
+        backPreview.classList.remove('hidden');
 
-      // Add boundary buttons
-      addBoundaryButtons(backLayer);
+        // Add boundary buttons
+        addBoundaryButtons(backLayer);
 
-      // Make draggable and resizable
-      interact('.design-image').draggable({
-        inertia: true,
-        modifiers: [
-          interact.modifiers.restrictRect({
-            restriction: {
-              top: 0,
-              left: 0,
-              width: BOUNDARY.WIDTH,
-              height: BOUNDARY.HEIGHT
+        // Make draggable and resizable with boundaries
+        interact('.design-image').draggable({
+          inertia: true,
+          modifiers: [
+            interact.modifiers.restrictRect({
+              restriction: {
+                top: 0,
+                left: 0,
+                width: BOUNDARY.WIDTH,
+                height: BOUNDARY.HEIGHT
+              },
+              endOnly: true
+            })
+          ],
+          listeners: {
+            // ✅ Set initial offset when drag starts
+            start: function (event) {
+              const target = event.target;
+              const rect = target.getBoundingClientRect();
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Calculate how far the click was from the top-left of the image
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
             },
-            endOnly: true
-          })
-        ],
-        listeners: {
-          start: function (event) {
-            const target = event.target;
-            const rect = target.getBoundingClientRect();
-            const offsetX = event.clientX - rect.left;
-            const offsetY = event.clientY - rect.top;
-            target.setAttribute('data-offset-x', offsetX);
-            target.setAttribute('data-offset-y', offsetY);
-          },
-          move: function (event) {
-            const target = event.target;
-            const layer = target.closest('.design-layer');
-            const layerRect = layer.getBoundingClientRect();
-            const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
-            const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-            const x = event.clientX - layerRect.left - offsetX;
-            const y = event.clientY - layerRect.top - offsetY;
-            target.style.transform = `translate(${x}px, ${y}px)`;
-            target.setAttribute('data-x', x);
-            target.setAttribute('data-y', y);
-          }
-        }
-      });
 
-      interact('.design-image').resizable({
-        edges: { left: true, right: true, top: true, bottom: true },
-        modifiers: [
-          interact.modifiers.restrictSize({
-            restriction: {
-              min: { width: 50, height: 50 },
-              max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
+            // ✅ Use offset to drag smoothly — no more jumping!
+            move: function (event) {
+              const target = event.target;
+              const layer = target.closest('.design-layer');
+              const layerRect = layer.getBoundingClientRect();
+
+              const clientX = event.clientX;
+              const clientY = event.clientY;
+
+              // Get saved offset
+              const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
+              const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
+
+              // Calculate position relative to layer's top-left
+              const x = clientX - layerRect.left - offsetX;
+              const y = clientY - layerRect.top - offsetY;
+
+              // Apply transform — THIS IS WHAT download.js WILL READ
+              target.style.transform = `translate(${x}px, ${y}px)`;
+
+              // Store for debugging (optional)
+              target.setAttribute('data-x', x);
+              target.setAttribute('data-y', y);
             }
-          })
-        ],
-        listeners: {
-          start: function (event) {
-            const target = event.target;
-            const naturalWidth = parseFloat(target.getAttribute('data-original-width')) || target.offsetWidth;
-            const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
-            const aspectRatio = naturalWidth / naturalHeight;
-            target.setAttribute('data-aspect-ratio', aspectRatio);
-          },
-          move: function (event) {
-            const target = event.target;
-            let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
-            let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
-            width += event.deltaRect.width;
-            height += event.deltaRect.height;
-            const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
-            if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
-              height = width / aspectRatio;
-            } else {
-              width = height * aspectRatio;
-            }
-            width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
-            height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
-            target.style.width = width + 'px';
-            target.style.height = height + 'px';
-            target.setAttribute('data-width', width);
-            target.setAttribute('data-height', height);
           }
-        }
-      });
+        });
 
-      interact('.design-image').on('resizeend', (event) => {
-        const target = event.target;
-        target.style.transform = 'none';
-      });
+        interact('.design-image').resizable({
+  edges: { left: true, right: true, top: true, bottom: true },
+  modifiers: [
+    interact.modifiers.restrictSize({
+      restriction: {
+        min: { width: 50, height: 50 },
+        max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
+      }
+    })
+  ],
+  listeners: {
+    // Store original dimensions on resize start
+    start: function (event) {
+      const target = event.target;
+      const naturalWidth = target.naturalWidth || target.offsetWidth;
+      const naturalHeight = target.naturalHeight || target.offsetHeight;
+      const aspectRatio = naturalWidth / naturalHeight;
+      target.setAttribute('data-aspect-ratio', aspectRatio);
+    },
 
-      updateOrderSummary();
-    };
-    reader.readAsDataURL(file);
+    // Maintain aspect ratio during resize
+    move: function (event) {
+      const target = event.target;
+      let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
+      let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
+
+      // Apply delta
+      width += event.deltaRect.width;
+      height += event.deltaRect.height;
+
+      // Get stored aspect ratio
+      const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
+
+      // If resizing from left/right (horizontal), adjust height proportionally
+      if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
+        // Width changed more → base height on width
+        height = width / aspectRatio;
+      } else {
+        // Height changed more → base width on height
+        width = height * aspectRatio;
+      }
+
+      // Enforce min/max boundaries
+      width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
+      height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
+
+      // Apply new size
+      target.style.width = width + 'px';
+      target.style.height = height + 'px';
+      target.setAttribute('data-width', width);
+      target.setAttribute('data-height', height);
+    }
+  }
+});
+
+        interact('.design-image').on('resizeend', (event) => {
+          const target = event.target;
+          target.style.transform = 'none';
+        });
+        updateOrderSummary();
+      };
+      reader.readAsDataURL(file);
+    }
   });
 }
 
@@ -581,6 +651,7 @@ function updateColorOptions(productType) {
   container.innerHTML = '';
   const config = productsConfig[productType];
   if (!config) return;
+
   Object.keys(config.colors).forEach(color => {
     const colorOption = document.createElement('div');
     colorOption.className = 'color-option';
@@ -596,6 +667,8 @@ function updateColorOptions(productType) {
                                       color === 'magenta' ? '#FF00FF' : '#000';
     container.appendChild(colorOption);
   });
+
+  // Select first color by default
   if (container.children.length > 0) {
     container.children[0].classList.add('selected');
     updateProductImage(container.children[0].dataset.color);
@@ -606,8 +679,10 @@ function updateProductImage(color) {
   const productType = document.getElementById('product-type').value;
   const config = productsConfig[productType];
   if (!config || !config.colors[color]) return;
+
   const frontImageSrc = config.colors[color].frontImage;
   const backImageSrc = config.colors[color].backImage;
+
   document.getElementById('front-view').querySelector('.base-image').src = frontImageSrc;
   document.getElementById('back-view').querySelector('.base-image').src = backImageSrc;
 }
@@ -617,19 +692,24 @@ function resetDesign() {
   const backLayer = document.getElementById('back-layer');
   const frontPreview = document.getElementById('front-preview');
   const backPreview = document.getElementById('back-preview');
+
   frontLayer.innerHTML = '';
   backLayer.innerHTML = '';
   frontPreview.innerHTML = '';
   backPreview.innerHTML = '';
   frontPreview.classList.add('hidden');
   backPreview.classList.add('hidden');
+
+  // Remove boundary buttons
   document.querySelectorAll('.boundary-button').forEach(btn => btn.remove());
 }
 
 function addBoundaryButtons(layer) {
+  // Remove existing buttons
   const existingButtons = layer.querySelectorAll('.boundary-button');
   existingButtons.forEach(btn => btn.remove());
 
+  // Create new buttons
   const buttons = [
     { className: 'top-button', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>' },
     { className: 'right-button', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>' },
@@ -644,6 +724,7 @@ function addBoundaryButtons(layer) {
     button.addEventListener('click', () => {
       const img = layer.querySelector('.design-image');
       if (!img) return;
+
       switch(btn.className) {
         case 'top-button':
           centerDesignVertically(layer, img);
@@ -704,6 +785,8 @@ function setupOrderForm() {
   productTypeSelect.addEventListener('change', (e) => {
     const type = e.target.value;
     if (!type) return;
+
+    // Update color options
     colorSelect.innerHTML = '<option value="">Select Color</option>';
     const config = productsConfig[type];
     Object.keys(config.colors).forEach(color => {
@@ -712,8 +795,14 @@ function setupOrderForm() {
       option.textContent = color.charAt(0).toUpperCase() + color.slice(1);
       colorSelect.appendChild(option);
     });
+
+    // Update size chart image
     sizeChartImg.src = config.sizeChart;
+
+    // Add quantity input listener
     document.getElementById('quantity').addEventListener('input', updateOrderSummary);
+
+    // Reset size options to default state (no color selected)
     sizeOptionsContainer.innerHTML = '<div class="size-option disabled">Please select a color</div>';
     document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
     updateOrderSummary();
@@ -723,12 +812,16 @@ function setupOrderForm() {
   colorSelect.addEventListener('change', (e) => {
     const type = productTypeSelect.value;
     const color = e.target.value;
+
     if (!type || !color) {
+      // If no color is selected, show message
       sizeOptionsContainer.innerHTML = '<div class="size-option disabled">Please select a color</div>';
       document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
       updateOrderSummary();
       return;
     }
+
+    // Otherwise, update size options normally
     updateSizeOptions(type, color);
   });
 
@@ -742,121 +835,48 @@ function setupOrderForm() {
   }
 
   // Order form submission
-  document.getElementById('order-form').addEventListener('submit', async (e) => {
+  document.getElementById('order-form').addEventListener('submit', (e) => {
     e.preventDefault();
 
+    // Validate form
     if (!validateForm()) {
       return;
     }
 
-    const hasFrontDesign = document.getElementById('front-layer').querySelector('.design-image') !== null;
-    const hasBackDesign = document.getElementById('back-layer').querySelector('.design-image') !== null;
-
-    if (!hasFrontDesign && !hasBackDesign) {
-      const confirmSubmit = await confirmNoDesignSubmission();
-      if (!confirmSubmit) {
-        return;
-      }
-    }
-
-    // ✅ NEW: UPLOAD DESIGNS TO IMGUR ONLY ON SUBMIT — NOT DURING DESIGN PHASE
-    let frontImageUrl = '';
-    let backImageUrl = '';
-
-    if (hasFrontDesign) {
-      const imgElement = document.getElementById('front-layer').querySelector('.design-image');
-      const base64Data = imgElement.src; // This is the base64 string from FileReader
-
-      try {
-        const response = await fetch('https://api.imgur.com/3/image', {
-          method: 'POST',
-          headers: {
-            Authorization: 'Client-ID b43d6964887e571' // ✅ Public, working ID
-          },
-          body: base64Data.replace(/^data:image\/\w+;base64,/, '') // Remove data URL prefix
-        });
-
-        const result = await response.json();
-
-        if (result.success && result.data.link) {
-          frontImageUrl = result.data.link;
-        } else {
-          throw new Error(result.data?.error || 'Image upload failed');
-        }
-      } catch (error) {
-        console.error('Failed to upload front design to Imgur:', error);
-        alert(`Failed to upload front design: ${error.message}. Your order will be sent without the front design.`);
-      }
-    }
-
-    if (hasBackDesign) {
-      const imgElement = document.getElementById('back-layer').querySelector('.design-image');
-      const base64Data = imgElement.src;
-
-      try {
-        const response = await fetch('https://api.imgur.com/3/image', {
-          method: 'POST',
-          headers: {
-            Authorization: 'Client-ID b43d6964887e571'
-          },
-          body: base64Data.replace(/^data:image\/\w+;base64,/, '')
-        });
-
-        const result = await response.json();
-
-        if (result.success && result.data.link) {
-          backImageUrl = result.data.link;
-        } else {
-          throw new Error(result.data?.error || 'Image upload failed');
-        }
-      } catch (error) {
-        console.error('Failed to upload back design to Imgur:', error);
-        alert(`Failed to upload back design: ${error.message}. Your order will be sent without the back design.`);
-      }
-    }
-
-    // Collect data — snake_case for EmailJS
+    // Collect data
     const formData = {
-      product_type: productsConfig[productTypeSelect.value].name,
+      productType: productsConfig[productTypeSelect.value].name,
       color: colorSelect.value,
       size: document.querySelector('.size-option.selected')?.textContent || '',
       quantity: parseInt(document.getElementById('quantity').value) || 1,
       name: document.getElementById('name').value,
       phone: document.getElementById('phone').value,
-      secondary_phone: document.getElementById('secondary-phone').value || null,
+      secondaryPhone: document.getElementById('secondary-phone').value,
       governorate: governorateSelect.value,
       address: document.getElementById('address').value,
-      delivery_notes: document.getElementById('delivery-notes').value || null,
-      product_price: parseFloat(productPriceElement.textContent),
-      shipping_cost: parseFloat(shippingCostElement.textContent),
-      total_price: parseFloat(totalPriceElement.textContent),
-      has_front_design: hasFrontDesign,
-      has_back_design: hasBackDesign,
-      front_design_url: frontImageUrl, // ✅ Now either public URL or empty string
-      back_design_url: backImageUrl   // ✅ Now either public URL or empty string
+      deliveryNotes: document.getElementById('delivery-notes').value,
+      productPrice: parseFloat(productPriceElement.textContent),
+      shippingCost: parseFloat(shippingCostElement.textContent),
+      totalPrice: parseFloat(totalPriceElement.textContent)
     };
 
-    // Send email (defined in email.js)
-    const emailSent = await sendOrderEmail(formData);
-    if (emailSent) {
-      alert('Thank you for your order! We will process it shortly.');
-      document.getElementById('order-form').reset();
-      document.getElementById('product-type-order').dispatchEvent(new Event('change'));
-      resetDesign();
-    }
+    // Send email
+    sendOrderEmail(formData);
   });
 }
 
 function updateSizeOptions(type, color) {
   const container = document.getElementById('size-options');
   container.innerHTML = '';
-  if (!color) {
+   if (!color) {
+    const container = document.getElementById('size-options');
     container.innerHTML = '<div class="size-option disabled">Please select a color</div>';
     document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
     updateOrderSummary();
     return;
   }
-
+  // Define inventory map: Product → Color → Sizes (as string)
+  // Lowercase = Low Stock | Uppercase = In Stock | Empty = Out of Stock
   const inventory = {
     "premium-hoodie": {
       black: "M l 2xl",
@@ -914,28 +934,37 @@ function updateSizeOptions(type, color) {
       "olive-green": "3xl"
     }
   };
-
+  
+  // Normalize product type and color for lookup
   const normalizedType = type.toLowerCase();
   const normalizedColor = color.toLowerCase();
+  
+  // Get available sizes as string, or empty if not found
   const sizeString = inventory[normalizedType]?.[normalizedColor] || "";
+  
+  // Split into array and clean up whitespace
   const sizeList = sizeString.trim().split(/\s+/);
-
+  
+  // If no sizes defined, show message
   if (!sizeList.length || (sizeList.length === 1 && !sizeList[0])) {
     container.innerHTML = '<div class="size-option disabled">No sizes available</div>';
     return;
   }
-
+  
+  // Create size options
   sizeList.forEach(size => {
     const sizeOption = document.createElement('div');
     sizeOption.className = 'size-option';
-    sizeOption.textContent = size.toUpperCase();
-
+    sizeOption.textContent = size.toUpperCase(); // Display always uppercase
+    
+    // Determine stock status based on original case
     const isUpperCase = size === size.toUpperCase();
     const isLowerCase = size === size.toLowerCase();
     const isInStock = isUpperCase;
     const isLowStock = isLowerCase;
     const isOutOfStock = !isUpperCase && !isLowerCase;
-
+    
+    // Apply appropriate styles based on stock status
     if (isOutOfStock) {
       sizeOption.classList.add('disabled');
       sizeOption.style.opacity = '0.5';
@@ -948,14 +977,16 @@ function updateSizeOptions(type, color) {
       sizeOption.style.borderRadius = '5px';
       sizeOption.style.cursor = 'not-allowed';
     } else if (isLowStock) {
-      sizeOption.style.backgroundColor = '#FFECB3';
+      // Bright yellow for low stock - more vibrant than previous
+      sizeOption.style.backgroundColor = '#FFECB3'; // Lighter, brighter yellow
       sizeOption.style.color = '#333';
       sizeOption.style.fontWeight = 'bold';
-      sizeOption.style.border = '1px solid #FFD54F';
+      sizeOption.style.border = '1px solid #FFD54F'; // Brighter border
       sizeOption.style.padding = '0.5rem 1rem';
       sizeOption.style.borderRadius = '5px';
-      sizeOption.style.cursor = 'pointer';
+      sizeOption.style.cursor = 'pointer'; // Allow selection
     } else if (isInStock) {
+      // Default gray for in-stock (will change when selected)
       sizeOption.style.backgroundColor = '#e0e0e0';
       sizeOption.style.color = '#333';
       sizeOption.style.border = '1px solid #ddd';
@@ -963,32 +994,45 @@ function updateSizeOptions(type, color) {
       sizeOption.style.borderRadius = '5px';
       sizeOption.style.cursor = 'pointer';
     }
-
+    
+    // Add click handler
     sizeOption.addEventListener('click', () => {
+      // Prevent selection of out-of-stock items
       if (isOutOfStock) return;
+      
+      // Remove selected class from all size options
       document.querySelectorAll('.size-option').forEach(opt => {
         opt.classList.remove('selected');
+        // Reset any selected styling
         opt.style.backgroundColor = '';
         opt.style.color = '';
         opt.style.border = '';
       });
+      
+      // Select this option
       sizeOption.classList.add('selected');
+      
+      // Apply selected style based on stock status
       if (isInStock) {
+        // Blue selection for in-stock
         sizeOption.style.backgroundColor = '#3498db';
         sizeOption.style.color = 'white';
         sizeOption.style.border = '1px solid #2980b9';
       } else if (isLowStock) {
-        sizeOption.style.backgroundColor = '#FFF176';
+        // Brighter yellow selection for low-stock
+        sizeOption.style.backgroundColor = '#FFF176'; // Even brighter yellow for selected state
         sizeOption.style.color = '#333';
         sizeOption.style.border = '1px solid #FFD54F';
         sizeOption.style.fontWeight = 'bold';
       }
+      
       updateOrderSummary();
     });
-
+    
     container.appendChild(sizeOption);
   });
-
+  
+  // --- ADD LEGEND BELOW SIZE OPTIONS ---
   const legendContainer = document.createElement('div');
   legendContainer.className = 'size-legend';
   legendContainer.innerHTML = `
@@ -1013,11 +1057,13 @@ function updateSizeOptions(type, color) {
   legendContainer.style.fontSize = '0.85rem';
   legendContainer.style.lineHeight = '1.6';
   container.appendChild(legendContainer);
-
+  
+  // Auto-select first available (in-stock or low-stock) size
   const firstAvailable = container.querySelector('.size-option:not(.disabled)');
   if (firstAvailable) {
     firstAvailable.click();
   } else {
+    // If none are selectable, clear selection
     document.querySelectorAll('.size-option.selected').forEach(opt => opt.classList.remove('selected'));
     updateOrderSummary();
   }
@@ -1027,21 +1073,27 @@ function updateOrderSummary() {
   const productType = document.getElementById('product-type-order').value;
   const config = productsConfig[productType];
   if (!config) return;
-
+  
+  // Check if both front and back designs are uploaded
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
   const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
   const hasBackDesign = backLayer.querySelector('.design-image') !== null;
-
+  
+  // Get quantity
   const quantity = parseInt(document.getElementById('quantity').value) || 1;
+  
+  // Only add frontBackPrice if both designs are uploaded
   const totalProductPrice = config.basePrice + (hasFrontDesign && hasBackDesign ? config.frontBackPrice : 0);
+  
   document.getElementById('product-price').textContent = totalProductPrice * quantity;
-
+  
   const governorate = document.getElementById('governorate').value;
   const shippingCost = shippingConfig[governorate] || 0;
   const totalPrice = (totalProductPrice + shippingCost) * quantity;
   document.getElementById('total-price').textContent = totalPrice;
-
+  
+  // Check if a low stock size is selected
   const selectedSize = document.querySelector('.size-option.selected');
   if (selectedSize && selectedSize.classList.contains('low-stock')) {
     alert("⚠️ Warning: This size is low in stock. Only limited quantities available.");
@@ -1061,91 +1113,37 @@ function validateForm() {
   const phone = document.getElementById('phone').value;
   const governorate = document.getElementById('governorate').value;
   const address = document.getElementById('address').value;
+
   if (!name) {
     alert('Please enter your full name');
     return false;
   }
+
   if (!phone || phone.length !== 11 || !/^[0-9]{11}$/.test(phone)) {
     alert('Please enter a valid 11-digit Egyptian phone number');
     return false;
   }
+
   if (!governorate) {
     alert('Please select a governorate');
     return false;
   }
+
   if (!address) {
     alert('Please enter your exact address');
     return false;
   }
+
   return true;
 }
 
 function sendOrderEmail(data) {
-  return new Promise((resolve) => {
-    try {
-      const templateParams = {
-        to_email: "hassanwaelhh@proton.me",
-        from_name: data.name,
-        subject: `New Order - ${data.product_type}`,
+  // In a real implementation, you would use EmailJS with your credentials
+  // For demo purposes, we'll show an alert
+  alert('Order submitted! In a real implementation, this would send an email to hassanwaelhh@proton.me');
+  console.log('Order ', data);
 
-        customer_name: data.name,
-        phone: data.phone,
-        secondary_phone: data.secondary_phone || null,
-        governorate: data.governorate,
-        address: data.address,
-        delivery_notes: data.delivery_notes || null,
-
-        product_type: data.product_type,
-        color: data.color || 'Not specified',
-        size: data.size || 'Not selected',
-        quantity: data.quantity,
-
-        total_price: data.total_price.toFixed(2),
-        shipping_cost: data.shipping_cost.toFixed(2),
-
-        has_front_design: data.has_front_design,
-        has_back_design: data.has_back_design,
-        front_design_url: data.front_design_url || '',
-        back_design_url: data.back_design_url || ''
-      };
-
-      console.log('Sending:', templateParams);
-
-      emailjs.send(
-        "service_f0illrv",
-        "template_em0s82a",
-        templateParams
-      ).then(() => {
-        console.log('✅ Sent:', templateParams);
-        resolve(true);
-      }).catch((error) => {
-        console.error('❌ Failed:', error);
-        alert('There was an error sending your order. Please contact support.');
-        resolve(false);
-      });
-
-    } catch (error) {
-      console.error('❌ Unexpected error:', error);
-      alert('There was an error sending your order. Please contact support.');
-      resolve(false);
-    }
-  });
-}
-
-function hasDesignUploaded() {
-  const frontLayer = document.getElementById('front-layer');
-  const backLayer = document.getElementById('back-layer');
-  return frontLayer?.querySelector('.design-image') !== null ||
-         backLayer?.querySelector('.design-image') !== null;
-}
-
-function confirmNoDesignSubmission() {
-  return new Promise((resolve) => {
-    const confirmed = confirm(
-      "You haven't uploaded any designs.\n\n" +
-      "The product will be printed without any custom design.\n\n" +
-      "Are you sure you want to proceed with a plain product?"
-    );
-    resolve(confirmed);
-  });
+  // Reset form
+  document.getElementById('order-form').reset();
+  document.getElementById('product-type-order').dispatchEvent(new Event('change'));
 }
