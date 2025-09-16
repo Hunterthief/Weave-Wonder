@@ -1,6 +1,6 @@
 // EmailJS Configuration - Initialize with your public key
 // You need to set this up at https://www.emailjs.com/
-emailjs.init("YOUR_PUBLIC_KEY_HERE"); // Replace with your actual EmailJS public key
+emailjs.init("vob8IbRr130DYlPqt"); // Your actual EmailJS public key
 
 /**
  * Formats the order data into a clean HTML email template
@@ -133,8 +133,8 @@ async function sendOrderEmail(data) {
     
     // Send email using EmailJS
     const response = await emailjs.send(
-      "service_your_service_id", // Replace with your EmailJS service ID
-      "template_your_template_id", // Replace with your EmailJS template ID
+      "service_f0illrv", // Your EmailJS service ID
+      "template_em0s82a", // Your EmailJS template ID
       templateParams
     );
     
