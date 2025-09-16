@@ -8,6 +8,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // Create Supabase client
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ✅ Mirror the BOUNDARY config from script.js for perfect consistency
+const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
+
 /**
  * Uploads a base64 image to Supabase Storage and returns the public URL.
  * @param {string} base64 - Base64 image string
@@ -89,30 +92,27 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 
 /**
  * Generates a base64 data URL of the final mockup (product + design) for the specified side.
- * This function reads the current state of the DOM to create the composite image.
+ * This function replicates the EXACT logic from script.js for positioning and scaling.
  * @param {string} side - 'front' or 'back'
  * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
  */
 async function generateMockupFromDOM(side) {
   return new Promise((resolve) => {
-    // Get the correct container and layer
     const viewId = side === 'front' ? 'front-view' : 'back-view';
     const layerId = side === 'front' ? 'front-layer' : 'back-layer';
 
     const viewContainer = document.getElementById(viewId);
     const designLayer = document.getElementById(layerId);
-
-    // Check if there's a design uploaded
     const designImage = designLayer.querySelector('.design-image');
+    const baseImage = viewContainer.querySelector('.base-image');
+
+    // If no design is uploaded, return early
     if (!designImage) {
       resolve('No design uploaded');
       return;
     }
 
-    // Get the base product image
-    const baseImage = viewContainer.querySelector('.base-image');
-
-    // Wait for the base image to load (if not already)
+    // Ensure base image is loaded
     if (!baseImage.complete) {
       baseImage.onload = () => drawMockup();
       baseImage.onerror = () => resolve('No design uploaded');
@@ -121,54 +121,72 @@ async function generateMockupFromDOM(side) {
     }
 
     function drawMockup() {
-      // Create an off-screen canvas
+      // Create off-screen canvas with dimensions of the NATURAL base image
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-
-      // Set canvas size to match the base image's natural dimensions
       canvas.width = baseImage.naturalWidth;
       canvas.height = baseImage.naturalHeight;
 
-      // Draw the base product image
+      // Step 1: Draw the base product image
       ctx.drawImage(baseImage, 0, 0);
 
-      // Get the computed style of the design image
-      const computedStyle = window.getComputedStyle(designImage);
-      const widthPx = parseFloat(computedStyle.width);
-      const heightPx = parseFloat(computedStyle.height);
-
-      // Extract transform: translate(x, y)
-      let translateX = 0, translateY = 0;
-      const transform = computedStyle.transform;
-      if (transform && transform !== 'none') {
-        const matrix = new DOMMatrix(transform);
-        translateX = matrix.e; // translateX
-        translateY = matrix.f; // translateY
-      }
-
-      // Get the design layer's bounding rect relative to the view container
-      const layerRect = designLayer.getBoundingClientRect();
+      // Step 2: Calculate the scaling factor from the design layer's BOUNDARY to the base image's natural size
       const viewRect = viewContainer.getBoundingClientRect();
-
-      // Calculate scale factor from the displayed size to the natural size
       const scaleX = baseImage.naturalWidth / viewRect.width;
       const scaleY = baseImage.naturalHeight / viewRect.height;
 
-      // Calculate the position of the design within the layer (including transform)
-      const layerX = parseFloat(computedStyle.left) + translateX;
-      const layerY = parseFloat(computedStyle.top) + translateY;
+      // Step 3: Get the design image's NATURAL dimensions (as stored in script.js)
+      const naturalWidth = parseFloat(designImage.getAttribute('data-original-width')) || designImage.naturalWidth;
+      const naturalHeight = parseFloat(designImage.getAttribute('data-original-height')) || designImage.naturalHeight;
 
-      // Convert design position and size to natural image coordinates
-      const naturalX = layerX * scaleX;
-      const naturalY = layerY * scaleY;
-      const naturalWidth = widthPx * scaleX;
-      const naturalHeight = heightPx * scaleY;
+      // Step 4: Replicate the initial scaling logic from script.js
+      // This is the core logic copied from the `img.onload` handler in script.js's design upload event
+      const scaleToFit = Math.min(BOUNDARY.WIDTH / naturalWidth, BOUNDARY.HEIGHT / naturalHeight);
+      let finalWidth = naturalWidth * scaleToFit;
+      let finalHeight = naturalHeight * scaleToFit;
 
-      // Draw the design image onto the canvas
-      ctx.drawImage(designImage, naturalX, naturalY, naturalWidth, naturalHeight);
+      // Step 5: If the image has been resized by the user, use the stored dimensions
+      if (designImage.hasAttribute('data-width') && designImage.hasAttribute('data-height')) {
+        finalWidth = parseFloat(designImage.getAttribute('data-width'));
+        finalHeight = parseFloat(designImage.getAttribute('data-height'));
+        // Convert these from BOUNDARY space to natural image space
+        finalWidth = (finalWidth / BOUNDARY.WIDTH) * baseImage.naturalWidth;
+        finalHeight = (finalHeight / BOUNDARY.HEIGHT) * baseImage.naturalHeight;
+      } else {
+        // Convert initial scaled size to natural image space
+        finalWidth = (finalWidth / BOUNDARY.WIDTH) * baseImage.naturalWidth;
+        finalHeight = (finalHeight / BOUNDARY.HEIGHT) * baseImage.naturalHeight;
+      }
 
-      // Resolve with the base64 data URL
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // 80% quality
+      // Step 6: Calculate position
+      // First, get the position within the BOUNDARY (as set in script.js)
+      let leftPos = parseFloat(designImage.style.left) || 0;
+      let topPos = parseFloat(designImage.style.top) || 0;
+
+      // If it has been dragged, get the transform
+      let translateX = 0, translateY = 0;
+      const transform = designImage.style.transform;
+      if (transform && transform.includes('translate')) {
+        const match = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+        if (match) {
+          translateX = parseFloat(match[1]) || 0;
+          translateY = parseFloat(match[2]) || 0;
+        }
+      }
+
+      // Total position within the BOUNDARY
+      const totalXInBoundary = leftPos + translateX;
+      const totalYInBoundary = topPos + translateY;
+
+      // Convert BOUNDARY position to natural image coordinates
+      const finalX = (totalXInBoundary / BOUNDARY.WIDTH) * baseImage.naturalWidth;
+      const finalY = (totalYInBoundary / BOUNDARY.HEIGHT) * baseImage.naturalHeight;
+
+      // Step 7: Draw the design image onto the canvas
+      ctx.drawImage(designImage, finalX, finalY, finalWidth, finalHeight);
+
+      // Step 8: Resolve with the data URL
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       resolve(dataUrl);
     }
   });
