@@ -1,10 +1,49 @@
 emailjs.init("kMkCJJdFsA9rILDiO");
 
+/**
+ * Compresses and resizes a base64 image to reduce its size.
+ * @param {string} base64 - The base64 image string
+ * @param {number} maxWidth - Max width to resize to (default: 300)
+ * @param {number} quality - JPEG quality 0-1 (default: 0.7)
+ * @returns {Promise<string>} - Compressed base64 string
+ */
+async function compressImage(base64, maxWidth = 300, quality = 0.7) {
+  if (!base64 || base64 === 'No design uploaded') return base64;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64;
+    img.onload = () => {
+      // Calculate new dimensions
+      const scale = maxWidth / img.width;
+      const newWidth = maxWidth;
+      const newHeight = img.height * scale;
+
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Draw and compress
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+
+      resolve(compressed);
+    };
+    img.onerror = () => resolve(base64); // fallback if error
+  });
+}
+
 async function sendOrderEmail(data) {
   try {
     // Ensure numeric values default to 0 if undefined or null
     const totalPrice = (data.totalPrice != null ? parseFloat(data.totalPrice) : 0);
     const shippingCost = (data.shippingCost != null ? parseFloat(data.shippingCost) : 0);
+
+    // ✅ COMPRESS IMAGES BEFORE SENDING
+    const frontCompressed = await compressImage(data.front_design_url);
+    const backCompressed = await compressImage(data.back_design_url);
 
     // Use the correct property names from formData
     const templateParams = {
@@ -30,11 +69,17 @@ async function sendOrderEmail(data) {
 
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
-      front_design_url: data.front_design_url || 'No design uploaded',
-      back_design_url: data.back_design_url || 'No design uploaded'
+      front_design_url: frontCompressed || 'No design uploaded',
+      back_design_url: backCompressed || 'No design uploaded'
     };
 
-    console.log('Sending:', templateParams);
+    // Optional: Log size for debugging
+    const totalSizeKB = new Blob([JSON.stringify(templateParams)]).size / 1024;
+    console.log('📦 Template size:', totalSizeKB.toFixed(1), 'KB');
+
+    if (totalSizeKB > 45) {
+      console.warn('⚠️ Template is approaching EmailJS 50KB limit!');
+    }
 
     const response = await emailjs.send(
       "service_f0illrv",
