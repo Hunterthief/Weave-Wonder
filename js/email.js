@@ -1,5 +1,58 @@
 emailjs.init("kMkCJJdFsA9rILDiO");
 
+// 🚀 Initialize Supabase with YOUR credentials
+const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
+
+// Create Supabase client
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/**
+ * Uploads a base64 image to Supabase Storage and returns the public URL.
+ * @param {string} base64 - Base64 image string
+ * @param {string} prefix - Folder prefix (e.g., 'front/', 'back/')
+ * @returns {Promise<string>} - Public image URL or 'No design uploaded'
+ */
+async function uploadImageToSupabase(base64, prefix = '') {
+  if (!base64 || base64 === 'No design uploaded') return 'No design uploaded';
+
+  try {
+    // Convert base64 to Blob
+    const byteString = atob(base64.split(',')[1]);
+    const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([ia], { type: mimeString });
+
+    // Generate unique filename
+    const filename = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 9)}.jpg`;
+
+    // ✅ UPLOAD TO CORRECT BUCKET NAME: 'egymerch-designs'
+    const { data, error } = await supabase.storage
+      .from('egymerch_designs') // ← FIXED: No spaces in bucket name
+      .upload(filename, blob, {
+        contentType: 'image/jpeg',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: publicData } = supabase.storage
+      .from('egymerch-designs') // ← FIXED
+      .getPublicUrl(filename);
+
+    return publicData.publicUrl;
+
+  } catch (error) {
+    console.error('Supabase upload failed:', error);
+    return 'No design uploaded';
+  }
+}
+
 /**
  * Compresses and resizes a base64 image to reduce its size.
  * @param {string} base64 - The base64 image string
@@ -41,9 +94,13 @@ async function sendOrderEmail(data) {
     const totalPrice = (data.totalPrice != null ? parseFloat(data.totalPrice) : 0);
     const shippingCost = (data.shippingCost != null ? parseFloat(data.shippingCost) : 0);
 
-    // ✅ COMPRESS IMAGES BEFORE SENDING
+    // ✅ COMPRESS IMAGES FIRST
     const frontCompressed = await compressImage(data.front_design_url);
     const backCompressed = await compressImage(data.back_design_url);
+
+    // ✅ UPLOAD TO SUPABASE STORAGE AND GET PUBLIC URL
+    const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
+    const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
 
     // Use the correct property names from formData
     const templateParams = {
@@ -63,23 +120,18 @@ async function sendOrderEmail(data) {
       size: data.size || 'Not selected',
       quantity: data.quantity || 1,
 
-      // ✅ Safely handle undefined or null values
       total_price: totalPrice.toFixed(2),
       shipping_cost: shippingCost.toFixed(2),
 
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
-      front_design_url: frontCompressed || 'No design uploaded',
-      back_design_url: backCompressed || 'No design uploaded'
+      front_design_url: frontUrl, // ✅ Tiny URL string
+      back_design_url: backUrl   // ✅ Not base64 blob
     };
 
-    // Optional: Log size for debugging
+    // Log size — should now be under 5KB!
     const totalSizeKB = new Blob([JSON.stringify(templateParams)]).size / 1024;
     console.log('📦 Template size:', totalSizeKB.toFixed(1), 'KB');
-
-    if (totalSizeKB > 45) {
-      console.warn('⚠️ Template is approaching EmailJS 50KB limit!');
-    }
 
     const response = await emailjs.send(
       "service_f0illrv",
