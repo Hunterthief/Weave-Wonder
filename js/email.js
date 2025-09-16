@@ -116,13 +116,12 @@ async function generateMockupFromDownloadPreview(side) {
       if (originalDownloadPreview) {
         window.downloadPreview = originalDownloadPreview;
       }
-      // Resolve with the captured base64 data
+      // Resolve with the captured base64 data (THIS IS THE FIX)
       resolve(base64Data);
       // Do NOT trigger actual download
     };
 
-    // Call the existing downloadPreview function directly with the correct parameters
-    // This replicates exactly what happens when the user clicks the download button
+    // Get the base image
     const baseImage = viewContainer.querySelector('.base-image');
     const boundary = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
 
