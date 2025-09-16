@@ -30,9 +30,9 @@ async function uploadImageToSupabase(base64, prefix = '') {
     // Generate unique filename
     const filename = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 9)}.jpg`;
 
-    // ✅ UPLOAD TO CORRECT BUCKET NAME: 'egymerch-designs'
+    // Upload to Supabase Storage
     const { data, error } = await supabase.storage
-      .from('egymerch_designs') // ← FIXED: No spaces in bucket name
+      .from('egymerch_designs') // ✅ Must match bucket name exactly
       .upload(filename, blob, {
         contentType: 'image/jpeg',
         upsert: false
@@ -40,12 +40,12 @@ async function uploadImageToSupabase(base64, prefix = '') {
 
     if (error) throw error;
 
-    // Get public URL
-    const { data: publicData } = supabase.storage
-      .from('egymerch-designs') // ← FIXED
+    // ✅ AWAIT the public URL — this was missing!
+    const { data: publicData } = await supabase.storage
+      .from('egymerch_designs')
       .getPublicUrl(filename);
 
-    return publicData.publicUrl;
+    return publicData?.publicUrl || 'No design uploaded';
 
   } catch (error) {
     console.error('Supabase upload failed:', error);
