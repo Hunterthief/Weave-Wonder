@@ -18,7 +18,7 @@ async function uploadToImgur(base64Image) {
 
     // Add a timeout to prevent hanging requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
     const response = await fetch('https://api.imgur.com/3/image', {
       method: 'POST',
@@ -38,7 +38,8 @@ async function uploadToImgur(base64Image) {
     const result = await response.json();
 
     if (!result.success || !result.data?.link) {
-      throw new Error('Image upload failed: ' + JSON.stringify(result));
+      console.warn('Imgur upload failed with response:', result);
+      return ''; // Return empty string if upload fails
     }
 
     return result.data.link; // Return public URL
@@ -62,6 +63,22 @@ async function sendOrderEmail(data) {
     // Clone data to avoid mutating original
     const emailData = { ...data };
 
+    // Check if any designs are uploaded
+    const hasAnyDesign = emailData.has_front_design || emailData.has_back_design;
+    
+    // If no designs are uploaded, warn the user
+    if (!hasAnyDesign) {
+      const confirmed = confirm(
+        "⚠️ WARNING: You haven't uploaded any designs.\n\n" +
+        "The product will be printed as a plain item with no custom designs.\n\n" +
+        "Are you sure you want to proceed with a plain product?"
+      );
+      
+      if (!confirmed) {
+        return false; // Cancel order if user doesn't confirm
+      }
+    }
+
     // If front design exists and has base64 URL, upload it to Imgur
     if (emailData.has_front_design && emailData.front_design_url?.startsWith('data:')) {
       console.log('Uploading front design to Imgur...');
@@ -69,6 +86,7 @@ async function sendOrderEmail(data) {
       emailData.front_design_url = imgUrl || '';
       if (!imgUrl) {
         console.warn('Front design upload failed or timed out, proceeding without image');
+        alert('⚠️ Warning: Front design upload failed. Your order will be processed, but the design may not appear correctly. We will contact you if needed.');
       }
     }
 
@@ -79,6 +97,7 @@ async function sendOrderEmail(data) {
       emailData.back_design_url = imgUrl || '';
       if (!imgUrl) {
         console.warn('Back design upload failed or timed out, proceeding without image');
+        alert('⚠️ Warning: Back design upload failed. Your order will be processed, but the design may not appear correctly. We will contact you if needed.');
       }
     }
 
@@ -121,7 +140,11 @@ async function sendOrderEmail(data) {
     console.log('✅ Email sent successfully:', response.status, response.text);
     
     // Show success message to user
-    alert('Order submitted successfully! We will contact you soon.');
+    if (hasAnyDesign) {
+      alert('Order submitted successfully! We will contact you soon to confirm your design.');
+    } else {
+      alert('Order submitted successfully! Your plain product will be prepared without any designs.');
+    }
     
     // Reset form
     document.getElementById('order-form').reset();
