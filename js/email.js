@@ -88,7 +88,7 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 }
 
 /**
- * Sends order data via EmailJS, including links to uploaded designs.
+ * Sends order data via EmailJS, including links to uploaded designs and final mockups.
  * @param {Object} data - Order form data
  * @returns {Promise<boolean>} - True if successful, false otherwise
  */
@@ -104,21 +104,21 @@ async function sendOrderEmail(data) {
     let frontSourceLinkHtml = 'No design uploaded';
     let backSourceLinkHtml = 'No design uploaded';
 
-    // ✅ Handle front design (Product Preview)
-    if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
-      const frontCompressed = await compressImage(data.front_design_url);
+    // ✅ Handle front PRODUCT PREVIEW (Final Mockup)
+    if (data.has_front_design && data.front_mockup_url && data.front_mockup_url !== 'No design uploaded') {
+      const frontCompressed = await compressImage(data.front_mockup_url);
       const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
       if (frontUrl && frontUrl !== 'No design uploaded') {
-        frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">View Front Design</a>`;
+        frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Front Product Preview</a>`;
       }
     }
 
-    // ✅ Handle back design (Product Preview)
-    if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
-      const backCompressed = await compressImage(data.back_design_url);
+    // ✅ Handle back PRODUCT PREVIEW (Final Mockup)
+    if (data.has_back_design && data.back_mockup_url && data.back_mockup_url !== 'No design uploaded') {
+      const backCompressed = await compressImage(data.back_mockup_url);
       const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
       if (backUrl && backUrl !== 'No design uploaded') {
-        backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">View Back Design</a>`;
+        backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Back Product Preview</a>`;
       }
     }
 
@@ -164,11 +164,11 @@ async function sendOrderEmail(data) {
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
 
-      // ✅ Send clickable text links for Product Previews
+      // ✅ Send clickable text links for Product Previews (Final Mockups)
       front_design_link: frontLinkHtml,
       back_design_link: backLinkHtml,
 
-      // ✅ Send clickable text links for Source Designs
+      // ✅ Send clickable text links for Source Designs (Raw Uploads)
       front_source_design_link: frontSourceLinkHtml,
       back_source_design_link: backSourceLinkHtml,
 
