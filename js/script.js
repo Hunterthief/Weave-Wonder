@@ -773,7 +773,8 @@ const formData = {
   productPrice: parseFloat(productPriceElement.textContent),
   shippingCost: parseFloat(shippingCostElement.textContent),
   totalPrice: parseFloat(totalPriceElement.textContent),
-  has_front_design: frontLayer.querySelector('.design-image') !== null,
+
+has_front_design: frontLayer.querySelector('.design-image') !== null,
   has_back_design: backLayer.querySelector('.design-image') !== null,
   front_design_url: frontLayer.querySelector('.design-image')?.src || '',
   back_design_url: backLayer.querySelector('.design-image')?.src || ''
