@@ -16,23 +16,38 @@ async function uploadToImgur(base64Image) {
     const formData = new FormData();
     formData.append('image', base64Data);
 
+    // Add a timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     const response = await fetch('https://api.imgur.com/3/image', {
       method: 'POST',
       headers: {
         Authorization: 'Client-ID 9c7f8a333496552' // Public Imgur Client ID (free, no auth required)
       },
-      body: formData
+      body: formData,
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const result = await response.json();
 
-    if (!result.success || !result.data.link) {
+    if (!result.success || !result.data?.link) {
       throw new Error('Image upload failed: ' + JSON.stringify(result));
     }
 
     return result.data.link; // Return public URL
   } catch (error) {
-    console.error('Failed to upload image to Imgur:', error);
+    if (error.name === 'AbortError') {
+      console.warn('Imgur upload timed out');
+    } else {
+      console.error('Failed to upload image to Imgur:', error);
+    }
     return ''; // Return empty string if upload fails — email will show "No design uploaded"
   }
 }
@@ -48,15 +63,23 @@ async function sendOrderEmail(data) {
     const emailData = { ...data };
 
     // If front design exists and has base64 URL, upload it to Imgur
-    if (emailData.has_front_design && emailData.front_design_url.startsWith('data:')) {
+    if (emailData.has_front_design && emailData.front_design_url?.startsWith('data:')) {
+      console.log('Uploading front design to Imgur...');
       const imgUrl = await uploadToImgur(emailData.front_design_url);
       emailData.front_design_url = imgUrl || '';
+      if (!imgUrl) {
+        console.warn('Front design upload failed or timed out, proceeding without image');
+      }
     }
 
     // If back design exists and has base64 URL, upload it to Imgur
-    if (emailData.has_back_design && emailData.back_design_url.startsWith('data:')) {
+    if (emailData.has_back_design && emailData.back_design_url?.startsWith('data:')) {
+      console.log('Uploading back design to Imgur...');
       const imgUrl = await uploadToImgur(emailData.back_design_url);
       emailData.back_design_url = imgUrl || '';
+      if (!imgUrl) {
+        console.warn('Back design upload failed or timed out, proceeding without image');
+      }
     }
 
     // Prepare template parameters — fixed to match actual data structure from script.js
@@ -95,12 +118,20 @@ async function sendOrderEmail(data) {
       templateParams
     );
 
-    console.log('✅ Sent:', response.status, response.text);
+    console.log('✅ Email sent successfully:', response.status, response.text);
+    
+    // Show success message to user
+    alert('Order submitted successfully! We will contact you soon.');
+    
+    // Reset form
+    document.getElementById('order-form').reset();
+    document.getElementById('product-type-order').dispatchEvent(new Event('change'));
+    
     return true;
 
   } catch (error) {
     console.error('❌ Failed to send email:', error);
-    alert('There was an error sending your order. Please contact support.');
+    alert('There was an error sending your order. Please contact support or try again later.');
     return false;
   }
 }
