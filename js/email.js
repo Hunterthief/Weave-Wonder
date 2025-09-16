@@ -2,6 +2,10 @@ emailjs.init("kMkCJJdFsA9rILDiO");
 
 async function sendOrderEmail(data) {
   try {
+    // Ensure numeric values default to 0 if undefined or null
+    const totalPrice = (data.totalPrice != null ? parseFloat(data.totalPrice) : 0);
+    const shippingCost = (data.shippingCost != null ? parseFloat(data.shippingCost) : 0);
+
     // Use the correct property names from formData
     const templateParams = {
       to_email: "hassanwaelhh@proton.me",
@@ -20,9 +24,9 @@ async function sendOrderEmail(data) {
       size: data.size || 'Not selected',
       quantity: data.quantity || 1,
 
-      // ✅ Fixed: Use data.totalPrice and data.shippingCost instead of data.total_price and data.shipping_cost
-      total_price: (data.totalPrice || 0).toFixed(2),
-      shipping_cost: (data.shippingCost || 0).toFixed(2),
+      // ✅ Safely handle undefined or null values
+      total_price: totalPrice.toFixed(2),
+      shipping_cost: shippingCost.toFixed(2),
 
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
