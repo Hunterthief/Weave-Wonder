@@ -1,5 +1,9 @@
-// EmailJS Configuration - Initialize with your public key
-emailjs.init("kMkCJJdFsA9rILDiO");
+/**
+ * EmailJS Configuration - NO INIT NEEDED
+ * We pass publicKey directly in send() — this is the modern, reliable method.
+ * Replace "YOUR_ACTUAL_USER_ID_HERE" with your real User ID from:
+ * https://dashboard.emailjs.com/admin/integration
+ */
 
 /**
  * Compresses an image to reduce file size while maintaining quality
@@ -117,12 +121,13 @@ async function sendOrderEmail(data) {
 
     console.log('Sending final template params:', templateParams);
 
-    // Send email with attachments
+    // ✅ SEND EMAIL WITH MODERN publicKey OPTION — NO INIT REQUIRED
     const response = await emailjs.send(
-      "service_f0illrv",
-      "template_em0s82a",
+      "service_f0illrv",    // Your Service ID
+      "template_em0s82a",   // Your Template ID
       templateParams,
       {
+        publicKey: "kMkCJJdFsA9rILDiO", // ⚠️ REPLACE THIS WITH YOUR REAL USER ID FROM DASHBOARD
         attachments: attachments
       }
     );
