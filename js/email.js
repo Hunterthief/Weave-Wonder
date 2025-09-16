@@ -1,7 +1,7 @@
 emailjs.init("kMkCJJdFsA9rILDiO");
 
 // 🚀 Initialize Supabase — FIXED: NO TRAILING SPACE!
-const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co';
+const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co'; // ✅ Fixed
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
 
 // Create Supabase client
@@ -40,7 +40,7 @@ async function uploadImageToSupabase(base64, prefix = '') {
 
     if (error) throw error;
 
-    // ✅ MANUALLY BUILD PUBLIC URL — this is the key fix!
+    // ✅ MANUALLY BUILD PUBLIC URL
     const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/egymerch_designs/${encodeURIComponent(filename)}`;
 
     return publicUrl;
@@ -92,22 +92,27 @@ async function sendOrderEmail(data) {
     const totalPrice = (data.totalPrice != null ? parseFloat(data.totalPrice) : 0);
     const shippingCost = (data.shippingCost != null ? parseFloat(data.shippingCost) : 0);
 
-    // ✅ COMPRESS IMAGES FIRST
-    const frontCompressed = await compressImage(data.front_design_url);
-    const backCompressed = await compressImage(data.back_design_url);
+    // Default values for design previews
+    let frontPreviewHtml = 'No design uploaded';
+    let backPreviewHtml = 'No design uploaded';
 
-    // ✅ UPLOAD TO SUPABASE STORAGE AND GET PUBLIC URL
-    const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
-    const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
+    // ✅ Handle front design
+    if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
+      const frontCompressed = await compressImage(data.front_design_url);
+      const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
+      if (frontUrl && frontUrl !== 'No design uploaded') {
+        frontPreviewHtml = `<img src="${frontUrl}" alt="Front Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`;
+      }
+    }
 
-    // ✅ Generate HTML image previews for EmailJS template
-    const frontDesignHtml = data.has_front_design
-      ? `<img src="${frontUrl}" alt="Front Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`
-      : 'No design uploaded';
-
-    const backDesignHtml = data.has_back_design
-      ? `<img src="${backUrl}" alt="Back Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`
-      : 'No design uploaded';
+    // ✅ Handle back design
+    if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
+      const backCompressed = await compressImage(data.back_design_url);
+      const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
+      if (backUrl && backUrl !== 'No design uploaded') {
+        backPreviewHtml = `<img src="${backUrl}" alt="Back Design" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">`;
+      }
+    }
 
     // Use the correct property names from formData
     const templateParams = {
@@ -133,15 +138,11 @@ async function sendOrderEmail(data) {
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
 
-      // ✅ Send HTML image tags, not just URLs
-      front_design_preview: frontDesignHtml,
-      back_design_preview: backDesignHtml,
+      // ✅ Pre-rendered HTML — template just displays it
+      front_design_preview: frontPreviewHtml,
+      back_design_preview: backPreviewHtml,
 
-      // Optional: Include raw URLs for reference
-      front_design_url: frontUrl,
-      back_design_url: backUrl,
-
-      // Add warning if low stock size was selected (optional enhancement)
+      // Add warning if low stock size was selected
       warning_message: data.size && data.size.toLowerCase() !== data.size
         ? "Customer selected a LOW STOCK size. Fulfill quickly."
         : "No stock warnings."
