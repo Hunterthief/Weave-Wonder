@@ -1,6 +1,7 @@
+// 🚀 Initialize EmailJS
 emailjs.init("kMkCJJdFsA9rILDiO");
 
-// 🚀 Initialize Supabase — FIXED: NO TRAILING SPACE!
+// 🚀 Initialize Supabase — FIXED: TRAILING SPACE REMOVED!
 const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
 
@@ -10,7 +11,7 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /**
  * Uploads a base64 image to Supabase Storage and returns the public URL.
  * @param {string} base64 - Base64 image string
- * @param {string} prefix - Folder prefix (e.g., 'front/', 'back/')
+ * @param {string} prefix - Folder prefix (e.g., 'front/', 'back/', 'front_source/', 'back_source/')
  * @returns {Promise<string>} - Public image URL or 'No design uploaded'
  */
 async function uploadImageToSupabase(base64, prefix = '') {
@@ -86,6 +87,11 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
   });
 }
 
+/**
+ * Sends order data via EmailJS, including links to uploaded designs.
+ * @param {Object} data - Order form data
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
 async function sendOrderEmail(data) {
   try {
     // Ensure numeric values default to 0 if undefined or null
@@ -95,8 +101,10 @@ async function sendOrderEmail(data) {
     // Default values for design links
     let frontLinkHtml = 'No design uploaded';
     let backLinkHtml = 'No design uploaded';
+    let frontSourceLinkHtml = 'No design uploaded';
+    let backSourceLinkHtml = 'No design uploaded';
 
-    // ✅ Handle front design
+    // ✅ Handle front design (Product Preview)
     if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
       const frontCompressed = await compressImage(data.front_design_url);
       const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
@@ -105,12 +113,30 @@ async function sendOrderEmail(data) {
       }
     }
 
-    // ✅ Handle back design
+    // ✅ Handle back design (Product Preview)
     if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
       const backCompressed = await compressImage(data.back_design_url);
       const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
       if (backUrl && backUrl !== 'No design uploaded') {
         backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">View Back Design</a>`;
+      }
+    }
+
+    // ✅ Handle front SOURCE design (Raw Upload) - TEXT LINK ONLY
+    if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
+      const frontSourceCompressed = await compressImage(data.front_design_url);
+      const frontSourceUrl = await uploadImageToSupabase(frontSourceCompressed, 'front_source/');
+      if (frontSourceUrl && frontSourceUrl !== 'No design uploaded') {
+        frontSourceLinkHtml = `<a href="${frontSourceUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download/View Front Source Image</a>`;
+      }
+    }
+
+    // ✅ Handle back SOURCE design (Raw Upload) - TEXT LINK ONLY
+    if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
+      const backSourceCompressed = await compressImage(data.back_design_url);
+      const backSourceUrl = await uploadImageToSupabase(backSourceCompressed, 'back_source/');
+      if (backSourceUrl && backSourceUrl !== 'No design uploaded') {
+        backSourceLinkHtml = `<a href="${backSourceUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download/View Back Source Image</a>`;
       }
     }
 
@@ -138,9 +164,13 @@ async function sendOrderEmail(data) {
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
 
-      // ✅ Send clickable text links — NO IMAGE PREVIEWS
+      // ✅ Send clickable text links for Product Previews
       front_design_link: frontLinkHtml,
       back_design_link: backLinkHtml,
+
+      // ✅ Send clickable text links for Source Designs
+      front_source_design_link: frontSourceLinkHtml,
+      back_source_design_link: backSourceLinkHtml,
 
       // Add warning if low stock size was selected
       warning_message: data.size && data.size.toLowerCase() !== data.size
@@ -169,6 +199,10 @@ async function sendOrderEmail(data) {
   }
 }
 
+/**
+ * Checks if any design (front or back) has been uploaded.
+ * @returns {boolean} - True if at least one design is uploaded
+ */
 function hasDesignUploaded() {
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
@@ -176,6 +210,10 @@ function hasDesignUploaded() {
          backLayer?.querySelector('.design-image') !== null;
 }
 
+/**
+ * Confirms with user if they want to submit without any designs.
+ * @returns {Promise<boolean>} - True if user confirms, false otherwise
+ */
 function confirmNoDesignSubmission() {
   return new Promise((resolve) => {
     const confirmed = confirm(
@@ -187,6 +225,7 @@ function confirmNoDesignSubmission() {
   });
 }
 
+// Export functions for potential module use
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     sendOrderEmail,
