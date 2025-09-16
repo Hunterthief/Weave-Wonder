@@ -2,41 +2,46 @@ emailjs.init("kMkCJJdFsA9rILDiO");
 
 async function sendOrderEmail(data) {
   try {
+    // Safely handle potential undefined values
+    const totalPrice = data.totalPrice !== undefined && data.totalPrice !== null ? data.totalPrice : 0;
+    const shippingCost = data.shippingCost !== undefined && data.shippingCost !== null ? data.shippingCost : 0;
+
     const templateParams = {
       to_email: "hassanwaelhh@proton.me",
       from_name: data.name,
-      subject: `New Order - ${data.product_type}`,
+      subject: `New Order - ${data.productType}`,
 
       customer_name: data.name,
       phone: data.phone,
-      secondary_phone: data.secondary_phone || null,
+      secondary_phone: data.secondaryPhone || 'Not provided',
       governorate: data.governorate,
       address: data.address,
-      delivery_notes: data.delivery_notes || null,
+      delivery_notes: data.deliveryNotes || 'Not provided',
 
-      product_type: data.product_type,
+      product_type: data.productType,
       color: data.color || 'Not specified',
       size: data.size || 'Not selected',
-      quantity: data.quantity,
+      quantity: data.quantity || 1,
 
-      total_price: data.total_price.toFixed(2),
-      shipping_cost: data.shipping_cost.toFixed(2),
+      total_price: totalPrice.toFixed(2),
+      shipping_cost: shippingCost.toFixed(2),
 
-      has_front_design: data.has_front_design,
-      has_back_design: data.has_back_design,
-      front_design_url: data.front_design_url || '',
-      back_design_url: data.back_design_url || ''
+      has_front_design: data.has_front_design ? 'Yes' : 'No',
+      has_back_design: data.has_back_design ? 'Yes' : 'No',
+      front_design_url: data.front_design_url || 'No design uploaded',
+      back_design_url: data.back_design_url || 'No design uploaded'
     };
 
     console.log('Sending:', templateParams);
 
     const response = await emailjs.send(
       "service_f0illrv",
-      "template_em0s82a", // ✅ NEW ID
+      "template_em0s82a",
       templateParams
     );
 
     console.log('✅ Sent:', response.status, response.text);
+    alert('Order submitted successfully!');
     return true;
 
   } catch (error) {
