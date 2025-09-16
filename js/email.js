@@ -1,8 +1,7 @@
-// 🚀 Initialize EmailJS
 emailjs.init("kMkCJJdFsA9rILDiO");
 
-// 🚀 Initialize Supabase — FIXED: TRAILING SPACE REMOVED!
-const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co';
+// 🚀 Initialize Supabase — FIXED: NO TRAILING SPACE!
+const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co    ';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
 
 // Create Supabase client
@@ -11,7 +10,7 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /**
  * Uploads a base64 image to Supabase Storage and returns the public URL.
  * @param {string} base64 - Base64 image string
- * @param {string} prefix - Folder prefix (e.g., 'front/', 'back/', 'front_source/', 'back_source/')
+ * @param {string} prefix - Folder prefix (e.g., 'front/', 'back/')
  * @returns {Promise<string>} - Public image URL or 'No design uploaded'
  */
 async function uploadImageToSupabase(base64, prefix = '') {
@@ -87,57 +86,6 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
   });
 }
 
-/**
- * Generates a base64 data URL of the final mockup by triggering the existing downloadPreview function.
- * This ensures perfect consistency with what the user sees and what the "Download Preview" button produces.
- * @param {string} side - 'front' or 'back'
- * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
- */
-async function generateMockupFromDownloadPreview(side) {
-  return new Promise((resolve) => {
-    const designLayer = document.getElementById(side === 'front' ? 'front-layer' : 'back-layer');
-    const designImage = designLayer.querySelector('.design-image');
-
-    if (!designImage) {
-      resolve('No design uploaded');
-      return;
-    }
-
-    // Temporarily override the global downloadPreview function to capture the base64 data
-    const originalDownloadPreview = window.downloadPreview;
-
-    // Create a new function that captures the base64 data and then calls the original function
-    window.downloadPreview = function(base64Data, filename) {
-      // Restore the original function immediately
-      window.downloadPreview = originalDownloadPreview;
-      // Resolve the promise with the captured base64 data
-      resolve(base64Data);
-      // Do NOT call the original function, so no actual download occurs
-      // originalDownloadPreview(base64Data, filename); // <-- COMMENTED OUT TO PREVENT DOWNLOAD
-    };
-
-    // Trigger the preview generation for the specified side
-    if (side === 'front') {
-      document.getElementById('download-front-preview').click();
-    } else {
-      document.getElementById('download-back-preview').click();
-    }
-
-    // Fallback timeout in case something goes wrong
-    setTimeout(() => {
-      if (window.downloadPreview !== originalDownloadPreview) {
-        window.downloadPreview = originalDownloadPreview; // Restore original
-        resolve('No design uploaded');
-      }
-    }, 5000); // 5 second timeout
-  });
-}
-
-/**
- * Sends order data via EmailJS, including links to uploaded designs and final mockups.
- * @param {Object} data - Order form data
- * @returns {Promise<boolean>} - True if successful, false otherwise
- */
 async function sendOrderEmail(data) {
   try {
     // Ensure numeric values default to 0 if undefined or null
@@ -147,48 +95,22 @@ async function sendOrderEmail(data) {
     // Default values for design links
     let frontLinkHtml = 'No design uploaded';
     let backLinkHtml = 'No design uploaded';
-    let frontSourceLinkHtml = 'No design uploaded';
-    let backSourceLinkHtml = 'No design uploaded';
 
-    // ✅ Generate and handle front PRODUCT PREVIEW using the downloadPreview function
-    if (data.has_front_design) {
-      const frontMockupUrl = await generateMockupFromDownloadPreview('front');
-      if (frontMockupUrl && frontMockupUrl !== 'No design uploaded') {
-        const frontCompressed = await compressImage(frontMockupUrl);
-        const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
-        if (frontUrl && frontUrl !== 'No design uploaded') {
-          frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Front Product Preview</a>`;
-        }
-      }
-    }
-
-    // ✅ Generate and handle back PRODUCT PREVIEW using the downloadPreview function
-    if (data.has_back_design) {
-      const backMockupUrl = await generateMockupFromDownloadPreview('back');
-      if (backMockupUrl && backMockupUrl !== 'No design uploaded') {
-        const backCompressed = await compressImage(backMockupUrl);
-        const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
-        if (backUrl && backUrl !== 'No design uploaded') {
-          backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Back Product Preview</a>`;
-        }
-      }
-    }
-
-    // ✅ Handle front SOURCE design (Raw Upload) - TEXT LINK ONLY
+    // ✅ Handle front design
     if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
-      const frontSourceCompressed = await compressImage(data.front_design_url);
-      const frontSourceUrl = await uploadImageToSupabase(frontSourceCompressed, 'front_source/');
-      if (frontSourceUrl && frontSourceUrl !== 'No design uploaded') {
-        frontSourceLinkHtml = `<a href="${frontSourceUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download/View Front Source Image</a>`;
+      const frontCompressed = await compressImage(data.front_design_url);
+      const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
+      if (frontUrl && frontUrl !== 'No design uploaded') {
+        frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">View Front Design</a>`;
       }
     }
 
-    // ✅ Handle back SOURCE design (Raw Upload) - TEXT LINK ONLY
+    // ✅ Handle back design
     if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
-      const backSourceCompressed = await compressImage(data.back_design_url);
-      const backSourceUrl = await uploadImageToSupabase(backSourceCompressed, 'back_source/');
-      if (backSourceUrl && backSourceUrl !== 'No design uploaded') {
-        backSourceLinkHtml = `<a href="${backSourceUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download/View Back Source Image</a>`;
+      const backCompressed = await compressImage(data.back_design_url);
+      const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
+      if (backUrl && backUrl !== 'No design uploaded') {
+        backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">View Back Design</a>`;
       }
     }
 
@@ -216,13 +138,9 @@ async function sendOrderEmail(data) {
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
 
-      // ✅ Send clickable text links for Product Previews (Final Mockups)
+      // ✅ Send clickable text links — NO IMAGE PREVIEWS
       front_design_link: frontLinkHtml,
       back_design_link: backLinkHtml,
-
-      // ✅ Send clickable text links for Source Designs (Raw Uploads)
-      front_source_design_link: frontSourceLinkHtml,
-      back_source_design_link: backSourceLinkHtml,
 
       // Add warning if low stock size was selected
       warning_message: data.size && data.size.toLowerCase() !== data.size
@@ -251,10 +169,6 @@ async function sendOrderEmail(data) {
   }
 }
 
-/**
- * Checks if any design (front or back) has been uploaded.
- * @returns {boolean} - True if at least one design is uploaded
- */
 function hasDesignUploaded() {
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
@@ -262,10 +176,6 @@ function hasDesignUploaded() {
          backLayer?.querySelector('.design-image') !== null;
 }
 
-/**
- * Confirms with user if they want to submit without any designs.
- * @returns {Promise<boolean>} - True if user confirms, false otherwise
- */
 function confirmNoDesignSubmission() {
   return new Promise((resolve) => {
     const confirmed = confirm(
@@ -277,7 +187,6 @@ function confirmNoDesignSubmission() {
   });
 }
 
-// Export functions for potential module use
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     sendOrderEmail,
