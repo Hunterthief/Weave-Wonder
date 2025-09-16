@@ -109,7 +109,7 @@ async function sendOrderEmail(data) {
   try {
     // Format the email content
     const emailContent = formatOrderEmail(data);
-    
+        console.log('Email content being sent:', emailContent); // Add this debug line
     // Prepare EmailJS parameters
     const templateParams = {
       to_email: "hassanwaelhh@proton.me", // Your email address
