@@ -1,4 +1,30 @@
-// Download Preview Image Functionality
+// 🚀 Expose a function to generate the mockup canvas for a specific side
+window.generateMockupCanvas = function(side) {
+  const viewId = side === 'front' ? 'front-view' : 'back-view';
+  const layerId = side === 'front' ? 'front-layer' : 'back-layer';
+
+  const baseImage = document.getElementById(viewId).querySelector('.base-image');
+  const designLayer = document.getElementById(layerId);
+
+  if (!baseImage || !designLayer) {
+    console.error(`Elements for ${side} not found.`);
+    return null;
+  }
+
+  // Create canvas
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Set canvas size to match base image
+  setCanvasSize(ctx, baseImage);
+
+  // Draw the design onto the canvas
+  drawDesign(ctx, baseImage, designLayer);
+
+  return canvas;
+};
+
+// 🚀 Keep the original download functionality, but now it uses the shared function
 document.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('download-design');
   if (!downloadBtn) {
@@ -11,44 +37,23 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function generateAndDownloadDesign() {
-  const frontLayer = document.getElementById('front-layer');
-  const backLayer = document.getElementById('back-layer');
-  const frontBaseImage = document.getElementById('front-view').querySelector('.base-image');
-  const backBaseImage = document.getElementById('back-view').querySelector('.base-image');
-
-  if (!frontBaseImage.complete || !backBaseImage.complete) {
-    alert("Please wait for product images to load before downloading.");
-    return;
-  }
-
-  const hasFront = frontLayer.querySelector('.design-image');
-  const hasBack = backLayer.querySelector('.design-image');
+  const hasFront = document.getElementById('front-layer').querySelector('.design-image');
+  const hasBack = document.getElementById('back-layer').querySelector('.design-image');
 
   if (!hasFront && !hasBack) {
     alert("No design uploaded.");
     return;
   }
 
-  // Front canvas
-  const frontCanvas = document.createElement('canvas');
-  const frontCtx = frontCanvas.getContext('2d');
-  setCanvasSize(frontCtx, frontBaseImage);
-  drawDesign(frontCtx, frontBaseImage, frontLayer);
+  // Use the shared function to generate canvases
+  if (hasFront) {
+    const frontCanvas = window.generateMockupCanvas('front');
+    if (frontCanvas) downloadImage(frontCanvas, 'front-preview.png');
+  }
 
-  // Back canvas
-  const backCanvas = document.createElement('canvas');
-  const backCtx = backCanvas.getContext('2d');
-  setCanvasSize(backCtx, backBaseImage);
-  drawDesign(backCtx, backBaseImage, backLayer);
-
-  // Download separately
-  if (hasFront && hasBack) {
-    downloadImage(frontCanvas, 'front-preview.png');
-    downloadImage(backCanvas, 'back-preview.png');
-  } else if (hasFront) {
-    downloadImage(frontCanvas, 'front-preview.png');
-  } else {
-    downloadImage(backCanvas, 'back-preview.png');
+  if (hasBack) {
+    const backCanvas = window.generateMockupCanvas('back');
+    if (backCanvas) downloadImage(backCanvas, 'back-preview.png');
   }
 }
 
@@ -142,4 +147,3 @@ function downloadImage(canvas, filename) {
   link.download = filename;
   link.click();
 }
-
