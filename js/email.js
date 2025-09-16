@@ -103,8 +103,9 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 }
 
 /**
- * Generates a base64 data URL of the final mockup image by compositing the base product and user's design.
- * This function no longer relies on an external `downloadPreview` function.
+ * Generates a base64 data URL of the final mockup image by reading the current state from the DOM.
+ * This function replicates exactly what the user sees on screen by reading the computed styles
+ * of the design image and compositing it onto the base image.
  * @param {string} side - 'front' or 'back'
  * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
  */
@@ -123,45 +124,48 @@ async function generateMockupFromDownloadPreview(side) {
       return;
     }
 
-    // Get the base image
+    // Get the base image element
     const baseImage = viewContainer.querySelector('.base-image');
     if (!baseImage) {
       resolve('No design uploaded');
       return;
     }
 
-    // Define the boundary (same as in script.js)
-    const boundary = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
+    // Define the boundary (must match the BOUNDARY constant in script.js)
+    const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
 
     // Wait for the base image to load to get its natural dimensions
     if (!baseImage.complete) {
-      baseImage.onload = () => {
-        generateCompositeImage();
-      };
+      baseImage.onload = () => generateComposite();
       baseImage.onerror = () => {
-        console.error('Failed to load base image for mockup generation.');
+        console.error('Failed to load base image.');
         resolve('No design uploaded');
       };
     } else {
-      generateCompositeImage();
+      generateComposite();
     }
 
-    function generateCompositeImage() {
+    function generateComposite() {
       // Create a canvas with the same dimensions as the base image
       const canvas = document.createElement('canvas');
       canvas.width = baseImage.naturalWidth;
       canvas.height = baseImage.naturalHeight;
       const ctx = canvas.getContext('2d');
 
-      // Draw the base image
+      // Step 1: Draw the base product image
       ctx.drawImage(baseImage, 0, 0);
 
-      // Get design image's current style and transform
+      // Step 2: Get the computed style of the design image
       const computedStyle = window.getComputedStyle(designImage);
+
+      // Get position (left, top) and size (width, height)
       const left = parseFloat(computedStyle.left) || 0;
       const top = parseFloat(computedStyle.top) || 0;
-      let translateX = 0, translateY = 0;
+      const width = parseFloat(computedStyle.width) || designImage.offsetWidth;
+      const height = parseFloat(computedStyle.height) || designImage.offsetHeight;
 
+      // Get the current transform (for drag position)
+      let translateX = 0, translateY = 0;
       const transform = computedStyle.transform;
       if (transform && transform !== 'none') {
         const matrix = new DOMMatrix(transform);
@@ -169,42 +173,36 @@ async function generateMockupFromDownloadPreview(side) {
         translateY = matrix.f;
       }
 
-      // Calculate final position on the design layer
+      // Calculate the final position within the design layer
       const finalX = left + translateX;
       const finalY = top + translateY;
 
-      // Get size
-      const width = parseFloat(designImage.style.width) || designImage.offsetWidth;
-      const height = parseFloat(designImage.style.height) || designImage.offsetHeight;
+      // Step 3: Calculate the scale from the preview boundary to the actual base image
+      const scaleX = baseImage.naturalWidth / BOUNDARY.WIDTH;
+      const scaleY = baseImage.naturalHeight / BOUNDARY.HEIGHT;
 
-      // Calculate the scale from the preview boundary to the actual base image
-      const scaleX = baseImage.naturalWidth / boundary.WIDTH;
-      const scaleY = baseImage.naturalHeight / boundary.HEIGHT;
-
-      // Calculate the actual position and size on the full-size base image
-      const actualX = (boundary.LEFT + finalX) * scaleX;
-      const actualY = (boundary.TOP + finalY) * scaleY;
+      // Step 4: Calculate the actual position and size on the full-size base image
+      const actualX = (BOUNDARY.LEFT + finalX) * scaleX;
+      const actualY = (BOUNDARY.TOP + finalY) * scaleY;
       const actualWidth = width * scaleX;
       const actualHeight = height * scaleY;
 
-      // Wait for the design image to load
+      // Step 5: Wait for the design image to load, then draw it
       if (!designImage.complete) {
-        designImage.onload = () => {
-          drawDesignImage();
-        };
+        designImage.onload = () => drawDesign();
         designImage.onerror = () => {
-          console.error('Failed to load design image for mockup generation.');
+          console.error('Failed to load design image.');
           resolve('No design uploaded');
         };
       } else {
-        drawDesignImage();
+        drawDesign();
       }
 
-      function drawDesignImage() {
-        // Draw the design image onto the canvas
+      function drawDesign() {
+        // Draw the user's design onto the canvas at the calculated position and size
         ctx.drawImage(designImage, actualX, actualY, actualWidth, actualHeight);
 
-        // Convert canvas to data URL
+        // Convert the canvas to a base64 data URL
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
         resolve(dataUrl);
