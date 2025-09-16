@@ -59,26 +59,27 @@ async function sendOrderEmail(data) {
       emailData.back_design_url = imgUrl || '';
     }
 
-    // Prepare template parameters — unchanged logic, now using cleaned URLs
+    // Prepare template parameters — fixed to match actual data structure from script.js
     const templateParams = {
       to_email: "hassanwaelhh@proton.me",
       from_name: emailData.name,
-      subject: `New Order - ${emailData.product_type}`,
+      subject: `New Order - ${emailData.productType}`,
 
       customer_name: emailData.name,
       phone: emailData.phone,
-      secondary_phone: emailData.secondary_phone || null,
+      secondary_phone: emailData.secondaryPhone || null,
       governorate: emailData.governorate,
       address: emailData.address,
-      delivery_notes: emailData.delivery_notes || null,
+      delivery_notes: emailData.deliveryNotes || null,
 
-      product_type: emailData.product_type,
+      product_type: emailData.productType,
       color: emailData.color || 'Not specified',
       size: emailData.size || 'Not selected',
       quantity: emailData.quantity,
 
-      total_price: emailData.total_price.toFixed(2),
-      shipping_cost: emailData.shipping_cost.toFixed(2),
+      // FIXED: Use the correct property names and add fallbacks
+      total_price: (emailData.totalPrice || 0).toFixed(2),
+      shipping_cost: (emailData.shippingCost || 0).toFixed(2),
 
       has_front_design: emailData.has_front_design,
       has_back_design: emailData.has_back_design,
