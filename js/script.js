@@ -305,8 +305,8 @@ function setupDesignSubmission() {
     }
   });
 
-  // 🔥 IMGUR CLIENT ID — VALID & PUBLIC (DO NOT CHANGE)
-  const IMGUR_CLIENT_ID = 'b43d6964887e571'; // Verified working public client ID
+  // 🔥 IMGUR CLIENT ID — VERIFIED PUBLIC & WORKING (DO NOT CHANGE)
+  const IMGUR_CLIENT_ID = 'b43d6964887e571';
 
   // Front design upload
   document.getElementById('front-design').addEventListener('change', async (e) => {
@@ -328,7 +328,7 @@ function setupDesignSubmission() {
       const result = await response.json();
 
       if (!result.success || !result.data.link) {
-        throw new Error('Image upload failed');
+        throw new Error(result.data ? result.data.error : 'Unknown upload error');
       }
 
       const imageUrl = result.data.link;
@@ -463,7 +463,7 @@ function setupDesignSubmission() {
 
     } catch (error) {
       console.error('Failed to upload front design:', error);
-      alert('Failed to upload front design. Please try again.');
+      alert(`Upload failed: ${error.message || 'Please try again.'}`);
     }
   });
 
@@ -487,7 +487,7 @@ function setupDesignSubmission() {
       const result = await response.json();
 
       if (!result.success || !result.data.link) {
-        throw new Error('Image upload failed');
+        throw new Error(result.data ? result.data.error : 'Unknown upload error');
       }
 
       const imageUrl = result.data.link;
@@ -620,7 +620,7 @@ function setupDesignSubmission() {
 
     } catch (error) {
       console.error('Failed to upload back design:', error);
-      alert('Failed to upload back design. Please try again.');
+      alert(`Upload failed: ${error.message || 'Please try again.'}`);
     }
   });
 }
@@ -808,7 +808,7 @@ function setupOrderForm() {
       }
     }
 
-    // ✅ USE GLOBAL VARIABLES FROM IMGUR UPLOAD — NOT BASE64
+    // ✅ Use global variables set by Imgur upload — NOT base64
     const formData = {
       product_type: productsConfig[productTypeSelect.value].name,
       color: colorSelect.value,
@@ -921,7 +921,7 @@ function updateSizeOptions(type, color) {
     const sizeOption = document.createElement('div');
     sizeOption.className = 'size-option';
     sizeOption.textContent = size.toUpperCase();
-    
+
     const isUpperCase = size === size.toUpperCase();
     const isLowerCase = size === size.toLowerCase();
     const isInStock = isUpperCase;
