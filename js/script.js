@@ -305,40 +305,20 @@ function setupDesignSubmission() {
     }
   });
 
-  // 🔥 IMGUR CLIENT ID — VERIFIED PUBLIC & WORKING (DO NOT CHANGE)
-  const IMGUR_CLIENT_ID = 'b43d6964887e571';
-
-  // Front design upload
-  document.getElementById('front-design').addEventListener('change', async (e) => {
+  // Front design upload — NO IMGUR HERE — USE FILE READER AS BEFORE
+  document.getElementById('front-design').addEventListener('change', (e) => {
     if (!e.target.files.length) return;
 
     const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append('image', file);
+    const reader = new FileReader();
 
-    try {
-      const response = await fetch('https://api.imgur.com/3/image', {
-        method: 'POST',
-        headers: {
-          Authorization: `Client-ID ${IMGUR_CLIENT_ID}`
-        },
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (!result.success || !result.data.link) {
-        throw new Error(result.data ? result.data.error : 'Unknown upload error');
-      }
-
-      const imageUrl = result.data.link;
-
+    reader.onload = (event) => {
       // Clear existing design
       frontLayer.innerHTML = '';
 
       // Create design image
       const img = document.createElement('img');
-      img.src = imageUrl;
+      img.src = event.target.result;
       img.className = 'design-image';
       img.draggable = true;
 
@@ -367,7 +347,7 @@ function setupDesignSubmission() {
 
       // Show preview
       frontPreview.innerHTML = '';
-      frontPreview.innerHTML = `<img src="${imageUrl}" class="preview-image">`;
+      frontPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
       frontPreview.classList.remove('hidden');
 
       // Add boundary buttons
@@ -456,47 +436,24 @@ function setupDesignSubmission() {
         target.style.transform = 'none';
       });
 
-      // Store public URL globally
-      window.frontImageUrl = imageUrl;
-
       updateOrderSummary();
-
-    } catch (error) {
-      console.error('Failed to upload front design:', error);
-      alert(`Upload failed: ${error.message || 'Please try again.'}`);
-    }
+    };
+    reader.readAsDataURL(file);
   });
 
-  // Back design upload
-  document.getElementById('back-design').addEventListener('change', async (e) => {
+  // Back design upload — NO IMGUR HERE — USE FILE READER AS BEFORE
+  document.getElementById('back-design').addEventListener('change', (e) => {
     if (!e.target.files.length) return;
 
     const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append('image', file);
+    const reader = new FileReader();
 
-    try {
-      const response = await fetch('https://api.imgur.com/3/image', {
-        method: 'POST',
-        headers: {
-          Authorization: `Client-ID ${IMGUR_CLIENT_ID}`
-        },
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (!result.success || !result.data.link) {
-        throw new Error(result.data ? result.data.error : 'Unknown upload error');
-      }
-
-      const imageUrl = result.data.link;
-
+    reader.onload = (event) => {
       // Clear existing design
       backLayer.innerHTML = '';
 
       const img = document.createElement('img');
-      img.src = imageUrl;
+      img.src = event.target.result;
       img.className = 'design-image';
       img.draggable = true;
 
@@ -524,7 +481,7 @@ function setupDesignSubmission() {
 
       // Show preview
       backPreview.innerHTML = '';
-      backPreview.innerHTML = `<img src="${imageUrl}" class="preview-image">`;
+      backPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
       backPreview.classList.remove('hidden');
 
       // Add boundary buttons
@@ -613,15 +570,9 @@ function setupDesignSubmission() {
         target.style.transform = 'none';
       });
 
-      // Store public URL globally
-      window.backImageUrl = imageUrl;
-
       updateOrderSummary();
-
-    } catch (error) {
-      console.error('Failed to upload back design:', error);
-      alert(`Upload failed: ${error.message || 'Please try again.'}`);
-    }
+    };
+    reader.readAsDataURL(file);
   });
 }
 
@@ -808,7 +759,63 @@ function setupOrderForm() {
       }
     }
 
-    // ✅ Use global variables set by Imgur upload — NOT base64
+    // ✅ NEW: UPLOAD DESIGNS TO IMGUR ONLY ON SUBMIT — NOT DURING DESIGN PHASE
+    let frontImageUrl = '';
+    let backImageUrl = '';
+
+    if (hasFrontDesign) {
+      const imgElement = document.getElementById('front-layer').querySelector('.design-image');
+      const base64Data = imgElement.src; // This is the base64 string from FileReader
+
+      try {
+        const response = await fetch('https://api.imgur.com/3/image', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Client-ID b43d6964887e571' // ✅ Public, working ID
+          },
+          body: base64Data.replace(/^data:image\/\w+;base64,/, '') // Remove data URL prefix
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data.link) {
+          frontImageUrl = result.data.link;
+        } else {
+          throw new Error(result.data?.error || 'Image upload failed');
+        }
+      } catch (error) {
+        console.error('Failed to upload front design to Imgur:', error);
+        alert(`Failed to upload front design: ${error.message}. Your order will be sent without the front design.`);
+      }
+    }
+
+    if (hasBackDesign) {
+      const imgElement = document.getElementById('back-layer').querySelector('.design-image');
+      const base64Data = imgElement.src;
+
+      try {
+        const response = await fetch('https://api.imgur.com/3/image', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Client-ID b43d6964887e571'
+          },
+          body: base64Data.replace(/^data:image\/\w+;base64,/, '')
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data.link) {
+          backImageUrl = result.data.link;
+        } else {
+          throw new Error(result.data?.error || 'Image upload failed');
+        }
+      } catch (error) {
+        console.error('Failed to upload back design to Imgur:', error);
+        alert(`Failed to upload back design: ${error.message}. Your order will be sent without the back design.`);
+      }
+    }
+
+    // Collect data — snake_case for EmailJS
     const formData = {
       product_type: productsConfig[productTypeSelect.value].name,
       color: colorSelect.value,
@@ -825,10 +832,11 @@ function setupOrderForm() {
       total_price: parseFloat(totalPriceElement.textContent),
       has_front_design: hasFrontDesign,
       has_back_design: hasBackDesign,
-      front_design_url: hasFrontDesign ? window.frontImageUrl || '' : '',
-      back_design_url: hasBackDesign ? window.backImageUrl || '' : ''
+      front_design_url: frontImageUrl, // ✅ Now either public URL or empty string
+      back_design_url: backImageUrl   // ✅ Now either public URL or empty string
     };
 
+    // Send email (defined in email.js)
     const emailSent = await sendOrderEmail(formData);
     if (emailSent) {
       alert('Thank you for your order! We will process it shortly.');
