@@ -1,5 +1,5 @@
 // EmailJS Configuration - Initialize with your public key
-emailjs.init("vob8IbRr130DYlPqt");
+emailjs.init("kMkCJJdFsA9rILDiO");
 
 /**
  * Compresses an image to reduce file size while maintaining quality
