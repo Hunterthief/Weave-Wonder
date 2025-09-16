@@ -858,24 +858,24 @@ function setupOrderForm() {
     
     // Collect data
     const formData = {
-      productType: productsConfig[productTypeSelect.value].name,
-      color: colorSelect.value,
-      size: document.querySelector('.size-option.selected')?.textContent || '',
-      quantity: parseInt(document.getElementById('quantity').value) || 1,
-      name: document.getElementById('name').value,
-      phone: document.getElementById('phone').value,
-      secondaryPhone: document.getElementById('secondary-phone').value,
-      governorate: governorateSelect.value,
-      address: document.getElementById('address').value,
-      deliveryNotes: document.getElementById('delivery-notes').value,
-      productPrice: parseFloat(productPriceElement.textContent),
-      shippingCost: parseFloat(shippingCostElement.textContent),
-      totalPrice: parseFloat(totalPriceElement.textContent),
-      hasFrontDesign: hasFrontDesign,
-      hasBackDesign: hasBackDesign,
-      frontDesignUrl: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
-      backDesignUrl: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
-    };
+  productType: productsConfig[productTypeSelect.value].name,
+  color: colorSelect.value,
+  size: document.querySelector('.size-option.selected')?.textContent || '',
+  quantity: parseInt(document.getElementById('quantity').value) || 1,
+  name: document.getElementById('name').value,
+  phone: document.getElementById('phone').value,
+  secondaryPhone: document.getElementById('secondary-phone').value,
+  governorate: governorateSelect.value,
+  address: document.getElementById('address').value,
+  deliveryNotes: document.getElementById('delivery-notes').value,
+  productPrice: parseFloat(productPriceElement.textContent),
+  shippingCost: parseFloat(shippingCostElement.textContent),
+  totalPrice: parseFloat(totalPriceElement.textContent),
+  hasFrontDesign: hasFrontDesign,
+  hasBackDesign: hasBackDesign,
+  frontDesignUrl: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
+  backDesignUrl: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
+};
     
     // Send email (defined in email.js)
     const emailSent = await sendOrderEmail(formData);
