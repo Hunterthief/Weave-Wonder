@@ -756,22 +756,30 @@ function setupOrderForm() {
       return;
     }
     // Collect data
-    const formData = {
-      productType: productsConfig[productTypeSelect.value].name,
-      color: colorSelect.value,
-      size: document.querySelector('.size-option.selected')?.textContent || '',
-      quantity: parseInt(document.getElementById('quantity').value) || 1,
-      name: document.getElementById('name').value,
-      phone: document.getElementById('phone').value,
-      secondaryPhone: document.getElementById('secondary-phone').value,
-      governorate: governorateSelect.value,
-      address: document.getElementById('address').value,
-      deliveryNotes: document.getElementById('delivery-notes').value,
-      productPrice: parseFloat(productPriceElement.textContent),
-      shippingCost: parseFloat(shippingCostElement.textContent),
-      totalPrice: parseFloat(totalPriceElement.textContent)
-    };
+const frontLayer = document.getElementById('front-layer');
+const backLayer = document.getElementById('back-layer');
 
+const formData = {
+  productType: productsConfig[productTypeSelect.value].name,
+  color: colorSelect.value,
+  size: document.querySelector('.size-option.selected')?.textContent || '',
+  quantity: parseInt(document.getElementById('quantity').value) || 1,
+  name: document.getElementById('name').value,
+  phone: document.getElementById('phone').value,
+  secondaryPhone: document.getElementById('secondary-phone').value,
+  governorate: governorateSelect.value,
+  address: document.getElementById('address').value,
+  deliveryNotes: document.getElementById('delivery-notes').value,
+  productPrice: parseFloat(productPriceElement.textContent),
+  shippingCost: parseFloat(shippingCostElement.textContent),
+  totalPrice: parseFloat(totalPriceElement.textContent),
+
+  // ✅ ADD THESE LINES:
+  has_front_design: frontLayer.querySelector('.design-image') !== null,
+  has_back_design: backLayer.querySelector('.design-image') !== null,
+  front_design_url: frontLayer.querySelector('.design-image')?.src || '',
+  back_design_url: backLayer.querySelector('.design-image')?.src || ''
+};
     // ✅ NOW CALLING THE EXTERNAL sendOrderEmail FUNCTION (defined elsewhere)
     // This function is expected to be defined in a separate script (e.g., email.js)
     // It handles Imgur uploads and EmailJS sending.
