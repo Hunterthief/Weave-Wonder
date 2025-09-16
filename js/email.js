@@ -1,5 +1,4 @@
 // EmailJS Configuration - Initialize with your public key
-// Get this from https://www.emailjs.com/dashboard/email-services  
 emailjs.init("vob8IbRr130DYlPqt"); // Your actual EmailJS public key
 
 /**
@@ -11,17 +10,17 @@ async function sendOrderEmail(data) {
   try {
     // Prepare parameters that MATCH your EmailJS template placeholders EXACTLY
     const templateParams = {
-      to_email: "hassanwaelhh@proton.me", // Your receiving email
-      from_name: data.name, // Will appear as "From" name
-      subject: `New Order - ${data.product_type}`, // Subject line
+      to_email: "hassanwaelhh@proton.me",
+      from_name: data.name,
+      subject: `New Order - ${data.product_type}`,
 
-      // Customer Info
+      // Customer Info — MUST match template exactly!
       customer_name: data.name,
       phone: data.phone,
-      secondaryPhone: data.secondary_phone || null, // EmailJS will skip if null
+      secondaryPhone: data.secondary_phone || null, // 👈 CAMELCASE: matches {{secondaryPhone}}
       governorate: data.governorate,
       address: data.address,
-      delivery_notes: data.delivery_notes || null,
+      delivery_notes: data.delivery_notes || null,  // 👈 SNAKE_CASE: matches {{delivery_notes}}
 
       // Order Details
       product_type: data.product_type,
@@ -42,10 +41,9 @@ async function sendOrderEmail(data) {
 
     console.log('Sending EmailJS template params:', templateParams);
 
-    // Send email using EmailJS (uses template_em0s82a from dashboard)
     const response = await emailjs.send(
-      "service_f0illrv", // Your EmailJS Service ID
-      "template_em0s82a", // Your EmailJS Template ID
+      "service_f0illrv",
+      "template_em0s82a",
       templateParams
     );
 
