@@ -836,50 +836,83 @@ function setupOrderForm() {
 
     // Order form submission
   // Order form submission
- document.getElementById('order-form').addEventListener('submit', async (e) => {
+ // Order form submission
+document.getElementById('order-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  // Validate form
   if (!validateForm()) {
     return;
   }
 
-  const hasFrontDesign = document.getElementById('front-layer').querySelector('.design-image') !== null;
-  const hasBackDesign = document.getElementById('back-layer').querySelector('.design-image') !== null;
-
-  if (!hasFrontDesign && !hasBackDesign) {
-    const confirmSubmit = await confirmNoDesignSubmission();
-    if (!confirmSubmit) {
-      return;
-    }
-  }
-
+  // Collect data (old format)
   const formData = {
-    product_type: productsConfig[productTypeSelect.value].name,
+    productType: productsConfig[productTypeSelect.value].name,
     color: colorSelect.value,
     size: document.querySelector('.size-option.selected')?.textContent || '',
     quantity: parseInt(document.getElementById('quantity').value) || 1,
     name: document.getElementById('name').value,
     phone: document.getElementById('phone').value,
-    secondary_phone: document.getElementById('secondary-phone').value || null,
+    secondaryPhone: document.getElementById('secondary-phone').value,
     governorate: governorateSelect.value,
     address: document.getElementById('address').value,
-    delivery_notes: document.getElementById('delivery-notes').value || null,
-    product_price: parseFloat(productPriceElement.textContent),
-    shipping_cost: parseFloat(shippingCostElement.textContent),
-    total_price: parseFloat(totalPriceElement.textContent),
-    has_front_design: hasFrontDesign,
-    has_back_design: hasBackDesign,
-    front_design_url: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
-    back_design_url: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
+    deliveryNotes: document.getElementById('delivery-notes').value,
+    productPrice: parseFloat(productPriceElement.textContent),
+    shippingCost: parseFloat(shippingCostElement.textContent),
+    totalPrice: parseFloat(totalPriceElement.textContent)
   };
 
-  // ✅ NOW THIS CALLS THE REAL sendOrderEmail FROM email.js
-  const emailSent = await sendOrderEmail(formData);
+  // Prepare data in NEW format expected by enhanced sendOrderEmail
+  const emailData = {
+    name: formData.name,
+    phone: formData.phone,
+    secondary_phone: formData.secondaryPhone || null,
+    governorate: formData.governorate,
+    address: formData.address,
+    delivery_notes: formData.deliveryNotes || null,
 
-  if (emailSent) {
-    alert('Thank you for your order! We will process it shortly.');
+    product_type: formData.productType,
+    color: formData.color || 'Not specified',
+    size: formData.size || 'Not selected',
+    quantity: formData.quantity,
+
+    total_price: formData.totalPrice,
+    shipping_cost: formData.shippingCost,
+
+    has_front_design: document.getElementById('front-layer').querySelector('.design-image') !== null,
+    has_back_design: document.getElementById('back-layer').querySelector('.design-image') !== null,
+    front_design_url: '',
+    back_design_url: ''
+  };
+
+  // If design exists, get base64 URL from image src
+  const frontImg = document.getElementById('front-layer').querySelector('.design-image');
+  if (frontImg && frontImg.src.startsWith('data:')) {
+    emailData.front_design_url = frontImg.src;
+  }
+
+  const backImg = document.getElementById('back-layer').querySelector('.design-image');
+  if (backImg && backImg.src.startsWith('data:')) {
+    emailData.back_design_url = backImg.src;
+  }
+
+  // If no design uploaded, ask for confirmation
+  if (!emailData.has_front_design && !emailData.has_back_design) {
+    const confirmed = await confirmNoDesignSubmission();
+    if (!confirmed) {
+      return; // Cancel submission
+    }
+  }
+
+  // Send email using enhanced function
+  const success = await sendOrderEmail(emailData);
+
+  if (success) {
+    // Reset form on success
     document.getElementById('order-form').reset();
     document.getElementById('product-type-order').dispatchEvent(new Event('change'));
+
+    // Clear design layers
     resetDesign();
   }
 });
