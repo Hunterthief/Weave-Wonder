@@ -2,7 +2,7 @@
 emailjs.init("kMkCJJdFsA9rILDiO");
 
 // 🚀 Initialize Supabase — FIXED: TRAILING SPACE REMOVED!
-const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co';
+const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co'; // <-- TRAILING SPACE REMOVED
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
 
 // Create Supabase client
@@ -15,9 +15,18 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
  * @returns {Promise<string>} - Public image URL or 'No design uploaded'
  */
 async function uploadImageToSupabase(base64, prefix = '') {
-  if (!base64 || base64 === 'No design uploaded') return 'No design uploaded';
+  // Early return if no valid base64 string is provided
+  if (!base64 || typeof base64 !== 'string' || base64 === 'No design uploaded') {
+    console.warn('No valid base64 image provided for upload.');
+    return 'No design uploaded';
+  }
 
   try {
+    // Validate that the string is a base64 data URL
+    if (!base64.startsWith('data:image/')) {
+      throw new Error('Invalid base64 image format');
+    }
+
     // Convert base64 to Blob
     const byteString = atob(base64.split(',')[1]);
     const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
@@ -60,7 +69,10 @@ async function uploadImageToSupabase(base64, prefix = '') {
  * @returns {Promise<string>} - Compressed base64 string
  */
 async function compressImage(base64, maxWidth = 300, quality = 0.7) {
-  if (!base64 || base64 === 'No design uploaded') return base64;
+  // Early return for invalid inputs
+  if (!base64 || typeof base64 !== 'string' || base64 === 'No design uploaded') {
+    return base64;
+  }
 
   return new Promise((resolve) => {
     const img = new Image();
@@ -83,7 +95,10 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 
       resolve(compressed);
     };
-    img.onerror = () => resolve(base64); // fallback if error
+    img.onerror = () => {
+      console.error('Failed to load image for compression:', base64);
+      resolve(base64); // fallback if error
+    };
   });
 }
 
@@ -155,6 +170,7 @@ async function generateMockupFromDownloadPreview(side) {
         if (originalDownloadPreview) {
           window.downloadPreview = originalDownloadPreview;
         }
+        console.warn('Fallback: Mockup generation timed out.');
         resolve('No design uploaded');
       }
     }, 5000);
