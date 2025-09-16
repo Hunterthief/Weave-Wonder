@@ -88,7 +88,94 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 }
 
 /**
- * Sends order data via EmailJS, including links to uploaded designs.
+ * Generates a base64 data URL of the final mockup (product + design) for the specified side.
+ * This function reads the current state of the DOM to create the composite image.
+ * @param {string} side - 'front' or 'back'
+ * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
+ */
+async function generateMockupFromDOM(side) {
+  return new Promise((resolve) => {
+    // Get the correct container and layer
+    const viewId = side === 'front' ? 'front-view' : 'back-view';
+    const layerId = side === 'front' ? 'front-layer' : 'back-layer';
+
+    const viewContainer = document.getElementById(viewId);
+    const designLayer = document.getElementById(layerId);
+
+    // Check if there's a design uploaded
+    const designImage = designLayer.querySelector('.design-image');
+    if (!designImage) {
+      resolve('No design uploaded');
+      return;
+    }
+
+    // Get the base product image
+    const baseImage = viewContainer.querySelector('.base-image');
+
+    // Wait for the base image to load (if not already)
+    if (!baseImage.complete) {
+      baseImage.onload = () => drawMockup();
+      baseImage.onerror = () => resolve('No design uploaded');
+    } else {
+      drawMockup();
+    }
+
+    function drawMockup() {
+      // Create an off-screen canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Set canvas size to match the base image's natural dimensions
+      canvas.width = baseImage.naturalWidth;
+      canvas.height = baseImage.naturalHeight;
+
+      // Draw the base product image
+      ctx.drawImage(baseImage, 0, 0);
+
+      // Get the computed style of the design image
+      const computedStyle = window.getComputedStyle(designImage);
+      const widthPx = parseFloat(computedStyle.width);
+      const heightPx = parseFloat(computedStyle.height);
+
+      // Extract transform: translate(x, y)
+      let translateX = 0, translateY = 0;
+      const transform = computedStyle.transform;
+      if (transform && transform !== 'none') {
+        const matrix = new DOMMatrix(transform);
+        translateX = matrix.e; // translateX
+        translateY = matrix.f; // translateY
+      }
+
+      // Get the design layer's bounding rect relative to the view container
+      const layerRect = designLayer.getBoundingClientRect();
+      const viewRect = viewContainer.getBoundingClientRect();
+
+      // Calculate scale factor from the displayed size to the natural size
+      const scaleX = baseImage.naturalWidth / viewRect.width;
+      const scaleY = baseImage.naturalHeight / viewRect.height;
+
+      // Calculate the position of the design within the layer (including transform)
+      const layerX = parseFloat(computedStyle.left) + translateX;
+      const layerY = parseFloat(computedStyle.top) + translateY;
+
+      // Convert design position and size to natural image coordinates
+      const naturalX = layerX * scaleX;
+      const naturalY = layerY * scaleY;
+      const naturalWidth = widthPx * scaleX;
+      const naturalHeight = heightPx * scaleY;
+
+      // Draw the design image onto the canvas
+      ctx.drawImage(designImage, naturalX, naturalY, naturalWidth, naturalHeight);
+
+      // Resolve with the base64 data URL
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // 80% quality
+      resolve(dataUrl);
+    }
+  });
+}
+
+/**
+ * Sends order data via EmailJS, including links to uploaded designs and final mockups.
  * @param {Object} data - Order form data
  * @returns {Promise<boolean>} - True if successful, false otherwise
  */
@@ -104,23 +191,27 @@ async function sendOrderEmail(data) {
     let frontSourceLinkHtml = 'No design uploaded';
     let backSourceLinkHtml = 'No design uploaded';
 
-    // ✅ Handle front PRODUCT PREVIEW (Temporary: Use raw design URL)
-    // TODO: Replace with data.front_mockup_url once mockup generation is implemented
-    if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
-      const frontCompressed = await compressImage(data.front_design_url);
-      const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
-      if (frontUrl && frontUrl !== 'No design uploaded') {
-        frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Front Product Preview</a>`;
+    // ✅ Generate and handle front PRODUCT PREVIEW (Final Mockup) from DOM
+    if (data.has_front_design) {
+      const frontMockupUrl = await generateMockupFromDOM('front');
+      if (frontMockupUrl && frontMockupUrl !== 'No design uploaded') {
+        const frontCompressed = await compressImage(frontMockupUrl);
+        const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
+        if (frontUrl && frontUrl !== 'No design uploaded') {
+          frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Front Product Preview</a>`;
+        }
       }
     }
 
-    // ✅ Handle back PRODUCT PREVIEW (Temporary: Use raw design URL)
-    // TODO: Replace with data.back_mockup_url once mockup generation is implemented
-    if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
-      const backCompressed = await compressImage(data.back_design_url);
-      const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
-      if (backUrl && backUrl !== 'No design uploaded') {
-        backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Back Product Preview</a>`;
+    // ✅ Generate and handle back PRODUCT PREVIEW (Final Mockup) from DOM
+    if (data.has_back_design) {
+      const backMockupUrl = await generateMockupFromDOM('back');
+      if (backMockupUrl && backMockupUrl !== 'No design uploaded') {
+        const backCompressed = await compressImage(backMockupUrl);
+        const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
+        if (backUrl && backUrl !== 'No design uploaded') {
+          backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Back Product Preview</a>`;
+        }
       }
     }
 
@@ -166,7 +257,7 @@ async function sendOrderEmail(data) {
       has_front_design: data.has_front_design ? 'Yes' : 'No',
       has_back_design: data.has_back_design ? 'Yes' : 'No',
 
-      // ✅ Send clickable text links for Product Previews (Using raw design for now)
+      // ✅ Send clickable text links for Product Previews (Final Mockups)
       front_design_link: frontLinkHtml,
       back_design_link: backLinkHtml,
 
