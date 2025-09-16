@@ -777,8 +777,6 @@ const formData = {
   has_back_design: backLayer.querySelector('.design-image') !== null,
   front_design_url: frontLayer.querySelector('.design-image')?.src || '',
   back_design_url: backLayer.querySelector('.design-image')?.src || ''
-  front_mockup_url: await generateFinalMockup('front'), // You need to implement this function
-  back_mockup_url: await generateFinalMockup('back')   // You need to implement this function
 };
     // ✅ NOW CALLING THE EXTERNAL sendOrderEmail FUNCTION (defined elsewhere)
     // This function is expected to be defined in a separate script (e.g., email.js)
