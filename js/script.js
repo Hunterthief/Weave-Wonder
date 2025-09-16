@@ -836,64 +836,53 @@ function setupOrderForm() {
 
     // Order form submission
   // Order form submission
-  document.getElementById('order-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    // Validate form
-    if (!validateForm()) {
+ document.getElementById('order-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  if (!validateForm()) {
+    return;
+  }
+
+  const hasFrontDesign = document.getElementById('front-layer').querySelector('.design-image') !== null;
+  const hasBackDesign = document.getElementById('back-layer').querySelector('.design-image') !== null;
+
+  if (!hasFrontDesign && !hasBackDesign) {
+    const confirmSubmit = await confirmNoDesignSubmission();
+    if (!confirmSubmit) {
       return;
     }
-    
-    // Check if design is uploaded
-    const hasFrontDesign = document.getElementById('front-layer').querySelector('.design-image') !== null;
-    const hasBackDesign = document.getElementById('back-layer').querySelector('.design-image') !== null;
-    
-    // If no designs uploaded, show warning and ask for confirmation
-    if (!hasFrontDesign && !hasBackDesign) {
-      const confirmSubmit = await confirmNoDesignSubmission();
-      if (!confirmSubmit) {
-        return; // User cancelled submission
-      }
-    }
-    
-    // Collect data
-   // ✅ NEW - snake_case — MATCHES YOUR EMAILJS TEMPLATE EXACTLY
-const formData = {
-  product_type: productsConfig[productTypeSelect.value].name,
-  color: colorSelect.value,
-  size: document.querySelector('.size-option.selected')?.textContent || '',
-  quantity: parseInt(document.getElementById('quantity').value) || 1,
-  name: document.getElementById('name').value,
-  phone: document.getElementById('phone').value,
-  secondary_phone: document.getElementById('secondary-phone').value || null, // 👈 Set to null if empty
-  governorate: governorateSelect.value,
-  address: document.getElementById('address').value,
-  delivery_notes: document.getElementById('delivery-notes').value || null, // 👈 Set to null if empty
-  product_price: parseFloat(productPriceElement.textContent),
-  shipping_cost: parseFloat(shippingCostElement.textContent),
-  total_price: parseFloat(totalPriceElement.textContent),
-  has_front_design: hasFrontDesign,
-  has_back_design: hasBackDesign,
-  front_design_url: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
-  back_design_url: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
-};
-    
-    // Send email (defined in email.js)
-    const emailSent = await sendOrderEmail(formData);
-    
-    if (emailSent) {
-      // Show success message
-      alert('Thank you for your order! We will process it shortly.');
-      
-      // Reset form
-      document.getElementById('order-form').reset();
-      document.getElementById('product-type-order').dispatchEvent(new Event('change'));
-      
-      // Reset design area
-      resetDesign();
-    }
-  });
-}
+  }
+
+  const formData = {
+    product_type: productsConfig[productTypeSelect.value].name,
+    color: colorSelect.value,
+    size: document.querySelector('.size-option.selected')?.textContent || '',
+    quantity: parseInt(document.getElementById('quantity').value) || 1,
+    name: document.getElementById('name').value,
+    phone: document.getElementById('phone').value,
+    secondary_phone: document.getElementById('secondary-phone').value || null,
+    governorate: governorateSelect.value,
+    address: document.getElementById('address').value,
+    delivery_notes: document.getElementById('delivery-notes').value || null,
+    product_price: parseFloat(productPriceElement.textContent),
+    shipping_cost: parseFloat(shippingCostElement.textContent),
+    total_price: parseFloat(totalPriceElement.textContent),
+    has_front_design: hasFrontDesign,
+    has_back_design: hasBackDesign,
+    front_design_url: hasFrontDesign ? document.getElementById('front-layer').querySelector('.design-image').src : '',
+    back_design_url: hasBackDesign ? document.getElementById('back-layer').querySelector('.design-image').src : ''
+  };
+
+  // ✅ NOW THIS CALLS THE REAL sendOrderEmail FROM email.js
+  const emailSent = await sendOrderEmail(formData);
+
+  if (emailSent) {
+    alert('Thank you for your order! We will process it shortly.');
+    document.getElementById('order-form').reset();
+    document.getElementById('product-type-order').dispatchEvent(new Event('change'));
+    resetDesign();
+  }
+});
 
 function updateSizeOptions(type, color) {
   const container = document.getElementById('size-options');
