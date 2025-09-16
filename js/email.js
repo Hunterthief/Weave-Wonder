@@ -2,15 +2,15 @@
 // emailjs.init("vob8IbRr130DYlPqt"); // DELETE THIS LINE
 
 /**
- * Sends order data to webhook.site instead of EmailJS
+ * Sends order data to Formspree for automated email delivery
  * @param {Object} data - Order data object
  * @returns {Promise<boolean>} - Resolves to true if sent successfully
  */
 async function sendOrderEmail(data) {
   try {
-    console.log('🔥 Sending order data to webhook.site:', data);
+    console.log('🔥 Sending order data to Formspree:', data);
 
-    const response = await fetch('https://webhook.site/b7a8c138-4717-4daa-a05a-6348b4ce888d', {
+    const response = await fetch('https://formspree.io/f/xovnzbwl', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -19,14 +19,14 @@ async function sendOrderEmail(data) {
     });
 
     if (response.ok) {
-      console.log('✅ Webhook received data successfully');
+      console.log('✅ Formspree received data and will send email');
       return true;
     } else {
-      throw new Error(`Webhook responded with ${response.status}`);
+      throw new Error(`Formspree responded with ${response.status}`);
     }
 
   } catch (error) {
-    console.error('❌ Failed to send to webhook:', error);
+    console.error('❌ Failed to send to Formspree:', error);
     alert('There was an error sending your order. Please contact support.');
     return false;
   }
