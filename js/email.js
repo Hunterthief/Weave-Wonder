@@ -2,59 +2,49 @@
 emailjs.init("vob8IbRr130DYlPqt");
 
 /**
- * Uploads a base64 image to Imgur and returns a public URL
- * @param {string} base64Image - Base64 string of the image (e.g., "data:image/png;base64,iVBORw0KGgo...")
- * @returns {Promise<string>} - Public Imgur URL or empty string if failed
+ * Compresses an image to reduce file size while maintaining quality
+ * @param {string} base64Image - Base64 string of the image
+ * @param {number} maxWidth - Maximum width (default: 800)
+ * @param {number} quality - JPEG quality 0-1 (default: 0.7)
+ * @returns {Promise<string>} - Compressed Base64 image string
  */
-async function uploadToImgur(base64Image) {
-  try {
-    // Extract the raw base64 part (remove data URI prefix)
-    const base64Data = base64Image.split(',')[1];
-    if (!base64Data) throw new Error('Invalid base64 image');
+async function compressImage(base64Image, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = function() {
+      // Calculate new dimensions while preserving aspect ratio
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
 
-    // Create FormData and send to Imgur
-    const formData = new FormData();
-    formData.append('image', base64Data);
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
 
-    // Add a timeout to prevent hanging requests
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      // Draw image to canvas
+      ctx.drawImage(img, 0, 0, width, height);
 
-    const response = await fetch('https://api.imgur.com/3/image', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Client-ID 9c7f8a333496552' // Public Imgur Client ID (free, no auth required)
-      },
-      body: formData,
-      signal: controller.signal
-    });
+      // Convert to compressed JPEG
+      let compressedBase64;
+      if (base64Image.includes('image/png') || base64Image.includes('image/webp')) {
+        compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+      } else {
+        compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+      }
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    if (!result.success || !result.data?.link) {
-      console.warn('Imgur upload failed with response:', result);
-      return ''; // Return empty string if upload fails
-    }
-
-    return result.data.link; // Return public URL
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.warn('Imgur upload timed out');
-    } else {
-      console.error('Failed to upload image to Imgur:', error);
-    }
-    return ''; // Return empty string if upload fails — email will show "No design uploaded"
-  }
+      resolve(compressedBase64);
+    };
+    img.src = base64Image;
+  });
 }
 
 /**
- * Enhanced version of sendOrderEmail that uploads images to Imgur before sending
+ * Enhanced version of sendOrderEmail that attaches compressed design images directly
  * @param {Object} data - Order data object from script.js
  * @returns {Promise<boolean>} - Resolves to true if email sent successfully
  */
@@ -79,29 +69,26 @@ async function sendOrderEmail(data) {
       }
     }
 
-    // If front design exists and has base64 URL, upload it to Imgur
+    // Prepare attachments object
+    const attachments = {};
+
+    // Process front design
     if (emailData.has_front_design && emailData.front_design_url?.startsWith('data:')) {
-      console.log('Uploading front design to Imgur...');
-      const imgUrl = await uploadToImgur(emailData.front_design_url);
-      emailData.front_design_url = imgUrl || '';
-      if (!imgUrl) {
-        console.warn('Front design upload failed or timed out, proceeding without image');
-        alert('⚠️ Warning: Front design upload failed. Your order will be processed, but the design may not appear correctly. We will contact you if needed.');
-      }
+      console.log('Compressing front design...');
+      const compressedImg = await compressImage(emailData.front_design_url, 800, 0.7);
+      attachments.front_design = compressedImg;
+      console.log('✅ Front design compressed and attached');
     }
 
-    // If back design exists and has base64 URL, upload it to Imgur
+    // Process back design
     if (emailData.has_back_design && emailData.back_design_url?.startsWith('data:')) {
-      console.log('Uploading back design to Imgur...');
-      const imgUrl = await uploadToImgur(emailData.back_design_url);
-      emailData.back_design_url = imgUrl || '';
-      if (!imgUrl) {
-        console.warn('Back design upload failed or timed out, proceeding without image');
-        alert('⚠️ Warning: Back design upload failed. Your order will be processed, but the design may not appear correctly. We will contact you if needed.');
-      }
+      console.log('Compressing back design...');
+      const compressedImg = await compressImage(emailData.back_design_url, 800, 0.7);
+      attachments.back_design = compressedImg;
+      console.log('✅ Back design compressed and attached');
     }
 
-    // Prepare template parameters — fixed to match actual data structure from script.js
+    // Prepare template parameters — match your EmailJS template
     const templateParams = {
       to_email: "hassanwaelhh@proton.me",
       from_name: emailData.name,
@@ -109,39 +96,42 @@ async function sendOrderEmail(data) {
 
       customer_name: emailData.name,
       phone: emailData.phone,
-      secondary_phone: emailData.secondaryPhone || null,
+      secondary_phone: emailData.secondaryPhone || 'Not provided',
       governorate: emailData.governorate,
       address: emailData.address,
-      delivery_notes: emailData.deliveryNotes || null,
+      delivery_notes: emailData.deliveryNotes || 'Not provided',
 
       product_type: emailData.productType,
       color: emailData.color || 'Not specified',
       size: emailData.size || 'Not selected',
       quantity: emailData.quantity,
 
-      // FIXED: Use the correct property names and add fallbacks
       total_price: (emailData.totalPrice || 0).toFixed(2),
       shipping_cost: (emailData.shippingCost || 0).toFixed(2),
 
-      has_front_design: emailData.has_front_design,
-      has_back_design: emailData.has_back_design,
-      front_design_url: emailData.front_design_url,
-      back_design_url: emailData.back_design_url
+      has_front_design: emailData.has_front_design ? 'Yes' : 'No',
+      has_back_design: emailData.has_back_design ? 'Yes' : 'No',
+      front_design_url: emailData.has_front_design ? 'See attached file: front_design.jpg' : 'No design uploaded',
+      back_design_url: emailData.has_back_design ? 'See attached file: back_design.jpg' : 'No design uploaded'
     };
 
     console.log('Sending final template params:', templateParams);
 
+    // Send email with attachments
     const response = await emailjs.send(
       "service_f0illrv",
       "template_em0s82a",
-      templateParams
+      templateParams,
+      {
+        attachments: attachments
+      }
     );
 
     console.log('✅ Email sent successfully:', response.status, response.text);
     
     // Show success message to user
     if (hasAnyDesign) {
-      alert('Order submitted successfully! We will contact you soon to confirm your design.');
+      alert('Order submitted successfully! We will contact you soon. Your design files have been sent to our team.');
     } else {
       alert('Order submitted successfully! Your plain product will be prepared without any designs.');
     }
