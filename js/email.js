@@ -8,9 +8,6 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // Create Supabase client
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ✅ Mirror the BOUNDARY config from script.js for perfect consistency
-const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
-
 /**
  * Uploads a base64 image to Supabase Storage and returns the public URL.
  * @param {string} base64 - Base64 image string
@@ -91,104 +88,48 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 }
 
 /**
- * Generates a base64 data URL of the final mockup (product + design) for the specified side.
- * This function replicates the EXACT logic from script.js for positioning and scaling.
+ * Generates a base64 data URL of the final mockup by triggering the existing downloadPreview function.
+ * This ensures perfect consistency with what the user sees and what the "Download Preview" button produces.
  * @param {string} side - 'front' or 'back'
  * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
  */
-async function generateMockupFromDOM(side) {
+async function generateMockupFromDownloadPreview(side) {
   return new Promise((resolve) => {
-    const viewId = side === 'front' ? 'front-view' : 'back-view';
-    const layerId = side === 'front' ? 'front-layer' : 'back-layer';
-
-    const viewContainer = document.getElementById(viewId);
-    const designLayer = document.getElementById(layerId);
+    const designLayer = document.getElementById(side === 'front' ? 'front-layer' : 'back-layer');
     const designImage = designLayer.querySelector('.design-image');
-    const baseImage = viewContainer.querySelector('.base-image');
 
-    // If no design is uploaded, return early
     if (!designImage) {
       resolve('No design uploaded');
       return;
     }
 
-    // Ensure base image is loaded
-    if (!baseImage.complete) {
-      baseImage.onload = () => drawMockup();
-      baseImage.onerror = () => resolve('No design uploaded');
+    // Temporarily override the global downloadPreview function to capture the base64 data
+    const originalDownloadPreview = window.downloadPreview;
+
+    // Create a new function that captures the base64 data and then calls the original function
+    window.downloadPreview = function(base64Data, filename) {
+      // Restore the original function immediately
+      window.downloadPreview = originalDownloadPreview;
+      // Resolve the promise with the captured base64 data
+      resolve(base64Data);
+      // Do NOT call the original function, so no actual download occurs
+      // originalDownloadPreview(base64Data, filename); // <-- COMMENTED OUT TO PREVENT DOWNLOAD
+    };
+
+    // Trigger the preview generation for the specified side
+    if (side === 'front') {
+      document.getElementById('download-front-preview').click();
     } else {
-      drawMockup();
+      document.getElementById('download-back-preview').click();
     }
 
-    function drawMockup() {
-      // Create off-screen canvas with dimensions of the NATURAL base image
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = baseImage.naturalWidth;
-      canvas.height = baseImage.naturalHeight;
-
-      // Step 1: Draw the base product image
-      ctx.drawImage(baseImage, 0, 0);
-
-      // Step 2: Calculate the scaling factor from the design layer's BOUNDARY to the base image's natural size
-      const viewRect = viewContainer.getBoundingClientRect();
-      const scaleX = baseImage.naturalWidth / viewRect.width;
-      const scaleY = baseImage.naturalHeight / viewRect.height;
-
-      // Step 3: Get the design image's NATURAL dimensions (as stored in script.js)
-      const naturalWidth = parseFloat(designImage.getAttribute('data-original-width')) || designImage.naturalWidth;
-      const naturalHeight = parseFloat(designImage.getAttribute('data-original-height')) || designImage.naturalHeight;
-
-      // Step 4: Replicate the initial scaling logic from script.js
-      // This is the core logic copied from the `img.onload` handler in script.js's design upload event
-      const scaleToFit = Math.min(BOUNDARY.WIDTH / naturalWidth, BOUNDARY.HEIGHT / naturalHeight);
-      let finalWidth = naturalWidth * scaleToFit;
-      let finalHeight = naturalHeight * scaleToFit;
-
-      // Step 5: If the image has been resized by the user, use the stored dimensions
-      if (designImage.hasAttribute('data-width') && designImage.hasAttribute('data-height')) {
-        finalWidth = parseFloat(designImage.getAttribute('data-width'));
-        finalHeight = parseFloat(designImage.getAttribute('data-height'));
-        // Convert these from BOUNDARY space to natural image space
-        finalWidth = (finalWidth / BOUNDARY.WIDTH) * baseImage.naturalWidth;
-        finalHeight = (finalHeight / BOUNDARY.HEIGHT) * baseImage.naturalHeight;
-      } else {
-        // Convert initial scaled size to natural image space
-        finalWidth = (finalWidth / BOUNDARY.WIDTH) * baseImage.naturalWidth;
-        finalHeight = (finalHeight / BOUNDARY.HEIGHT) * baseImage.naturalHeight;
+    // Fallback timeout in case something goes wrong
+    setTimeout(() => {
+      if (window.downloadPreview !== originalDownloadPreview) {
+        window.downloadPreview = originalDownloadPreview; // Restore original
+        resolve('No design uploaded');
       }
-
-      // Step 6: Calculate position
-      // First, get the position within the BOUNDARY (as set in script.js)
-      let leftPos = parseFloat(designImage.style.left) || 0;
-      let topPos = parseFloat(designImage.style.top) || 0;
-
-      // If it has been dragged, get the transform
-      let translateX = 0, translateY = 0;
-      const transform = designImage.style.transform;
-      if (transform && transform.includes('translate')) {
-        const match = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-        if (match) {
-          translateX = parseFloat(match[1]) || 0;
-          translateY = parseFloat(match[2]) || 0;
-        }
-      }
-
-      // Total position within the BOUNDARY
-      const totalXInBoundary = leftPos + translateX;
-      const totalYInBoundary = topPos + translateY;
-
-      // Convert BOUNDARY position to natural image coordinates
-      const finalX = (totalXInBoundary / BOUNDARY.WIDTH) * baseImage.naturalWidth;
-      const finalY = (totalYInBoundary / BOUNDARY.HEIGHT) * baseImage.naturalHeight;
-
-      // Step 7: Draw the design image onto the canvas
-      ctx.drawImage(designImage, finalX, finalY, finalWidth, finalHeight);
-
-      // Step 8: Resolve with the data URL
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      resolve(dataUrl);
-    }
+    }, 5000); // 5 second timeout
   });
 }
 
@@ -209,9 +150,9 @@ async function sendOrderEmail(data) {
     let frontSourceLinkHtml = 'No design uploaded';
     let backSourceLinkHtml = 'No design uploaded';
 
-    // ✅ Generate and handle front PRODUCT PREVIEW (Final Mockup) from DOM
+    // ✅ Generate and handle front PRODUCT PREVIEW using the downloadPreview function
     if (data.has_front_design) {
-      const frontMockupUrl = await generateMockupFromDOM('front');
+      const frontMockupUrl = await generateMockupFromDownloadPreview('front');
       if (frontMockupUrl && frontMockupUrl !== 'No design uploaded') {
         const frontCompressed = await compressImage(frontMockupUrl);
         const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
@@ -221,9 +162,9 @@ async function sendOrderEmail(data) {
       }
     }
 
-    // ✅ Generate and handle back PRODUCT PREVIEW (Final Mockup) from DOM
+    // ✅ Generate and handle back PRODUCT PREVIEW using the downloadPreview function
     if (data.has_back_design) {
-      const backMockupUrl = await generateMockupFromDOM('back');
+      const backMockupUrl = await generateMockupFromDownloadPreview('back');
       if (backMockupUrl && backMockupUrl !== 'No design uploaded') {
         const backCompressed = await compressImage(backMockupUrl);
         const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
