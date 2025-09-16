@@ -1,5 +1,5 @@
 // EmailJS Configuration - Initialize with your public key
-// Get this from https://www.emailjs.com/dashboard/email-services
+// Get this from https://www.emailjs.com/dashboard/email-services  
 emailjs.init("vob8IbRr130DYlPqt"); // Your actual EmailJS public key
 
 /**
@@ -13,31 +13,31 @@ async function sendOrderEmail(data) {
     const templateParams = {
       to_email: "hassanwaelhh@proton.me", // Your receiving email
       from_name: data.name, // Will appear as "From" name
-      subject: `New Order - ${data.productType}`, // Subject line
+      subject: `New Order - ${data.product_type}`, // Subject line
 
       // Customer Info
       customer_name: data.name,
       phone: data.phone,
-      secondaryPhone: data.secondaryPhone || null, // EmailJS will skip if null
+      secondaryPhone: data.secondary_phone || null, // EmailJS will skip if null
       governorate: data.governorate,
       address: data.address,
-      delivery_notes: data.deliveryNotes || null,
+      delivery_notes: data.delivery_notes || null,
 
       // Order Details
-      product_type: data.productType,
+      product_type: data.product_type,
       color: data.color || 'Not specified',
       size: data.size || 'Not selected',
       quantity: data.quantity,
 
       // Payment Summary
-      total_price: data.totalPrice.toFixed(2),
-      shipping_cost: data.shippingCost.toFixed(2), // 🔴 CRITICAL: Was missing!
+      total_price: data.total_price.toFixed(2),
+      shipping_cost: data.shipping_cost.toFixed(2),
 
       // Design Status & URLs
-      has_front_design: data.hasFrontDesign,
-      has_back_design: data.hasBackDesign,
-      front_design_url: data.frontDesignUrl || '', // Must be string, even if empty
-      back_design_url: data.backDesignUrl || ''    // Must be string, even if empty
+      has_front_design: data.has_front_design,
+      has_back_design: data.has_back_design,
+      front_design_url: data.front_design_url || '',
+      back_design_url: data.back_design_url || ''
     };
 
     console.log('Sending EmailJS template params:', templateParams);
