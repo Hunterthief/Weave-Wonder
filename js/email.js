@@ -103,115 +103,46 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
 }
 
 /**
- * Generates a base64 data URL of the final mockup image by reading the current state from the DOM.
- * This function replicates exactly what the user sees on screen by reading the computed styles
- * of the design image and compositing it onto the base image, using the same BOUNDARY logic as script.js.
+ * Generates a base64 data URL of the final mockup image by reading the preview container.
+ * This function reads the image that script.js has already generated and displayed
+ * in the #front-preview or #back-preview containers. This ensures 100% consistency
+ * with what the user sees without any additional calculation.
  * @param {string} side - 'front' or 'back'
  * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
  */
 async function generateMockupFromDownloadPreview(side) {
   return new Promise((resolve) => {
-    const viewId = side === 'front' ? 'front-view' : 'back-view';
-    const layerId = side === 'front' ? 'front-layer' : 'back-layer';
+    // Get the preview container for the specified side
+    const previewContainerId = side === 'front' ? 'front-preview' : 'back-preview';
+    const previewContainer = document.getElementById(previewContainerId);
 
-    const viewContainer = document.getElementById(viewId);
-    const designLayer = document.getElementById(layerId);
-    const designImage = designLayer.querySelector('.design-image');
-
-    // If no design is uploaded, return early
-    if (!designImage) {
+    // Check if the container exists and is not hidden (meaning a design is uploaded)
+    if (!previewContainer || previewContainer.classList.contains('hidden')) {
       resolve('No design uploaded');
       return;
     }
 
-    // Get the base image element
-    const baseImage = viewContainer.querySelector('.base-image');
-    if (!baseImage) {
+    // Get the preview image element inside the container
+    const previewImage = previewContainer.querySelector('.preview-image');
+
+    // If no image is found, return early
+    if (!previewImage) {
       resolve('No design uploaded');
       return;
     }
 
-    // Wait for the base image to load to get its natural dimensions
-    if (!baseImage.complete) {
-      baseImage.onload = () => generateComposite();
-      baseImage.onerror = () => {
-        console.error('Failed to load base image.');
-        resolve('No design uploaded');
-      };
-    } else {
-      generateComposite();
+    // Get the base64 data URL from the image's src attribute
+    const base64DataUrl = previewImage.src;
+
+    // Validate that it's a data URL
+    if (!base64DataUrl || !base64DataUrl.startsWith('data:image/')) {
+      console.error('Preview image src is not a valid data URL:', base64DataUrl);
+      resolve('No design uploaded');
+      return;
     }
 
-    function generateComposite() {
-      // Create a canvas with the same dimensions as the base image
-      const canvas = document.createElement('canvas');
-      canvas.width = baseImage.naturalWidth;
-      canvas.height = baseImage.naturalHeight;
-      const ctx = canvas.getContext('2d');
-
-      // Step 1: Draw the base product image
-      ctx.drawImage(baseImage, 0, 0);
-
-      // Step 2: Get the computed style of the design image (EXACTLY as rendered on screen)
-      const computedStyle = window.getComputedStyle(designImage);
-
-      // Get position (left, top) and size (width, height) — these are the FINAL rendered values
-      const left = parseFloat(computedStyle.left) || 0;
-      const top = parseFloat(computedStyle.top) || 0;
-      const width = parseFloat(computedStyle.width) || designImage.offsetWidth;
-      const height = parseFloat(computedStyle.height) || designImage.offsetHeight;
-
-      // Get the current transform (for drag position) — THIS IS CRITICAL
-      let translateX = 0, translateY = 0;
-      const transform = computedStyle.transform;
-      if (transform && transform !== 'none') {
-        const matrix = new DOMMatrix(transform);
-        translateX = matrix.e; // x translation
-        translateY = matrix.f; // y translation
-      }
-
-      // Calculate the final position within the design layer
-      // This is the exact logic used for on-screen rendering and what the user sees.
-      const finalX = left + translateX;
-      const finalY = top + translateY;
-
-      // Step 3: Get the BOUNDARY config (must match the global BOUNDARY in script.js)
-      // Since we can't modify script.js, we hardcode it here. It's already defined as a constant.
-      const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
-
-      // Step 4: Calculate the scale from the preview boundary to the actual base image
-      const scaleX = baseImage.naturalWidth / BOUNDARY.WIDTH;
-      const scaleY = baseImage.naturalHeight / BOUNDARY.HEIGHT;
-
-      // Step 5: Calculate the actual position and size on the full-size base image
-      // This replicates the exact mapping from the preview container to the final mockup.
-      const actualX = (BOUNDARY.LEFT + finalX) * scaleX;
-      const actualY = (BOUNDARY.TOP + finalY) * scaleY;
-      const actualWidth = width * scaleX;
-      const actualHeight = height * scaleY;
-
-      // Step 6: Wait for the design image to load, then draw it
-      if (!designImage.complete) {
-        designImage.onload = () => drawDesign();
-        designImage.onerror = () => {
-          console.error('Failed to load design image.');
-          resolve('No design uploaded');
-        };
-      } else {
-        drawDesign();
-      }
-
-      function drawDesign() {
-        // Draw the user's design onto the canvas at the calculated position and size
-        // This will be pixel-perfect with what the user sees in their browser.
-        ctx.drawImage(designImage, actualX, actualY, actualWidth, actualHeight);
-
-        // Convert the canvas to a base64 data URL
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-        resolve(dataUrl);
-      }
-    }
+    // Resolve with the base64 data URL
+    resolve(base64DataUrl);
   });
 }
 
