@@ -2,7 +2,7 @@
 emailjs.init("kMkCJJdFsA9rILDiO");
 
 // 🚀 Initialize Supabase — FIXED: TRAILING SPACE REMOVED!
-const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co'; // <-- TRAILING SPACE REMOVED
+const SUPABASE_URL = 'https://cfjaaslhkoaxwjpghgbb.supabase.co  '; // <-- TRAILING SPACE REMOVED
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmamFhc2xoa29heHdqcGdoZ2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNDk2NjIsImV4cCI6MjA3MzYyNTY2Mn0.SmjkIejOYcqbB5CSjuA9AvGcDuPu9uzaUcQwf3wy6WI';
 
 // Create Supabase client
@@ -24,7 +24,7 @@ async function uploadImageToSupabase(base64, prefix = '') {
   try {
     // Validate that the string is a base64 data URL
     if (!base64.startsWith('data:image/')) {
-      throw new Error('Invalid base64 image format: ' + base64.substring(0, 30) + '...');
+      throw new Error('Invalid base64 image format');
     }
 
     // Convert base64 to Blob
@@ -120,7 +120,6 @@ async function generateMockupFromDownloadPreview(side) {
 
     // If no design is uploaded, return early
     if (!designImage) {
-      console.log(`No design uploaded for ${side}.`);
       resolve('No design uploaded');
       return;
     }
@@ -128,22 +127,15 @@ async function generateMockupFromDownloadPreview(side) {
     // Get the base image element
     const baseImage = viewContainer.querySelector('.base-image');
     if (!baseImage) {
-      console.error('Base image element not found.');
       resolve('No design uploaded');
       return;
     }
 
-    // ✅ USE THE GLOBAL BOUNDARY FROM script.js
-    // This ensures perfect synchronization with the preview the user sees.
-    if (typeof BOUNDARY === 'undefined') {
-      console.error('Global BOUNDARY constant is not defined.');
-      resolve('No design uploaded');
-      return;
-    }
+    // Define the boundary (must match the BOUNDARY constant in script.js)
+    const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
 
     // Wait for the base image to load to get its natural dimensions
     if (!baseImage.complete) {
-      console.log('Base image is loading...');
       baseImage.onload = () => generateComposite();
       baseImage.onerror = () => {
         console.error('Failed to load base image.');
@@ -154,7 +146,6 @@ async function generateMockupFromDownloadPreview(side) {
     }
 
     function generateComposite() {
-      console.log('Generating composite image for:', side);
       // Create a canvas with the same dimensions as the base image
       const canvas = document.createElement('canvas');
       canvas.width = baseImage.naturalWidth;
@@ -196,12 +187,8 @@ async function generateMockupFromDownloadPreview(side) {
       const actualWidth = width * scaleX;
       const actualHeight = height * scaleY;
 
-      // Log calculated values for debugging
-      console.log(`${side} design position:`, { actualX, actualY, actualWidth, actualHeight });
-
       // Step 5: Wait for the design image to load, then draw it
       if (!designImage.complete) {
-        console.log('Design image is loading...');
         designImage.onload = () => drawDesign();
         designImage.onerror = () => {
           console.error('Failed to load design image.');
@@ -212,14 +199,12 @@ async function generateMockupFromDownloadPreview(side) {
       }
 
       function drawDesign() {
-        console.log('Drawing design onto canvas.');
         // Draw the user's design onto the canvas at the calculated position and size
         ctx.drawImage(designImage, actualX, actualY, actualWidth, actualHeight);
 
         // Convert the canvas to a base64 data URL
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
-        console.log(`${side} mockup generated successfully.`);
         resolve(dataUrl);
       }
     }
@@ -245,7 +230,6 @@ async function sendOrderEmail(data) {
 
     // ✅ Generate and handle front PRODUCT PREVIEW
     if (data.has_front_design) {
-      console.log('Generating front product preview...');
       const frontMockupUrl = await generateMockupFromDownloadPreview('front');
       if (frontMockupUrl && frontMockupUrl !== 'No design uploaded') {
         const frontCompressed = await compressImage(frontMockupUrl);
@@ -258,7 +242,6 @@ async function sendOrderEmail(data) {
 
     // ✅ Generate and handle back PRODUCT PREVIEW
     if (data.has_back_design) {
-      console.log('Generating back product preview...');
       const backMockupUrl = await generateMockupFromDownloadPreview('back');
       if (backMockupUrl && backMockupUrl !== 'No design uploaded') {
         const backCompressed = await compressImage(backMockupUrl);
