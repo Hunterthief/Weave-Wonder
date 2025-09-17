@@ -394,14 +394,12 @@ function setupDesignSubmission() {
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Get saved offset and current position
+              // Get saved offset
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-              const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
-              const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
-              // Calculate new position
-              let newX = currentX + (clientX - layerRect.left - offsetX);
-              let newY = currentY + (clientY - layerRect.top - offsetY);
+              // ✅ FIXED: Calculate new position correctly
+              let newX = clientX - layerRect.left - offsetX;
+              let newY = clientY - layerRect.top - offsetY;
               // Get container dimensions
               const containerWidth = target.offsetWidth;
               const containerHeight = target.offsetHeight;
@@ -610,14 +608,12 @@ function setupDesignSubmission() {
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Get saved offset and current position
+              // Get saved offset
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-              const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
-              const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
-              // Calculate new position
-              let newX = currentX + (clientX - layerRect.left - offsetX);
-              let newY = currentY + (clientY - layerRect.top - offsetY);
+              // ✅ FIXED: Calculate new position correctly
+              let newX = clientX - layerRect.left - offsetX;
+              let newY = clientY - layerRect.top - offsetY;
               // Get container dimensions
               const containerWidth = target.offsetWidth;
               const containerHeight = target.offsetHeight;
