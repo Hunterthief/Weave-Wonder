@@ -311,48 +311,63 @@ function setupDesignSubmission() {
       reader.onload = (event) => {
         // Clear existing design
         frontLayer.innerHTML = '';
+        // Create a container div for the design
+        const container = document.createElement('div');
+        container.className = 'design-container';
+        container.style.position = 'absolute';
+        container.style.width = '150px';
+        container.style.height = '150px';
+        container.style.top = '0';
+        container.style.left = '0';
+        // Optional: Add a semi-transparent border to make the container visible during design
+        container.style.border = '1px dashed rgba(0, 0, 0, 0.3)';
+        container.style.boxSizing = 'border-box';
         // Create design image
         const img = document.createElement('img');
         img.src = event.target.result;
         img.className = 'design-image';
-        img.draggable = true;
+        img.draggable = false; // Make the image itself not draggable
         // Wait for image to load to get natural dimensions
         img.onload = function() {
           const naturalWidth = img.naturalWidth;
           const naturalHeight = img.naturalHeight;
-          const layerWidth = BOUNDARY.WIDTH;   // 150
-          const layerHeight = BOUNDARY.HEIGHT; // 150
-          // Calculate scale to fit inside boundary while preserving aspect ratio
-          const scale = Math.min(layerWidth / naturalWidth, layerHeight / naturalHeight);
+          const containerWidth = 150;
+          const containerHeight = 150;
+          // Calculate scale to fit inside container while preserving aspect ratio
+          const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
           const width = naturalWidth * scale;
           const height = naturalHeight * scale;
-          // Center the image in the layer
-          const left = (layerWidth - width) / 2;
-          const top = (layerHeight - height) / 2;
+          // Center the image in the container
+          const left = (containerWidth - width) / 2;
+          const top = (containerHeight - height) / 2;
           // Apply size and position — NO stretching!
           img.style.width = width + 'px';
           img.style.height = height + 'px';
           img.style.position = 'absolute';
           img.style.top = top + 'px';
           img.style.left = left + 'px';
-          img.style.transform = 'translate(0, 0)';
           // Store original dimensions for later use in resizable()
           img.setAttribute('data-original-width', naturalWidth);
           img.setAttribute('data-original-height', naturalHeight);
           // Initialize current width/height for resizable interaction
           img.setAttribute('data-width', width);
           img.setAttribute('data-height', height);
+          // Store initial position
+          img.setAttribute('data-initial-left', left);
+          img.setAttribute('data-initial-top', top);
         };
-        // Add to layer
-        frontLayer.appendChild(img);
+        // Add image to container
+        container.appendChild(img);
+        // Add container to layer
+        frontLayer.appendChild(container);
         // Show preview
         frontPreview.innerHTML = '';
         frontPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
         frontPreview.classList.remove('hidden');
         // Add boundary buttons
         addBoundaryButtons(frontLayer);
-        // Make draggable and resizable with boundaries
-        interact(img).draggable({
+        // Make the CONTAINER draggable and resizable with boundaries
+        interact(container).draggable({
           inertia: true,
           listeners: {
             // Set initial offset when drag starts
@@ -361,63 +376,51 @@ function setupDesignSubmission() {
               const rect = target.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Calculate how far the click was from the top-left of the image
+              // Calculate how far the click was from the top-left of the container
               const offsetX = clientX - rect.left;
               const offsetY = clientY - rect.top;
               target.setAttribute('data-offset-x', offsetX);
               target.setAttribute('data-offset-y', offsetY);
-              
-              // Get current transform values
-              const currentTransform = target.style.transform || 'translate(0px, 0px)';
-              const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-              const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
-              const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
-              target.setAttribute('data-current-x', currentX);
-              target.setAttribute('data-current-y', currentY);
+              // Get current position (we'll use CSS top/left for the container)
+              const currentLeft = parseFloat(target.style.left) || 0;
+              const currentTop = parseFloat(target.style.top) || 0;
+              target.setAttribute('data-current-x', currentLeft);
+              target.setAttribute('data-current-y', currentTop);
             },
-            // Use offset to drag smoothly — no more jumping!
+            // Use offset to drag smoothly
             move: function (event) {
               const target = event.target;
               const layer = target.closest('.design-layer');
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              
               // Get saved offset and current position
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
               const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
               const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
-              
-              // Calculate new position based on mouse movement
-              const deltaX = clientX - layerRect.left - offsetX - currentX;
-              const deltaY = clientY - layerRect.top - offsetY - currentY;
-              
               // Calculate new position
-              let newX = currentX + deltaX;
-              let newY = currentY + deltaY;
-              
-              // Get current image dimensions
-              const imgWidth = target.offsetWidth;
-              const imgHeight = target.offsetHeight;
-              
+              let newX = currentX + (clientX - layerRect.left - offsetX);
+              let newY = currentY + (clientY - layerRect.top - offsetY);
+              // Get container dimensions
+              const containerWidth = target.offsetWidth;
+              const containerHeight = target.offsetHeight;
               // Enforce boundaries to prevent jumping out of bounds
               newX = Math.max(0, newX); // Left boundary
               newY = Math.max(0, newY); // Top boundary
-              newX = Math.min(BOUNDARY.WIDTH - imgWidth, newX); // Right boundary
-              newY = Math.min(BOUNDARY.HEIGHT - imgHeight, newY); // Bottom boundary
-              
-              // Apply transform
-              target.style.transform = `translate(${newX}px, ${newY}px)`;
-              
+              newX = Math.min(BOUNDARY.WIDTH - containerWidth, newX); // Right boundary
+              newY = Math.min(BOUNDARY.HEIGHT - containerHeight, newY); // Bottom boundary
+              // Apply position using CSS top/left (not transform)
+              target.style.left = newX + 'px';
+              target.style.top = newY + 'px';
               // Update current position for next move event
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
             }
           }
         });
-        // Make resizable
-        interact(img).resizable({
+        // Make the CONTAINER resizable
+        interact(container).resizable({
           edges: { left: true, right: true, top: true, bottom: true },
           modifiers: [
             interact.modifiers.restrictSize({
@@ -431,80 +434,86 @@ function setupDesignSubmission() {
             // Store original dimensions and aspect ratio on resize start
             start: function (event) {
               const target = event.target;
-              const naturalWidth = parseFloat(target.getAttribute('data-original-width')) || target.offsetWidth;
-              const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
+              const img = target.querySelector('.design-image');
+              if (!img) return;
+              const naturalWidth = parseFloat(img.getAttribute('data-original-width')) || img.offsetWidth;
+              const naturalHeight = parseFloat(img.getAttribute('data-original-height')) || img.offsetHeight;
               const aspectRatio = naturalWidth / naturalHeight;
               target.setAttribute('data-aspect-ratio', aspectRatio);
-              
-              // Store current transform values
-              const currentTransform = target.style.transform || 'translate(0px, 0px)';
-              const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-              const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
-              const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
-              target.setAttribute('data-start-x', currentX);
-              target.setAttribute('data-start-y', currentY);
+              // Store current position
+              const currentLeft = parseFloat(target.style.left) || 0;
+              const currentTop = parseFloat(target.style.top) || 0;
+              target.setAttribute('data-start-x', currentLeft);
+              target.setAttribute('data-start-y', currentTop);
+              // Store current image dimensions
+              target.setAttribute('data-img-width', img.offsetWidth);
+              target.setAttribute('data-img-height', img.offsetHeight);
+              target.setAttribute('data-img-left', parseFloat(img.style.left) || 0);
+              target.setAttribute('data-img-top', parseFloat(img.style.top) || 0);
             },
-            // Maintain aspect ratio and adjust position during resize to prevent jumping
+            // Maintain aspect ratio and adjust position during resize
             move: function (event) {
               const target = event.target;
-              let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
-              let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
-              
-              // Apply delta
-              width += event.deltaRect.width;
-              height += event.deltaRect.height;
-              
+              const img = target.querySelector('.design-image');
+              if (!img) return;
+              // Get current container dimensions
+              let width = target.offsetWidth + event.deltaRect.width;
+              let height = target.offsetHeight + event.deltaRect.height;
               // Get stored aspect ratio
               const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
-              
               // Maintain aspect ratio
               if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
                 height = width / aspectRatio;
               } else {
                 width = height * aspectRatio;
               }
-              
               // Enforce min/max boundaries
               width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
               height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
-              
-              // Adjust position to prevent jumping
+              // Adjust container position to prevent jumping
               let newX = parseFloat(target.getAttribute('data-start-x')) || 0;
               let newY = parseFloat(target.getAttribute('data-start-y')) || 0;
-              
               if (event.edges.left) {
                 newX += event.deltaRect.left;
               }
               if (event.edges.top) {
                 newY += event.deltaRect.top;
               }
-              
-              // Get new dimensions
-              const newWidth = width;
-              const newHeight = height;
-              
               // Enforce boundaries after resize
               newX = Math.max(0, newX);
               newY = Math.max(0, newY);
-              newX = Math.min(BOUNDARY.WIDTH - newWidth, newX);
-              newY = Math.min(BOUNDARY.HEIGHT - newHeight, newY);
-              
-              // Apply new size and position
+              newX = Math.min(BOUNDARY.WIDTH - width, newX);
+              newY = Math.min(BOUNDARY.HEIGHT - height, newY);
+              // Apply new size and position to container
               target.style.width = width + 'px';
               target.style.height = height + 'px';
-              target.style.transform = `translate(${newX}px, ${newY}px)`;
-              
-              // Update stored dimensions for next resize
-              target.setAttribute('data-width', width);
-              target.setAttribute('data-height', height);
+              target.style.left = newX + 'px';
+              target.style.top = newY + 'px';
+              // Now resize and reposition the image within the container
+              const naturalWidth = parseFloat(img.getAttribute('data-original-width'));
+              const naturalHeight = parseFloat(img.getAttribute('data-original-height'));
+              // Calculate scale to fit inside new container while preserving aspect ratio
+              const scale = Math.min(width / naturalWidth, height / naturalHeight);
+              const imgWidth = naturalWidth * scale;
+              const imgHeight = naturalHeight * scale;
+              // Center the image in the container
+              const imgLeft = (width - imgWidth) / 2;
+              const imgTop = (height - imgHeight) / 2;
+              // Apply size and position to image
+              img.style.width = imgWidth + 'px';
+              img.style.height = imgHeight + 'px';
+              img.style.left = imgLeft + 'px';
+              img.style.top = imgTop + 'px';
+              // Update stored dimensions
               target.setAttribute('data-start-x', newX);
               target.setAttribute('data-start-y', newY);
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
+              img.setAttribute('data-width', imgWidth);
+              img.setAttribute('data-height', imgHeight);
             }
           }
         });
-        
         updateOrderSummary();
       };
       reader.readAsDataURL(file);
@@ -518,48 +527,63 @@ function setupDesignSubmission() {
       reader.onload = (event) => {
         // Clear existing design
         backLayer.innerHTML = '';
+        // Create a container div for the design
+        const container = document.createElement('div');
+        container.className = 'design-container';
+        container.style.position = 'absolute';
+        container.style.width = '150px';
+        container.style.height = '150px';
+        container.style.top = '0';
+        container.style.left = '0';
+        // Optional: Add a semi-transparent border to make the container visible during design
+        container.style.border = '1px dashed rgba(0, 0, 0, 0.3)';
+        container.style.boxSizing = 'border-box';
         // Create design image
         const img = document.createElement('img');
         img.src = event.target.result;
         img.className = 'design-image';
-        img.draggable = true;
+        img.draggable = false; // Make the image itself not draggable
         // Wait for image to load to get natural dimensions
         img.onload = function() {
           const naturalWidth = img.naturalWidth;
           const naturalHeight = img.naturalHeight;
-          const layerWidth = BOUNDARY.WIDTH;   // 150
-          const layerHeight = BOUNDARY.HEIGHT; // 150
-          // Calculate scale to fit inside boundary while preserving aspect ratio
-          const scale = Math.min(layerWidth / naturalWidth, layerHeight / naturalHeight);
+          const containerWidth = 150;
+          const containerHeight = 150;
+          // Calculate scale to fit inside container while preserving aspect ratio
+          const scale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
           const width = naturalWidth * scale;
           const height = naturalHeight * scale;
-          // Center the image in the layer
-          const left = (layerWidth - width) / 2;
-          const top = (layerHeight - height) / 2;
+          // Center the image in the container
+          const left = (containerWidth - width) / 2;
+          const top = (containerHeight - height) / 2;
           // Apply size and position — NO stretching!
           img.style.width = width + 'px';
           img.style.height = height + 'px';
           img.style.position = 'absolute';
           img.style.top = top + 'px';
           img.style.left = left + 'px';
-          img.style.transform = 'translate(0, 0)';
           // Store original dimensions for later use in resizable()
           img.setAttribute('data-original-width', naturalWidth);
           img.setAttribute('data-original-height', naturalHeight);
           // Initialize current width/height for resizable interaction
           img.setAttribute('data-width', width);
           img.setAttribute('data-height', height);
+          // Store initial position
+          img.setAttribute('data-initial-left', left);
+          img.setAttribute('data-initial-top', top);
         };
-        // Add to layer
-        backLayer.appendChild(img);
+        // Add image to container
+        container.appendChild(img);
+        // Add container to layer
+        backLayer.appendChild(container);
         // Show preview
         backPreview.innerHTML = '';
         backPreview.innerHTML = `<img src="${event.target.result}" class="preview-image">`;
         backPreview.classList.remove('hidden');
         // Add boundary buttons
         addBoundaryButtons(backLayer);
-        // Make draggable and resizable with boundaries
-        interact(img).draggable({
+        // Make the CONTAINER draggable and resizable with boundaries
+        interact(container).draggable({
           inertia: true,
           listeners: {
             // Set initial offset when drag starts
@@ -568,63 +592,51 @@ function setupDesignSubmission() {
               const rect = target.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Calculate how far the click was from the top-left of the image
+              // Calculate how far the click was from the top-left of the container
               const offsetX = clientX - rect.left;
               const offsetY = clientY - rect.top;
               target.setAttribute('data-offset-x', offsetX);
               target.setAttribute('data-offset-y', offsetY);
-              
-              // Get current transform values
-              const currentTransform = target.style.transform || 'translate(0px, 0px)';
-              const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-              const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
-              const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
-              target.setAttribute('data-current-x', currentX);
-              target.setAttribute('data-current-y', currentY);
+              // Get current position (we'll use CSS top/left for the container)
+              const currentLeft = parseFloat(target.style.left) || 0;
+              const currentTop = parseFloat(target.style.top) || 0;
+              target.setAttribute('data-current-x', currentLeft);
+              target.setAttribute('data-current-y', currentTop);
             },
-            // Use offset to drag smoothly — no more jumping!
+            // Use offset to drag smoothly
             move: function (event) {
               const target = event.target;
               const layer = target.closest('.design-layer');
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              
               // Get saved offset and current position
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
               const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
               const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
-              
-              // Calculate new position based on mouse movement
-              const deltaX = clientX - layerRect.left - offsetX - currentX;
-              const deltaY = clientY - layerRect.top - offsetY - currentY;
-              
               // Calculate new position
-              let newX = currentX + deltaX;
-              let newY = currentY + deltaY;
-              
-              // Get current image dimensions
-              const imgWidth = target.offsetWidth;
-              const imgHeight = target.offsetHeight;
-              
+              let newX = currentX + (clientX - layerRect.left - offsetX);
+              let newY = currentY + (clientY - layerRect.top - offsetY);
+              // Get container dimensions
+              const containerWidth = target.offsetWidth;
+              const containerHeight = target.offsetHeight;
               // Enforce boundaries to prevent jumping out of bounds
               newX = Math.max(0, newX); // Left boundary
               newY = Math.max(0, newY); // Top boundary
-              newX = Math.min(BOUNDARY.WIDTH - imgWidth, newX); // Right boundary
-              newY = Math.min(BOUNDARY.HEIGHT - imgHeight, newY); // Bottom boundary
-              
-              // Apply transform
-              target.style.transform = `translate(${newX}px, ${newY}px)`;
-              
+              newX = Math.min(BOUNDARY.WIDTH - containerWidth, newX); // Right boundary
+              newY = Math.min(BOUNDARY.HEIGHT - containerHeight, newY); // Bottom boundary
+              // Apply position using CSS top/left (not transform)
+              target.style.left = newX + 'px';
+              target.style.top = newY + 'px';
               // Update current position for next move event
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
             }
           }
         });
-        // Make resizable
-        interact(img).resizable({
+        // Make the CONTAINER resizable
+        interact(container).resizable({
           edges: { left: true, right: true, top: true, bottom: true },
           modifiers: [
             interact.modifiers.restrictSize({
@@ -638,80 +650,86 @@ function setupDesignSubmission() {
             // Store original dimensions and aspect ratio on resize start
             start: function (event) {
               const target = event.target;
-              const naturalWidth = parseFloat(target.getAttribute('data-original-width')) || target.offsetWidth;
-              const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
+              const img = target.querySelector('.design-image');
+              if (!img) return;
+              const naturalWidth = parseFloat(img.getAttribute('data-original-width')) || img.offsetWidth;
+              const naturalHeight = parseFloat(img.getAttribute('data-original-height')) || img.offsetHeight;
               const aspectRatio = naturalWidth / naturalHeight;
               target.setAttribute('data-aspect-ratio', aspectRatio);
-              
-              // Store current transform values
-              const currentTransform = target.style.transform || 'translate(0px, 0px)';
-              const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-              const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
-              const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
-              target.setAttribute('data-start-x', currentX);
-              target.setAttribute('data-start-y', currentY);
+              // Store current position
+              const currentLeft = parseFloat(target.style.left) || 0;
+              const currentTop = parseFloat(target.style.top) || 0;
+              target.setAttribute('data-start-x', currentLeft);
+              target.setAttribute('data-start-y', currentTop);
+              // Store current image dimensions
+              target.setAttribute('data-img-width', img.offsetWidth);
+              target.setAttribute('data-img-height', img.offsetHeight);
+              target.setAttribute('data-img-left', parseFloat(img.style.left) || 0);
+              target.setAttribute('data-img-top', parseFloat(img.style.top) || 0);
             },
-            // Maintain aspect ratio and adjust position during resize to prevent jumping
+            // Maintain aspect ratio and adjust position during resize
             move: function (event) {
               const target = event.target;
-              let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
-              let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
-              
-              // Apply delta
-              width += event.deltaRect.width;
-              height += event.deltaRect.height;
-              
+              const img = target.querySelector('.design-image');
+              if (!img) return;
+              // Get current container dimensions
+              let width = target.offsetWidth + event.deltaRect.width;
+              let height = target.offsetHeight + event.deltaRect.height;
               // Get stored aspect ratio
               const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
-              
               // Maintain aspect ratio
               if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
                 height = width / aspectRatio;
               } else {
                 width = height * aspectRatio;
               }
-              
               // Enforce min/max boundaries
               width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
               height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
-              
-              // Adjust position to prevent jumping
+              // Adjust container position to prevent jumping
               let newX = parseFloat(target.getAttribute('data-start-x')) || 0;
               let newY = parseFloat(target.getAttribute('data-start-y')) || 0;
-              
               if (event.edges.left) {
                 newX += event.deltaRect.left;
               }
               if (event.edges.top) {
                 newY += event.deltaRect.top;
               }
-              
-              // Get new dimensions
-              const newWidth = width;
-              const newHeight = height;
-              
               // Enforce boundaries after resize
               newX = Math.max(0, newX);
               newY = Math.max(0, newY);
-              newX = Math.min(BOUNDARY.WIDTH - newWidth, newX);
-              newY = Math.min(BOUNDARY.HEIGHT - newHeight, newY);
-              
-              // Apply new size and position
+              newX = Math.min(BOUNDARY.WIDTH - width, newX);
+              newY = Math.min(BOUNDARY.HEIGHT - height, newY);
+              // Apply new size and position to container
               target.style.width = width + 'px';
               target.style.height = height + 'px';
-              target.style.transform = `translate(${newX}px, ${newY}px)`;
-              
-              // Update stored dimensions for next resize
-              target.setAttribute('data-width', width);
-              target.setAttribute('data-height', height);
+              target.style.left = newX + 'px';
+              target.style.top = newY + 'px';
+              // Now resize and reposition the image within the container
+              const naturalWidth = parseFloat(img.getAttribute('data-original-width'));
+              const naturalHeight = parseFloat(img.getAttribute('data-original-height'));
+              // Calculate scale to fit inside new container while preserving aspect ratio
+              const scale = Math.min(width / naturalWidth, height / naturalHeight);
+              const imgWidth = naturalWidth * scale;
+              const imgHeight = naturalHeight * scale;
+              // Center the image in the container
+              const imgLeft = (width - imgWidth) / 2;
+              const imgTop = (height - imgHeight) / 2;
+              // Apply size and position to image
+              img.style.width = imgWidth + 'px';
+              img.style.height = imgHeight + 'px';
+              img.style.left = imgLeft + 'px';
+              img.style.top = imgTop + 'px';
+              // Update stored dimensions
               target.setAttribute('data-start-x', newX);
               target.setAttribute('data-start-y', newY);
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
+              img.setAttribute('data-width', imgWidth);
+              img.setAttribute('data-height', imgHeight);
             }
           }
         });
-        
         updateOrderSummary();
       };
       reader.readAsDataURL(file);
@@ -783,41 +801,41 @@ function addBoundaryButtons(layer) {
     button.className = `boundary-button ${btn.className}`;
     button.innerHTML = btn.icon;
     button.addEventListener('click', () => {
-      const img = layer.querySelector('.design-image');
+      const container = layer.querySelector('.design-container');
+      if (!container) return;
+      const img = container.querySelector('.design-image');
       if (!img) return;
       switch(btn.className) {
         case 'top-button':
-          centerDesignVertically(layer, img);
+          centerDesignVertically(layer, container, img);
           break;
         case 'right-button':
-          centerDesignHorizontally(layer, img);
+          centerDesignHorizontally(layer, container, img);
           break;
         case 'bottom-button':
-          centerDesignVertically(layer, img);
+          centerDesignVertically(layer, container, img);
           break;
         case 'left-button':
-          centerDesignHorizontally(layer, img);
+          centerDesignHorizontally(layer, container, img);
           break;
       }
     });
     layer.appendChild(button);
   });
 }
-function centerDesignHorizontally(layer, img) {
-  if (!img) return;
+function centerDesignHorizontally(layer, container, img) {
+  if (!container || !img) return;
   const layerWidth = layer.offsetWidth;
-  const imgWidth = img.offsetWidth;
-  const leftPosition = (layerWidth - imgWidth) / 2;
-  img.style.left = leftPosition + 'px';
-  img.style.transform = 'none';
+  const containerWidth = container.offsetWidth;
+  const leftPosition = (layerWidth - containerWidth) / 2;
+  container.style.left = leftPosition + 'px';
 }
-function centerDesignVertically(layer, img) {
-  if (!img) return;
+function centerDesignVertically(layer, container, img) {
+  if (!container || !img) return;
   const layerHeight = layer.offsetHeight;
-  const imgHeight = img.offsetHeight;
-  const topPosition = (layerHeight - imgHeight) / 2;
-  img.style.top = topPosition + 'px';
-  img.style.transform = 'none';
+  const containerHeight = container.offsetHeight;
+  const topPosition = (layerHeight - containerHeight) / 2;
+  container.style.top = topPosition + 'px';
 }
 function setupOrderForm() {
   const productTypeSelect = document.getElementById('product-type-order');
@@ -903,8 +921,8 @@ function setupOrderForm() {
       productPrice: parseFloat(productPriceElement.textContent),
       shippingCost: parseFloat(shippingCostElement.textContent),
       totalPrice: parseFloat(totalPriceElement.textContent),
-      has_front_design: frontLayer.querySelector('.design-image') !== null,
-      has_back_design: backLayer.querySelector('.design-image') !== null,
+      has_front_design: frontLayer.querySelector('.design-container') !== null,
+      has_back_design: backLayer.querySelector('.design-container') !== null,
       front_design_url: frontLayer.querySelector('.design-image')?.src || '',
       back_design_url: backLayer.querySelector('.design-image')?.src || ''
     };
@@ -1109,8 +1127,8 @@ function updateOrderSummary() {
   // Check if both front and back designs are uploaded
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
-  const hasFrontDesign = frontLayer.querySelector('.design-image') !== null;
-  const hasBackDesign = backLayer.querySelector('.design-image') !== null;
+  const hasFrontDesign = frontLayer.querySelector('.design-container') !== null;
+  const hasBackDesign = backLayer.querySelector('.design-container') !== null;
   // Get quantity
   const quantity = parseInt(document.getElementById('quantity').value) || 1;
   // Only add frontBackPrice if both designs are uploaded
