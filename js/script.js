@@ -339,6 +339,9 @@ function setupDesignSubmission() {
           // Store original dimensions for later use in resizable()
           img.setAttribute('data-original-width', naturalWidth);
           img.setAttribute('data-original-height', naturalHeight);
+          // ✅ Initialize current width/height for resizable interaction
+          img.setAttribute('data-width', width);
+          img.setAttribute('data-height', height);
         };
         // Add to layer
         frontLayer.appendChild(img);
@@ -463,11 +466,11 @@ function setupDesignSubmission() {
             }
           }
         });
-        interact('.design-image').on('resizeend', (event) => {
-          const target = event.target;
-          // Optional: You can snap to grid or do other post-resize adjustments here.
-          // Leaving transform as is for smooth dragging after resize.
-        });
+        // ❌ REMOVED: The resizeend listener that was resetting transform to 'none'
+        // interact('.design-image').on('resizeend', (event) => {
+        //   const target = event.target;
+        //   target.style.transform = 'none';
+        // });
         updateOrderSummary();
       };
       reader.readAsDataURL(file);
@@ -509,6 +512,9 @@ function setupDesignSubmission() {
           // Store original dimensions for later use in resizable()
           img.setAttribute('data-original-width', naturalWidth);
           img.setAttribute('data-original-height', naturalHeight);
+          // ✅ Initialize current width/height for resizable interaction
+          img.setAttribute('data-width', width);
+          img.setAttribute('data-height', height);
         };
         // Add to layer
         backLayer.appendChild(img);
@@ -633,11 +639,11 @@ function setupDesignSubmission() {
             }
           }
         });
-        interact('.design-image').on('resizeend', (event) => {
-          const target = event.target;
-          // Optional: You can snap to grid or do other post-resize adjustments here.
-          // Leaving transform as is for smooth dragging after resize.
-        });
+        // ❌ REMOVED: The resizeend listener that was resetting transform to 'none'
+        // interact('.design-image').on('resizeend', (event) => {
+        //   const target = event.target;
+        //   target.style.transform = 'none';
+        // });
         updateOrderSummary();
       };
       reader.readAsDataURL(file);
