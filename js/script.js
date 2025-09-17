@@ -339,7 +339,7 @@ function setupDesignSubmission() {
           // Store original dimensions for later use in resizable()
           img.setAttribute('data-original-width', naturalWidth);
           img.setAttribute('data-original-height', naturalHeight);
-          // ✅ Initialize current width/height for resizable interaction
+          // Initialize current width/height for resizable interaction
           img.setAttribute('data-width', width);
           img.setAttribute('data-height', height);
         };
@@ -352,67 +352,71 @@ function setupDesignSubmission() {
         // Add boundary buttons
         addBoundaryButtons(frontLayer);
         // Make draggable and resizable with boundaries
-        // ✅ Use specific reference to this image, not a global selector
         interact(img).draggable({
           inertia: true,
-          modifiers: [
-            interact.modifiers.restrictRect({
-              restriction: {
-                top: 0,
-                left: 0,
-                width: BOUNDARY.WIDTH,
-                height: BOUNDARY.HEIGHT
-              },
-              endOnly: false // ✅ Changed to false to restrict during drag, not just at end
-            })
-          ],
           listeners: {
-            // ✅ Enhanced offset calculation that accounts for current transform
+            // Set initial offset when drag starts
             start: function (event) {
               const target = event.target;
               const rect = target.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
+              // Calculate how far the click was from the top-left of the image
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
+              
               // Get current transform values
               const currentTransform = target.style.transform || 'translate(0px, 0px)';
               const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
               const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
               const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
-              // Calculate offset from pointer to image's top-left corner
-              // This accounts for both the CSS position and current transform
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              // Store both the visual offset and the current transform
-              target.setAttribute('data-offset-x', offsetX);
-              target.setAttribute('data-offset-y', offsetY);
               target.setAttribute('data-current-x', currentX);
               target.setAttribute('data-current-y', currentY);
             },
-            // ✅ Fixed move function that prevents jumping (removed manual boundary enforcement)
+            // Use offset to drag smoothly — no more jumping!
             move: function (event) {
               const target = event.target;
               const layer = target.closest('.design-layer');
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
+              
               // Get saved offset and current position
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
               const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
               const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
+              
+              // Calculate new position based on mouse movement
+              const deltaX = clientX - layerRect.left - offsetX - currentX;
+              const deltaY = clientY - layerRect.top - offsetY - currentY;
+              
               // Calculate new position
-              // This ensures smooth dragging from any point on the image
-              const newX = currentX + (clientX - layerRect.left - offsetX);
-              const newY = currentY + (clientY - layerRect.top - offsetY);
+              let newX = currentX + deltaX;
+              let newY = currentY + deltaY;
+              
+              // Get current image dimensions
+              const imgWidth = target.offsetWidth;
+              const imgHeight = target.offsetHeight;
+              
+              // Enforce boundaries to prevent jumping out of bounds
+              newX = Math.max(0, newX); // Left boundary
+              newY = Math.max(0, newY); // Top boundary
+              newX = Math.min(BOUNDARY.WIDTH - imgWidth, newX); // Right boundary
+              newY = Math.min(BOUNDARY.HEIGHT - imgHeight, newY); // Bottom boundary
+              
               // Apply transform
               target.style.transform = `translate(${newX}px, ${newY}px)`;
+              
               // Update current position for next move event
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
             }
           }
         });
-        // ✅ Use specific reference to this image for resizing
+        // Make resizable
         interact(img).resizable({
           edges: { left: true, right: true, top: true, bottom: true },
           modifiers: [
@@ -421,16 +425,6 @@ function setupDesignSubmission() {
                 min: { width: 50, height: 50 },
                 max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
               }
-            }),
-            // ✅ Add restrictEdges modifier to keep image within boundaries during resize
-            interact.modifiers.restrictEdges({
-              restriction: {
-                top: 0,
-                left: 0,
-                right: BOUNDARY.WIDTH,
-                bottom: BOUNDARY.HEIGHT
-              },
-              endOnly: false
             })
           ],
           listeners: {
@@ -441,6 +435,7 @@ function setupDesignSubmission() {
               const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
               const aspectRatio = naturalWidth / naturalHeight;
               target.setAttribute('data-aspect-ratio', aspectRatio);
+              
               // Store current transform values
               const currentTransform = target.style.transform || 'translate(0px, 0px)';
               const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
@@ -454,45 +449,62 @@ function setupDesignSubmission() {
               const target = event.target;
               let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
               let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
+              
               // Apply delta
               width += event.deltaRect.width;
               height += event.deltaRect.height;
+              
               // Get stored aspect ratio
               const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
-              // If resizing from left/right (horizontal), adjust height proportionally
+              
+              // Maintain aspect ratio
               if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
-                // Width changed more → base height on width
                 height = width / aspectRatio;
               } else {
-                // Height changed more → base width on height
                 width = height * aspectRatio;
               }
+              
               // Enforce min/max boundaries
               width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
               height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
+              
               // Adjust position to prevent jumping
-              // We adjust based on which edge is being dragged
               let newX = parseFloat(target.getAttribute('data-start-x')) || 0;
               let newY = parseFloat(target.getAttribute('data-start-y')) || 0;
+              
               if (event.edges.left) {
                 newX += event.deltaRect.left;
               }
               if (event.edges.top) {
                 newY += event.deltaRect.top;
               }
+              
+              // Get new dimensions
+              const newWidth = width;
+              const newHeight = height;
+              
+              // Enforce boundaries after resize
+              newX = Math.max(0, newX);
+              newY = Math.max(0, newY);
+              newX = Math.min(BOUNDARY.WIDTH - newWidth, newX);
+              newY = Math.min(BOUNDARY.HEIGHT - newHeight, newY);
+              
               // Apply new size and position
               target.style.width = width + 'px';
               target.style.height = height + 'px';
               target.style.transform = `translate(${newX}px, ${newY}px)`;
+              
               // Update stored dimensions for next resize
               target.setAttribute('data-width', width);
               target.setAttribute('data-height', height);
-              // Also update current position for dragging
+              target.setAttribute('data-start-x', newX);
+              target.setAttribute('data-start-y', newY);
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
             }
           }
         });
+        
         updateOrderSummary();
       };
       reader.readAsDataURL(file);
@@ -534,7 +546,7 @@ function setupDesignSubmission() {
           // Store original dimensions for later use in resizable()
           img.setAttribute('data-original-width', naturalWidth);
           img.setAttribute('data-original-height', naturalHeight);
-          // ✅ Initialize current width/height for resizable interaction
+          // Initialize current width/height for resizable interaction
           img.setAttribute('data-width', width);
           img.setAttribute('data-height', height);
         };
@@ -547,65 +559,71 @@ function setupDesignSubmission() {
         // Add boundary buttons
         addBoundaryButtons(backLayer);
         // Make draggable and resizable with boundaries
-        // ✅ Use specific reference to this image, not a global selector
         interact(img).draggable({
           inertia: true,
-          modifiers: [
-            interact.modifiers.restrictRect({
-              restriction: {
-                top: 0,
-                left: 0,
-                width: BOUNDARY.WIDTH,
-                height: BOUNDARY.HEIGHT
-              },
-              endOnly: false // ✅ Changed to false to restrict during drag, not just at end
-            })
-          ],
           listeners: {
-            // ✅ Enhanced offset calculation that accounts for current transform
+            // Set initial offset when drag starts
             start: function (event) {
               const target = event.target;
               const rect = target.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
+              // Calculate how far the click was from the top-left of the image
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
+              
               // Get current transform values
               const currentTransform = target.style.transform || 'translate(0px, 0px)';
               const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
               const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
               const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
-              // Calculate offset from pointer to image's top-left corner
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              // Store both the visual offset and the current transform
-              target.setAttribute('data-offset-x', offsetX);
-              target.setAttribute('data-offset-y', offsetY);
               target.setAttribute('data-current-x', currentX);
               target.setAttribute('data-current-y', currentY);
             },
-            // ✅ Fixed move function that prevents jumping (removed manual boundary enforcement)
+            // Use offset to drag smoothly — no more jumping!
             move: function (event) {
               const target = event.target;
               const layer = target.closest('.design-layer');
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
+              
               // Get saved offset and current position
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
               const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
               const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
+              
+              // Calculate new position based on mouse movement
+              const deltaX = clientX - layerRect.left - offsetX - currentX;
+              const deltaY = clientY - layerRect.top - offsetY - currentY;
+              
               // Calculate new position
-              const newX = currentX + (clientX - layerRect.left - offsetX);
-              const newY = currentY + (clientY - layerRect.top - offsetY);
+              let newX = currentX + deltaX;
+              let newY = currentY + deltaY;
+              
+              // Get current image dimensions
+              const imgWidth = target.offsetWidth;
+              const imgHeight = target.offsetHeight;
+              
+              // Enforce boundaries to prevent jumping out of bounds
+              newX = Math.max(0, newX); // Left boundary
+              newY = Math.max(0, newY); // Top boundary
+              newX = Math.min(BOUNDARY.WIDTH - imgWidth, newX); // Right boundary
+              newY = Math.min(BOUNDARY.HEIGHT - imgHeight, newY); // Bottom boundary
+              
               // Apply transform
               target.style.transform = `translate(${newX}px, ${newY}px)`;
+              
               // Update current position for next move event
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
             }
           }
         });
-        // ✅ Use specific reference to this image for resizing
+        // Make resizable
         interact(img).resizable({
           edges: { left: true, right: true, top: true, bottom: true },
           modifiers: [
@@ -614,16 +632,6 @@ function setupDesignSubmission() {
                 min: { width: 50, height: 50 },
                 max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
               }
-            }),
-            // ✅ Add restrictEdges modifier to keep image within boundaries during resize
-            interact.modifiers.restrictEdges({
-              restriction: {
-                top: 0,
-                left: 0,
-                right: BOUNDARY.WIDTH,
-                bottom: BOUNDARY.HEIGHT
-              },
-              endOnly: false
             })
           ],
           listeners: {
@@ -634,6 +642,7 @@ function setupDesignSubmission() {
               const naturalHeight = parseFloat(target.getAttribute('data-original-height')) || target.offsetHeight;
               const aspectRatio = naturalWidth / naturalHeight;
               target.setAttribute('data-aspect-ratio', aspectRatio);
+              
               // Store current transform values
               const currentTransform = target.style.transform || 'translate(0px, 0px)';
               const translateMatch = currentTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
@@ -647,44 +656,62 @@ function setupDesignSubmission() {
               const target = event.target;
               let width = parseFloat(target.getAttribute('data-width')) || target.offsetWidth;
               let height = parseFloat(target.getAttribute('data-height')) || target.offsetHeight;
+              
               // Apply delta
               width += event.deltaRect.width;
               height += event.deltaRect.height;
+              
               // Get stored aspect ratio
               const aspectRatio = parseFloat(target.getAttribute('data-aspect-ratio'));
-              // If resizing from left/right (horizontal), adjust height proportionally
+              
+              // Maintain aspect ratio
               if (Math.abs(event.deltaRect.width) > Math.abs(event.deltaRect.height)) {
-                // Width changed more → base height on width
                 height = width / aspectRatio;
               } else {
-                // Height changed more → base width on height
                 width = height * aspectRatio;
               }
+              
               // Enforce min/max boundaries
               width = Math.max(50, Math.min(BOUNDARY.WIDTH, width));
               height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
+              
               // Adjust position to prevent jumping
               let newX = parseFloat(target.getAttribute('data-start-x')) || 0;
               let newY = parseFloat(target.getAttribute('data-start-y')) || 0;
+              
               if (event.edges.left) {
                 newX += event.deltaRect.left;
               }
               if (event.edges.top) {
                 newY += event.deltaRect.top;
               }
+              
+              // Get new dimensions
+              const newWidth = width;
+              const newHeight = height;
+              
+              // Enforce boundaries after resize
+              newX = Math.max(0, newX);
+              newY = Math.max(0, newY);
+              newX = Math.min(BOUNDARY.WIDTH - newWidth, newX);
+              newY = Math.min(BOUNDARY.HEIGHT - newHeight, newY);
+              
               // Apply new size and position
               target.style.width = width + 'px';
               target.style.height = height + 'px';
               target.style.transform = `translate(${newX}px, ${newY}px)`;
+              
               // Update stored dimensions for next resize
               target.setAttribute('data-width', width);
               target.setAttribute('data-height', height);
-              // Also update current position for dragging
+              target.setAttribute('data-start-x', newX);
+              target.setAttribute('data-start-y', newY);
               target.setAttribute('data-current-x', newX);
               target.setAttribute('data-current-y', newY);
             }
           }
         });
+        
         updateOrderSummary();
       };
       reader.readAsDataURL(file);
