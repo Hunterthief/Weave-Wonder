@@ -363,7 +363,7 @@ function setupDesignSubmission() {
                 width: BOUNDARY.WIDTH,
                 height: BOUNDARY.HEIGHT
               },
-              endOnly: true
+              endOnly: false // ✅ Changed to false to restrict during drag, not just at end
             })
           ],
           listeners: {
@@ -388,7 +388,7 @@ function setupDesignSubmission() {
               target.setAttribute('data-current-x', currentX);
               target.setAttribute('data-current-y', currentY);
             },
-            // ✅ Fixed move function that prevents jumping AND enforces boundaries
+            // ✅ Fixed move function that prevents jumping (removed manual boundary enforcement)
             move: function (event) {
               const target = event.target;
               const layer = target.closest('.design-layer');
@@ -401,20 +401,9 @@ function setupDesignSubmission() {
               const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
               const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
               // Calculate new position
-              let newX = currentX + (clientX - layerRect.left - offsetX);
-              let newY = currentY + (clientY - layerRect.top - offsetY);
-              // Get current image dimensions
-              const imgWidth = target.offsetWidth;
-              const imgHeight = target.offsetHeight;
-              // ✅ Enforce boundaries to prevent jumping out of bounds
-              // Left boundary (image's left edge can't go beyond 0)
-              newX = Math.max(0, newX);
-              // Top boundary (image's top edge can't go beyond 0)
-              newY = Math.max(0, newY);
-              // Right boundary (image's right edge can't go beyond BOUNDARY.WIDTH)
-              newX = Math.min(BOUNDARY.WIDTH - imgWidth, newX);
-              // Bottom boundary (image's bottom edge can't go beyond BOUNDARY.HEIGHT)
-              newY = Math.min(BOUNDARY.HEIGHT - imgHeight, newY);
+              // This ensures smooth dragging from any point on the image
+              const newX = currentX + (clientX - layerRect.left - offsetX);
+              const newY = currentY + (clientY - layerRect.top - offsetY);
               // Apply transform
               target.style.transform = `translate(${newX}px, ${newY}px)`;
               // Update current position for next move event
@@ -432,6 +421,16 @@ function setupDesignSubmission() {
                 min: { width: 50, height: 50 },
                 max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
               }
+            }),
+            // ✅ Add restrictEdges modifier to keep image within boundaries during resize
+            interact.modifiers.restrictEdges({
+              restriction: {
+                top: 0,
+                left: 0,
+                right: BOUNDARY.WIDTH,
+                bottom: BOUNDARY.HEIGHT
+              },
+              endOnly: false
             })
           ],
           listeners: {
@@ -481,18 +480,6 @@ function setupDesignSubmission() {
               if (event.edges.top) {
                 newY += event.deltaRect.top;
               }
-              // ✅ Enforce boundaries after resize to prevent jumping out of bounds
-              // Get new dimensions
-              const newWidth = width;
-              const newHeight = height;
-              // Left boundary
-              newX = Math.max(0, newX);
-              // Top boundary
-              newY = Math.max(0, newY);
-              // Right boundary
-              newX = Math.min(BOUNDARY.WIDTH - newWidth, newX);
-              // Bottom boundary
-              newY = Math.min(BOUNDARY.HEIGHT - newHeight, newY);
               // Apply new size and position
               target.style.width = width + 'px';
               target.style.height = height + 'px';
@@ -571,7 +558,7 @@ function setupDesignSubmission() {
                 width: BOUNDARY.WIDTH,
                 height: BOUNDARY.HEIGHT
               },
-              endOnly: true
+              endOnly: false // ✅ Changed to false to restrict during drag, not just at end
             })
           ],
           listeners: {
@@ -595,7 +582,7 @@ function setupDesignSubmission() {
               target.setAttribute('data-current-x', currentX);
               target.setAttribute('data-current-y', currentY);
             },
-            // ✅ Fixed move function that prevents jumping AND enforces boundaries
+            // ✅ Fixed move function that prevents jumping (removed manual boundary enforcement)
             move: function (event) {
               const target = event.target;
               const layer = target.closest('.design-layer');
@@ -608,20 +595,8 @@ function setupDesignSubmission() {
               const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
               const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
               // Calculate new position
-              let newX = currentX + (clientX - layerRect.left - offsetX);
-              let newY = currentY + (clientY - layerRect.top - offsetY);
-              // Get current image dimensions
-              const imgWidth = target.offsetWidth;
-              const imgHeight = target.offsetHeight;
-              // ✅ Enforce boundaries to prevent jumping out of bounds
-              // Left boundary (image's left edge can't go beyond 0)
-              newX = Math.max(0, newX);
-              // Top boundary (image's top edge can't go beyond 0)
-              newY = Math.max(0, newY);
-              // Right boundary (image's right edge can't go beyond BOUNDARY.WIDTH)
-              newX = Math.min(BOUNDARY.WIDTH - imgWidth, newX);
-              // Bottom boundary (image's bottom edge can't go beyond BOUNDARY.HEIGHT)
-              newY = Math.min(BOUNDARY.HEIGHT - imgHeight, newY);
+              const newX = currentX + (clientX - layerRect.left - offsetX);
+              const newY = currentY + (clientY - layerRect.top - offsetY);
               // Apply transform
               target.style.transform = `translate(${newX}px, ${newY}px)`;
               // Update current position for next move event
@@ -639,6 +614,16 @@ function setupDesignSubmission() {
                 min: { width: 50, height: 50 },
                 max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
               }
+            }),
+            // ✅ Add restrictEdges modifier to keep image within boundaries during resize
+            interact.modifiers.restrictEdges({
+              restriction: {
+                top: 0,
+                left: 0,
+                right: BOUNDARY.WIDTH,
+                bottom: BOUNDARY.HEIGHT
+              },
+              endOnly: false
             })
           ],
           listeners: {
@@ -687,18 +672,6 @@ function setupDesignSubmission() {
               if (event.edges.top) {
                 newY += event.deltaRect.top;
               }
-              // ✅ Enforce boundaries after resize to prevent jumping out of bounds
-              // Get new dimensions
-              const newWidth = width;
-              const newHeight = height;
-              // Left boundary
-              newX = Math.max(0, newX);
-              // Top boundary
-              newY = Math.max(0, newY);
-              // Right boundary
-              newX = Math.min(BOUNDARY.WIDTH - newWidth, newX);
-              // Bottom boundary
-              newY = Math.min(BOUNDARY.HEIGHT - newHeight, newY);
               // Apply new size and position
               target.style.width = width + 'px';
               target.style.height = height + 'px';
