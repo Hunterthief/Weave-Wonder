@@ -1,188 +1,146 @@
-// 🚀 Expose a function to generate the mockup canvas for a specific side
-window.generateMockupCanvas = function(side) {
-  const viewId = side === 'front' ? 'front-view' : 'back-view';
-  const layerId = side === 'front' ? 'front-layer' : 'back-layer';
-
-  const baseImage = document.getElementById(viewId).querySelector('.base-image');
-  const designLayer = document.getElementById(layerId);
-
-  if (!baseImage || !designLayer) {
-    console.error(`Elements for ${side} not found.`);
-    return null;
-  }
-
-  // Create canvas
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  // Set canvas size to match base image
-  setCanvasSize(ctx, baseImage);
-
-  // Draw the design onto the canvas
-  drawDesign(ctx, baseImage, designLayer);
-
-  return canvas;
-};
-
-// 🚀 Keep the original download functionality, but now it uses the shared function
-document.addEventListener('DOMContentLoaded', () => {
-  const downloadBtn = document.getElementById('download-design');
-  if (!downloadBtn) {
-    console.error("Download button not found!");
-    return;
-  }
-  downloadBtn.addEventListener('click', () => {
-    generateAndDownloadDesign();
-  });
-});
-
-function generateAndDownloadDesign() {
-  const hasFront = document.getElementById('front-layer').querySelector('.design-image');
-  const hasBack = document.getElementById('back-layer').querySelector('.design-image');
-
-  if (!hasFront && !hasBack) {
-    alert("No design uploaded.");
-    return;
-  }
-
-  // Use the shared function to generate canvases
-  if (hasFront) {
-    const frontCanvas = window.generateMockupCanvas('front');
-    if (frontCanvas) downloadImage(frontCanvas, 'front-preview.png');
-  }
-
-  if (hasBack) {
-    const backCanvas = window.generateMockupCanvas('back');
-    if (backCanvas) downloadImage(backCanvas, 'back-preview.png');
-  }
-}
-
-function setCanvasSize(ctx, baseImage) {
-  ctx.canvas.width = baseImage.naturalWidth || baseImage.width;
-  ctx.canvas.height = baseImage.naturalHeight || baseImage.height;
-}
-
-function drawDesign(ctx, baseImage, designLayer) {
-  // Draw base image
-  ctx.drawImage(baseImage, 0, 0);
-
-  // Draw design image if exists
-  const designImage = designLayer.querySelector('.design-image');
-  if (!designImage || !designImage.src) return;
-
-  // Get product view (the container of the design layer)
-  const productView = designLayer.closest('.product-view');
-  
-  // Check if we have a design container (new structure)
-  const designContainer = designLayer.querySelector('.design-container');
-  
-  if (designContainer) {
-    // NEW: Handle container-based positioning
-    // Get position of design container inside product view
-    const containerRect = designContainer.getBoundingClientRect();
-    const viewRect = productView.getBoundingClientRect();
-    const containerOffsetX = containerRect.left - viewRect.left;
-    const containerOffsetY = containerRect.top - viewRect.top;
-    
-    // Get the image's position within the container
-    const imgStyle = window.getComputedStyle(designImage);
-    const imgLeft = parseFloat(imgStyle.left) || 0;
-    const imgTop = parseFloat(imgStyle.top) || 0;
-    
-    // Calculate final position (container position + image position within container)
-    let finalX = containerOffsetX + imgLeft;
-    let finalY = containerOffsetY + imgTop;
-    
-    // Get the actual rendered size of the image
-    const finalWidth = designImage.offsetWidth;
-    const finalHeight = designImage.offsetHeight;
-    
-    // 🚨 Apply 4% downward offset to match script.js visual positioning
-    const baseHeight = baseImage.naturalHeight || baseImage.height;
-    finalY += baseHeight * 0.04; // Shift down by 4%
-    
-    // Draw the image
-    ctx.drawImage(
-      designImage,
-      finalX,
-      finalY,
-      finalWidth,
-      finalHeight
-    );
-  } else {
-    // OLD: Fallback for direct positioning (if no container exists)
-    // Get position of design layer inside product view
-    const layerRect = designLayer.getBoundingClientRect();
-    const viewRect = productView.getBoundingClientRect();
-    const layerOffsetX = layerRect.left - viewRect.left;
-    const layerOffsetY = layerRect.top - viewRect.top;
-
-    // Get style and transform of design image
-    const style = window.getComputedStyle(designImage);
-    const transform = style.transform;
-
-    // Parse transform to get position and scale
-    const parsed = parseTransform(transform);
-
-    // Calculate final position and size
-    const finalX = layerOffsetX + parsed.x;
-    let finalY = layerOffsetY + parsed.y; // Start with original Y
-
-    // 🚨 Apply 4% downward offset to match script.js visual positioning
-    const baseHeight = baseImage.naturalHeight || baseImage.height;
-    finalY += baseHeight * 0.04; // Shift down by 4%
-
-    const finalWidth = designImage.offsetWidth * parsed.scaleX;
-    const finalHeight = designImage.offsetHeight * parsed.scaleY;
-
-    // Draw the image
-    ctx.drawImage(
-      designImage,
-      finalX,
-      finalY,
-      finalWidth,
-      finalHeight
-    );
-  }
-}
-
-function parseTransform(transformString) {
-  if (transformString === 'none') {
-    return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
-  }
-  
-  // Try to match translate(x, y)
-  const translateMatch = transformString.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
-  if (translateMatch) {
-    return {
-      x: parseFloat(translateMatch[1]),
-      y: parseFloat(translateMatch[2]),
-      scaleX: 1,
-      scaleY: 1
-    };
-  }
-  
-  // Try to match matrix(a, b, c, d, tx, ty)
-  const matrixMatch = transformString.match(/matrix\(([^)]+)\)/);
-  if (matrixMatch) {
-    const values = matrixMatch[1].split(',').map(n => parseFloat(n.trim()));
-    if (values.length >= 6) {
-      return {
-        x: values[4],
-        y: values[5],
-        scaleX: values[0],
-        scaleY: values[3]
-      };
-    }
-  }
-  
-  // Default to identity transform
-  return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
-}
-
-function downloadImage(canvas, filename) {
-  const link = document.createElement('a');
-  link.href = canvas.toDataURL('image/png');
-  link.download = filename;
-  link.click();
-}
+// Product configuration
+const productsConfig = {
+  tshirt: {
+    name: "Classic T-Shirt",
+    basePrice: 350,
+    frontBackPrice: 20,
+    colors: {
+      black: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Tshirt/product-4-mockup-8-color-1-thumb.jpeg',
+        backImage: 'Tshirt/default-color-1-mockup-9.jpeg'
+      },
+      white: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Tshirt/product-4-mockup-8-color-2-thumb.jpeg',
+        backImage: 'Tshirt/default-color-2-mockup-9.jpeg'
+      },
+      gray: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Tshirt/product-4-mockup-8-color-3-thumb.jpeg',
+        backImage: 'Tshirt/default-color-3-mockup-9.jpeg'
+      },
+      blue: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Tshirt/product-4-mockup-8-color-10-thumb.jpeg',
+        backImage: 'Tshirt/default-color-10-mockup-9.jpeg'
+      },
+      red: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Tshirt/product-4-mockup-8-color-11-thumb.jpeg',
+        backImage: 'Tshirt/default-color-11-mockup-9.jpeg'
+      },
+      'light-blue': {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Tshirt/product-4-mockup-8-color-18-thumb.jpeg',
+        backImage: 'Tshirt/default-color-18-mockup-9.jpeg'
+      }
+    },
+    sizeChart: 'Tshirt/tshirt-size-table-on-egymerch.jpg'
+  },
+  "oversized-tshirt": {
+    name: "Oversized T-Shirt",
+    basePrice: 400,
+    frontBackPrice: 20,
+    colors: {
+      black: {
+        sizes: ["M", "L"],
+        frontImage: 'Oversized Tshirt/product-5-mockup-10-color-1-thumb.jpeg',
+        backImage: 'Oversized Tshirt/default-color-1-mockup-11.jpeg'
+      },
+      white: {
+        sizes: ["M", "L"],
+        frontImage: 'Oversized Tshirt/product-5-mockup-10-color-2-thumb.jpeg',
+        backImage: 'Oversized Tshirt/default-color-2-mockup-11.jpeg'
+      },
+      gray: {
+        sizes: ["M", "L"],
+        frontImage: 'Oversized Tshirt/product-5-mockup-10-color-10-thumb.jpeg',
+        backImage: 'Oversized Tshirt/default-color-10-mockup-11.jpeg'
+      },
+      red: {
+        sizes: ["M", "L"],
+        frontImage: 'Oversized Tshirt/product-5-mockup-10-color-11-thumb.jpeg',
+        backImage: 'Oversized Tshirt/default-color-11-mockup-11.jpeg'
+      },
+      'light-blue': {
+        sizes: ["M", "L"],
+        frontImage: 'Oversized Tshirt/product-5-mockup-10-color-20-thumb.jpeg',
+        backImage: 'Oversized Tshirt/default-color-20-mockup-11.jpeg'
+      }
+    },
+    sizeChart: 'Oversized Tshirt/oversize-tshirt-size-table-on-egymerch.jpg'
+  },
+  longsleeve: {
+    name: "Long Sleeve T-Shirt",
+    basePrice: 200,
+    frontBackPrice: 70,
+    colors: {
+      black: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Long sleeve Tshirt/product-6-mockup-12-color-1-thumb.jpeg',
+        backImage: 'Long sleeve Tshirt/default-color-1-mockup-13.jpeg'
+      },
+      white: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Long sleeve Tshirt/product-6-mockup-12-color-2-thumb.jpeg',
+        backImage: 'Long sleeve Tshirt/default-color-2-mockup-13.jpeg'
+      },
+      gray: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Long sleeve Tshirt/product-6-mockup-12-color-3-thumb.jpeg',
+        backImage: 'Long sleeve Tshirt/default-color-3-mockup-13.jpeg'
+      },
+      red: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Long sleeve Tshirt/product-6-mockup-12-color-11-thumb.jpeg',
+        backImage: 'Long sleeve Tshirt/default-color-11-mockup-13.jpeg'
+      }
+    },
+    sizeChart: 'Long sleeve Tshirt/longsleeve-tshirt-size-table-on-egymerch.jpg'
+  },
+  "classic-sweatshirt": {
+    name: "Classic Sweatshirt",
+    basePrice: 250,
+    frontBackPrice: 80,
+    colors: {
+      black: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Classic Sweatshirt/product-7-mockup-14-color-1-thumb.jpeg',
+        backImage: 'Classic Sweatshirt/default-color-1-mockup-15.jpeg'
+      },
+      white: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Classic Sweatshirt/product-7-mockup-14-color-2-thumb.jpeg',
+        backImage: 'Classic Sweatshirt/default-color-2-mockup-15.jpeg'
+      },
+      "light-blue": {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Classic Sweatshirt/product-7-mockup-14-color-5-thumb.jpeg',
+        backImage: 'Classic Sweatshirt/default-color-5-mockup-15.jpeg'
+      },
+      beige: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Classic Sweatshirt/product-7-mockup-14-color-7-thumb.jpeg',
+        backImage: 'Classic Sweatshirt/default-color-7-mockup-15.jpeg'
+      },
+      "olive-green": {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Classic Sweatshirt/product-7-mockup-14-color-9-thumb.jpeg',
+        backImage: 'Classic Sweatshirt/default-color-9-mockup-15.jpeg'
+      }
+    },
+    sizeChart: 'Classic Sweatshirt/sweatshirt-size-table-on-egymerch.jpg'
+  },
+  "premium-hoodie": {
+    name: "Premium Hoodie",
+    basePrice: 300,
+    frontBackPrice: 100,
+    colors: {
+      black: {
+        sizes: ["M", "L", "XL", "2XL", "3XL"],
+        frontImage: 'Premium Hoodie/product-1-mockup-1-color-1-thumb.jpeg',
+        backImage: 'Premium Hoodie/default-color-1-mockup-3.jpeg'
+      },
+      white: {
+        sizes
