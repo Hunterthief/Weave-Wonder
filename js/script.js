@@ -376,14 +376,19 @@ function setupDesignSubmission() {
               const rect = target.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Calculate how far the click was from the top-left of the container
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              target.setAttribute('data-offset-x', offsetX);
-              target.setAttribute('data-offset-y', offsetY);
-              // Get current position (we'll use CSS top/left for the container)
+              
+              // Get current position
               const currentLeft = parseFloat(target.style.left) || 0;
               const currentTop = parseFloat(target.style.top) || 0;
+              
+              // Calculate offset from the mouse position to the container's top-left corner
+              // This ensures that when dragging, the point under the cursor stays under the cursor
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+              
+              // Store the offset and current position
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
               target.setAttribute('data-current-x', currentLeft);
               target.setAttribute('data-current-y', currentTop);
             },
@@ -394,26 +399,33 @@ function setupDesignSubmission() {
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Get saved offset
+              
+              // Get saved offset and current position
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-              // ✅ FIXED: Calculate new position correctly
-              let newX = clientX - layerRect.left - offsetX;
-              let newY = clientY - layerRect.top - offsetY;
+              const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
+              const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
+              
+              // Calculate the new position based on mouse movement
+              // The key is to maintain the same relative position within the container
+              const newX = clientX - layerRect.left - offsetX;
+              const newY = clientY - layerRect.top - offsetY;
+              
               // Get container dimensions
               const containerWidth = target.offsetWidth;
               const containerHeight = target.offsetHeight;
+              
               // Enforce boundaries to prevent jumping out of bounds
-              newX = Math.max(0, newX); // Left boundary
-              newY = Math.max(0, newY); // Top boundary
-              newX = Math.min(BOUNDARY.WIDTH - containerWidth, newX); // Right boundary
-              newY = Math.min(BOUNDARY.HEIGHT - containerHeight, newY); // Bottom boundary
-              // Apply position using CSS top/left (not transform)
-              target.style.left = newX + 'px';
-              target.style.top = newY + 'px';
+              const boundedX = Math.max(0, Math.min(BOUNDARY.WIDTH - containerWidth, newX));
+              const boundedY = Math.max(0, Math.min(BOUNDARY.HEIGHT - containerHeight, newY));
+              
+              // Apply position using CSS top/left
+              target.style.left = boundedX + 'px';
+              target.style.top = boundedY + 'px';
+              
               // Update current position for next move event
-              target.setAttribute('data-current-x', newX);
-              target.setAttribute('data-current-y', newY);
+              target.setAttribute('data-current-x', boundedX);
+              target.setAttribute('data-current-y', boundedY);
             }
           }
         });
@@ -590,14 +602,19 @@ function setupDesignSubmission() {
               const rect = target.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Calculate how far the click was from the top-left of the container
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              target.setAttribute('data-offset-x', offsetX);
-              target.setAttribute('data-offset-y', offsetY);
-              // Get current position (we'll use CSS top/left for the container)
+              
+              // Get current position
               const currentLeft = parseFloat(target.style.left) || 0;
               const currentTop = parseFloat(target.style.top) || 0;
+              
+              // Calculate offset from the mouse position to the container's top-left corner
+              // This ensures that when dragging, the point under the cursor stays under the cursor
+              const offsetX = clientX - rect.left;
+              const offsetY = clientY - rect.top;
+              
+              // Store the offset and current position
+              target.setAttribute('data-offset-x', offsetX);
+              target.setAttribute('data-offset-y', offsetY);
               target.setAttribute('data-current-x', currentLeft);
               target.setAttribute('data-current-y', currentTop);
             },
@@ -608,26 +625,33 @@ function setupDesignSubmission() {
               const layerRect = layer.getBoundingClientRect();
               const clientX = event.clientX;
               const clientY = event.clientY;
-              // Get saved offset
+              
+              // Get saved offset and current position
               const offsetX = parseFloat(target.getAttribute('data-offset-x')) || 0;
               const offsetY = parseFloat(target.getAttribute('data-offset-y')) || 0;
-              // ✅ FIXED: Calculate new position correctly
-              let newX = clientX - layerRect.left - offsetX;
-              let newY = clientY - layerRect.top - offsetY;
+              const currentX = parseFloat(target.getAttribute('data-current-x')) || 0;
+              const currentY = parseFloat(target.getAttribute('data-current-y')) || 0;
+              
+              // Calculate the new position based on mouse movement
+              // The key is to maintain the same relative position within the container
+              const newX = clientX - layerRect.left - offsetX;
+              const newY = clientY - layerRect.top - offsetY;
+              
               // Get container dimensions
               const containerWidth = target.offsetWidth;
               const containerHeight = target.offsetHeight;
+              
               // Enforce boundaries to prevent jumping out of bounds
-              newX = Math.max(0, newX); // Left boundary
-              newY = Math.max(0, newY); // Top boundary
-              newX = Math.min(BOUNDARY.WIDTH - containerWidth, newX); // Right boundary
-              newY = Math.min(BOUNDARY.HEIGHT - containerHeight, newY); // Bottom boundary
-              // Apply position using CSS top/left (not transform)
-              target.style.left = newX + 'px';
-              target.style.top = newY + 'px';
+              const boundedX = Math.max(0, Math.min(BOUNDARY.WIDTH - containerWidth, newX));
+              const boundedY = Math.max(0, Math.min(BOUNDARY.HEIGHT - containerHeight, newY));
+              
+              // Apply position using CSS top/left
+              target.style.left = boundedX + 'px';
+              target.style.top = boundedY + 'px';
+              
               // Update current position for next move event
-              target.setAttribute('data-current-x', newX);
-              target.setAttribute('data-current-y', newY);
+              target.setAttribute('data-current-x', boundedX);
+              target.setAttribute('data-current-y', boundedY);
             }
           }
         });
