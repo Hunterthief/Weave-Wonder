@@ -355,11 +355,6 @@ function setupDesignSubmission() {
           // Store initial position
           img.setAttribute('data-initial-left', left);
           img.setAttribute('data-initial-top', top);
-          
-          // IMPORTANT: Apply transform to make download.js work correctly
-          // Instead of using position, we'll use transform for positioning
-          img.style.transform = `translate(${left}px, ${top}px)`;
-          img.style.transformOrigin = '0 0';
         };
         // Add image to container
         container.appendChild(img);
@@ -422,15 +417,6 @@ function setupDesignSubmission() {
               // Update current position for next move event
               target.setAttribute('data-current-x', boundedX);
               target.setAttribute('data-current-y', boundedY);
-              
-              // Update the transform of the image to match container position
-              // This ensures download.js can correctly calculate the position
-              const img = target.querySelector('.design-image');
-              if (img) {
-                const imgLeft = parseFloat(img.style.left) || 0;
-                const imgTop = parseFloat(img.style.top) || 0;
-                img.style.transform = `translate(${imgLeft + boundedX}px, ${imgTop + boundedY}px)`;
-              }
             }
           }
         });
@@ -519,10 +505,6 @@ function setupDesignSubmission() {
               img.style.height = imgHeight + 'px';
               img.style.left = imgLeft + 'px';
               img.style.top = imgTop + 'px';
-              
-              // Update transform to ensure download.js works correctly
-              img.style.transform = `translate(${imgLeft + newX}px, ${imgTop + newY}px)`;
-              
               // Update stored dimensions
               target.setAttribute('data-start-x', newX);
               target.setAttribute('data-start-y', newY);
@@ -590,11 +572,6 @@ function setupDesignSubmission() {
           // Store initial position
           img.setAttribute('data-initial-left', left);
           img.setAttribute('data-initial-top', top);
-          
-          // IMPORTANT: Apply transform to make download.js work correctly
-          // Instead of using position, we'll use transform for positioning
-          img.style.transform = `translate(${left}px, ${top}px)`;
-          img.style.transformOrigin = '0 0';
         };
         // Add image to container
         container.appendChild(img);
@@ -657,15 +634,6 @@ function setupDesignSubmission() {
               // Update current position for next move event
               target.setAttribute('data-current-x', boundedX);
               target.setAttribute('data-current-y', boundedY);
-              
-              // Update the transform of the image to match container position
-              // This ensures download.js can correctly calculate the position
-              const img = target.querySelector('.design-image');
-              if (img) {
-                const imgLeft = parseFloat(img.style.left) || 0;
-                const imgTop = parseFloat(img.style.top) || 0;
-                img.style.transform = `translate(${imgLeft + boundedX}px, ${imgTop + boundedY}px)`;
-              }
             }
           }
         });
@@ -754,10 +722,6 @@ function setupDesignSubmission() {
               img.style.height = imgHeight + 'px';
               img.style.left = imgLeft + 'px';
               img.style.top = imgTop + 'px';
-              
-              // Update transform to ensure download.js works correctly
-              img.style.transform = `translate(${imgLeft + newX}px, ${imgTop + newY}px)`;
-              
               // Update stored dimensions
               target.setAttribute('data-start-x', newX);
               target.setAttribute('data-start-y', newY);
@@ -867,10 +831,6 @@ function centerDesignHorizontally(layer, container, img) {
   const containerWidth = container.offsetWidth;
   const leftPosition = (layerWidth - containerWidth) / 2;
   container.style.left = leftPosition + 'px';
-  
-  // Update transform to ensure download.js works correctly
-  const imgLeft = parseFloat(img.style.left) || 0;
-  img.style.transform = `translate(${imgLeft + leftPosition}px, ${parseFloat(img.style.top) || 0 + parseFloat(container.style.top) || 0}px)`;
 }
 function centerDesignVertically(layer, container, img) {
   if (!container || !img) return;
@@ -878,10 +838,6 @@ function centerDesignVertically(layer, container, img) {
   const containerHeight = container.offsetHeight;
   const topPosition = (layerHeight - containerHeight) / 2;
   container.style.top = topPosition + 'px';
-  
-  // Update transform to ensure download.js works correctly
-  const imgTop = parseFloat(img.style.top) || 0;
-  img.style.transform = `translate(${parseFloat(img.style.left) || 0 + parseFloat(container.style.left) || 0}px, ${imgTop + topPosition}px)`;
 }
 function setupOrderForm() {
   const productTypeSelect = document.getElementById('product-type-order');
