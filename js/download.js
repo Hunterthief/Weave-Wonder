@@ -36,8 +36,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const newBtn = downloadBtn.cloneNode(true);
   downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
   
+  // Use a flag to prevent multiple simultaneous downloads
+  let isDownloading = false;
+  
   newBtn.addEventListener('click', () => {
-    generateAndDownloadDesign();
+    if (isDownloading) return; // Prevent multiple triggers
+    isDownloading = true;
+    
+    setTimeout(() => {
+      generateAndDownloadDesign();
+      setTimeout(() => {
+        isDownloading = false; // Reset after a short delay
+      }, 1000);
+    }, 10);
   });
 });
 
@@ -103,22 +114,16 @@ function drawDesign(ctx, baseImage, designLayer) {
   const containerWidth = designContainer.offsetWidth;
   const containerHeight = designContainer.offsetHeight;
 
-  // Calculate scaling factors based on the actual design area (150x150px) and base image
-  const designAreaWidth = 150; // This is the BOUNDARY.WIDTH from your main script
-  const designAreaHeight = 150; // This is the BOUNDARY.HEIGHT from your main script
-  
+  // Calculate scaling factors based on the product view and base image
   const scaleX = baseImage.naturalWidth / viewRect.width;
   const scaleY = baseImage.naturalHeight / viewRect.height;
 
   // Calculate final position and size
-  // We need to scale based on the container's size relative to the design area
-  const widthScaleFactor = containerWidth / designAreaWidth;
-  const heightScaleFactor = containerHeight / designAreaHeight;
-  
+  // The key is to use the actual container size and position, not the design area
   const finalX = containerX * scaleX;
   const finalY = containerY * scaleY;
-  const finalWidth = imgWidth * scaleX * widthScaleFactor;
-  const finalHeight = imgHeight * scaleY * heightScaleFactor;
+  const finalWidth = imgWidth * scaleX;
+  const finalHeight = imgHeight * scaleY;
 
   // Draw the image
   ctx.drawImage(
@@ -136,6 +141,8 @@ function downloadImage(canvas, filename) {
   link.download = filename;
   // Add to DOM temporarily to ensure click works
   document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  setTimeout(() => {
+    link.click();
+    document.body.removeChild(link);
+  }, 10);
 }
