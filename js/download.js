@@ -55,8 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function generateAndDownloadDesign() {
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
-  const hasFront = frontLayer.querySelector('.design-image');
-  const hasBack = backLayer.querySelector('.design-image');
+  const hasFront = frontLayer.querySelector('.design-container');
+  const hasBack = backLayer.querySelector('.design-container');
 
   if (!hasFront && !hasBack) {
     alert("No design uploaded.");
@@ -84,64 +84,64 @@ function drawDesign(ctx, baseImage, designLayer) {
   // Draw base image
   ctx.drawImage(baseImage, 0, 0);
 
-  // Find the design container (which holds the design image)
+  // Find the design container
   const designContainer = designLayer.querySelector('.design-container');
   if (!designContainer) return;
 
-  const designImage = designLayer.querySelector('.design-image');
-  if (!designImage || !designImage.src) return;
-
-  // Get the product view (the visible area)
+  // Get references to key elements
   const productView = designLayer.closest('.product-view');
   const viewRect = productView.getBoundingClientRect();
   const layerRect = designLayer.getBoundingClientRect();
-
-  // Get the design container's position and size
   const containerRect = designContainer.getBoundingClientRect();
 
-  // Calculate the container's position relative to the product view
+  // Calculate scaling factor from screen to canvas
+  const scaleX = ctx.canvas.width / viewRect.width;
+  const scaleY = ctx.canvas.height / viewRect.height;
+
+  // Calculate container position relative to product view
   const containerX = containerRect.left - viewRect.left;
   const containerY = containerRect.top - viewRect.top;
+  const containerWidth = containerRect.width;
+  const containerHeight = containerRect.height;
+
+  // Create a temporary canvas to render the container exactly as it appears
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
   
-  // Get the image's position and size within the container
-  const imgStyle = window.getComputedStyle(designImage);
-  const imgX = parseFloat(imgStyle.left) || 0;
-  const imgY = parseFloat(imgStyle.top) || 0;
-  const imgWidth = designImage.offsetWidth;
-  const imgHeight = designImage.offsetHeight;
-
-  // Get the container's dimensions
-  const containerWidth = designContainer.offsetWidth;
-  const containerHeight = designContainer.offsetHeight;
-
-  // Get the design area dimensions from BOUNDARY config (150x150px)
-  const designAreaWidth = 150;
-  const designAreaHeight = 150;
-
-  // Calculate scaling factors based on the product view and base image
-  const scaleX = baseImage.naturalWidth / viewRect.width;
-  const scaleY = baseImage.naturalHeight / viewRect.height;
-
-  // Calculate the ratio of container size to design area size
-  const widthRatio = containerWidth / designAreaWidth;
-  const heightRatio = containerHeight / designAreaHeight;
-
-  // Calculate final position and size
-  // Position should be scaled directly
-  const finalX = containerX * scaleX;
-  const finalY = containerY * scaleY;
+  // Set temp canvas size to match container size
+  tempCanvas.width = containerWidth;
+  tempCanvas.height = containerHeight;
   
-  // Size should be scaled by both the view scale AND the container-to-design-area ratio
-  const finalWidth = imgWidth * scaleX * widthRatio;
-  const finalHeight = imgHeight * scaleY * heightRatio;
+  // Fill with transparent background
+  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+  
+  // Render the design image within the container
+  const designImage = designContainer.querySelector('.design-image');
+  if (designImage && designImage.complete) {
+    // Get image position within container
+    const imgStyle = window.getComputedStyle(designImage);
+    const imgX = parseFloat(imgStyle.left) || 0;
+    const imgY = parseFloat(imgStyle.top) || 0;
+    const imgWidth = designImage.offsetWidth;
+    const imgHeight = designImage.offsetHeight;
+    
+    // Draw the image on the temporary canvas
+    tempCtx.drawImage(
+      designImage,
+      imgX,
+      imgY,
+      imgWidth,
+      imgHeight
+    );
+  }
 
-  // Draw the image
+  // Now draw the temporary canvas onto the main canvas at the correct position and scale
   ctx.drawImage(
-    designImage,
-    finalX + (imgX * scaleX * widthRatio),
-    finalY + (imgY * scaleY * heightRatio),
-    finalWidth,
-    finalHeight
+    tempCanvas,
+    containerX * scaleX,
+    containerY * scaleY,
+    containerWidth * scaleX,
+    containerHeight * scaleY
   );
 }
 
