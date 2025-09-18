@@ -118,16 +118,6 @@ function drawDesign(ctx, baseImage, designLayer) {
   const layerRect = designLayer.getBoundingClientRect();
   const containerRect = designContainer.getBoundingClientRect();
 
-  // Calculate scaling factor from screen to canvas
-  const scaleX = ctx.canvas.width / viewRect.width;
-  const scaleY = ctx.canvas.height / viewRect.height;
-
-  // Calculate container position relative to product view
-  const containerX = containerRect.left - viewRect.left;
-  const containerY = containerRect.top - viewRect.top;
-  const containerWidth = containerRect.width;
-  const containerHeight = containerRect.height;
-
   // Get the design image
   const designImage = designContainer.querySelector('.design-image');
   if (!designImage || !designImage.complete) return;
@@ -139,20 +129,92 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // Calculate final position and size with proper scaling
-  const finalX = (containerX + imgX) * scaleX;
-  const finalY = (containerY + imgY) * scaleY;
-  const finalWidth = imgWidth * scaleX;
-  const finalHeight = imgHeight * scaleY;
+  // Calculate scaling factor from screen to canvas
+  const scaleX = ctx.canvas.width / viewRect.width;
+  const scaleY = ctx.canvas.height / viewRect.height;
 
-  // Draw the image directly on the main canvas
-  ctx.drawImage(
+  // Calculate container position relative to product view
+  const containerX = containerRect.left - viewRect.left;
+  const containerY = containerRect.top - viewRect.top;
+  const containerWidth = containerRect.width;
+  const containerHeight = containerRect.height;
+
+  // APPROACH 1: Direct scaling (current approach)
+  // const finalX = (containerX + imgX) * scaleX;
+  // const finalY = (containerY + imgY) * scaleY;
+  // const finalWidth = imgWidth * scaleX;
+  // const finalHeight = imgHeight * scaleY;
+
+  // APPROACH 2: Scale based on container size relative to design area (150x150)
+  // const designAreaWidth = 150;
+  // const designAreaHeight = 150;
+  // const widthRatio = containerWidth / designAreaWidth;
+  // const heightRatio = containerHeight / designAreaHeight;
+  // const finalX = containerX * scaleX;
+  // const finalY = containerY * scaleY;
+  // const finalWidth = imgWidth * scaleX * widthRatio;
+  // const finalHeight = imgHeight * scaleY * heightRatio;
+
+  // APPROACH 3: Use absolute positioning with boundary calculations
+  // const boundaryLeft = 125; // BOUNDARY.LEFT from config
+  // const boundaryTop = 101; // BOUNDARY.TOP from config
+  // const finalX = ((containerX + imgX) / viewRect.width) * ctx.canvas.width;
+  // const finalY = ((containerY + imgY) / viewRect.height) * ctx.canvas.height;
+  // const finalWidth = (imgWidth / viewRect.width) * ctx.canvas.width;
+  // const finalHeight = (imgHeight / viewRect.height) * ctx.canvas.height;
+
+  // APPROACH 4: Create a temporary canvas to render exactly as seen on screen
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCanvas.width = containerWidth;
+  tempCanvas.height = containerHeight;
+  
+  // Clear with transparent background
+  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+  
+  // Draw the image on the temporary canvas at its exact position
+  tempCtx.drawImage(
     designImage,
-    finalX,
-    finalY,
-    finalWidth,
-    finalHeight
+    imgX,
+    imgY,
+    imgWidth,
+    imgHeight
   );
+  
+  // Draw the temporary canvas onto the main canvas at the correct position and scale
+  ctx.drawImage(
+    tempCanvas,
+    containerX * scaleX,
+    containerY * scaleY,
+    containerWidth * scaleX,
+    containerHeight * scaleY
+  );
+  
+  // Return here since we've already drawn the design
+  return;
+
+  // APPROACH 5: Calculate based on the actual visible area and aspect ratio preservation
+  // const designAreaWidth = 150;
+  // const designAreaHeight = 150;
+  // const aspectRatio = imgWidth / imgHeight;
+  // 
+  // // Calculate position
+  // const finalX = (containerX + imgX) * scaleX;
+  // const finalY = (containerY + imgY) * scaleY;
+  // 
+  // // Calculate size based on container size relative to design area
+  // const sizeRatio = Math.min(containerWidth / designAreaWidth, containerHeight / designAreaHeight);
+  // const finalWidth = imgWidth * scaleX * sizeRatio;
+  // const finalHeight = imgHeight * scaleY * sizeRatio;
+  // 
+  // // Draw the image
+  // ctx.drawImage(
+  //   designImage,
+  //   finalX,
+  //   finalY,
+  //   finalWidth,
+  //   finalHeight
+  // );
 }
 
 function downloadImage(canvas, filename) {
