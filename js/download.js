@@ -121,13 +121,17 @@ function drawDesign(ctx, baseImage, designLayer) {
   const baseImageWidth = baseImage.naturalWidth || baseImage.width;
   const baseImageHeight = baseImage.naturalHeight || baseImage.height;
 
-  // Calculate scaling factor
+  // Calculate scaling factor from view to canvas
   const scaleX = baseImageWidth / viewRect.width;
   const scaleY = baseImageHeight / viewRect.height;
 
   // Get container position relative to product view
   const containerX = containerRect.left - viewRect.left;
   const containerY = containerRect.top - viewRect.top;
+  
+  // Get container's current dimensions (this is the key - we use the actual resized dimensions)
+  const containerWidth = designContainer.offsetWidth;
+  const containerHeight = designContainer.offsetHeight;
 
   // Get image position within container
   const imgStyle = window.getComputedStyle(designImage);
@@ -136,19 +140,32 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // APPROACH 1: Direct scaling (most accurate for your use case)
-  const finalX = (containerX + imgX) * scaleX;
-  const finalY = (containerY + imgY) * scaleY;
-  const finalWidth = imgWidth * scaleX;
-  const finalHeight = imgHeight * scaleY;
-
-  // Draw the image
-  ctx.drawImage(
+  // Force the rendering to match exactly what's displayed on screen
+  // Create a temporary canvas that matches the container's current state
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCanvas.width = containerWidth;
+  tempCanvas.height = containerHeight;
+  
+  // Clear the temporary canvas
+  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+  
+  // Draw the image on the temporary canvas at its current position and size
+  tempCtx.drawImage(
     designImage,
-    finalX,
-    finalY,
-    finalWidth,
-    finalHeight
+    imgX,
+    imgY,
+    imgWidth,
+    imgHeight
+  );
+  
+  // Now draw the temporary canvas (which contains the exact current state) onto the main canvas
+  ctx.drawImage(
+    tempCanvas,
+    containerX * scaleX,
+    containerY * scaleY,
+    containerWidth * scaleX,
+    containerHeight * scaleY
   );
 }
 
