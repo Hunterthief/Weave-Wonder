@@ -32,12 +32,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
   
-  // Remove any existing listeners to prevent duplicate triggers
-  const clone = downloadBtn.cloneNode(true);
-  downloadBtn.parentNode.replaceChild(clone, downloadBtn);
+  // Remove any existing event listeners to prevent double triggering
+  const newBtn = downloadBtn.cloneNode(true);
+  downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
   
-  // Add the event listener
-  downloadBtn.addEventListener('click', () => {
+  newBtn.addEventListener('click', () => {
     generateAndDownloadDesign();
   });
 });
@@ -81,14 +80,17 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
+  // Get the product view (the visible area)
+  const productView = designLayer.closest('.product-view');
+  const viewRect = productView.getBoundingClientRect();
+  const layerRect = designLayer.getBoundingClientRect();
+
   // Get the design container's position and size
   const containerRect = designContainer.getBoundingClientRect();
-  const layerRect = designLayer.getBoundingClientRect();
-  const viewRect = designLayer.closest('.product-view').getBoundingClientRect();
 
-  // Calculate the container's position relative to the design layer
-  const containerX = containerRect.left - layerRect.left;
-  const containerY = containerRect.top - layerRect.top;
+  // Calculate the container's position relative to the product view
+  const containerX = containerRect.left - viewRect.left;
+  const containerY = containerRect.top - viewRect.top;
   
   // Get the image's position and size within the container
   const imgStyle = window.getComputedStyle(designImage);
@@ -97,21 +99,32 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // Calculate scaling factors
+  // Get the container's dimensions
+  const containerWidth = designContainer.offsetWidth;
+  const containerHeight = designContainer.offsetHeight;
+
+  // Calculate scaling factors based on the actual design area (150x150px) and base image
+  const designAreaWidth = 150; // This is the BOUNDARY.WIDTH from your main script
+  const designAreaHeight = 150; // This is the BOUNDARY.HEIGHT from your main script
+  
   const scaleX = baseImage.naturalWidth / viewRect.width;
   const scaleY = baseImage.naturalHeight / viewRect.height;
 
   // Calculate final position and size
-  const finalX = (containerX + imgX) * scaleX;
-  const finalY = (containerY + imgY) * scaleY;
-  const finalWidth = imgWidth * scaleX;
-  const finalHeight = imgHeight * scaleY;
+  // We need to scale based on the container's size relative to the design area
+  const widthScaleFactor = containerWidth / designAreaWidth;
+  const heightScaleFactor = containerHeight / designAreaHeight;
+  
+  const finalX = containerX * scaleX;
+  const finalY = containerY * scaleY;
+  const finalWidth = imgWidth * scaleX * widthScaleFactor;
+  const finalHeight = imgHeight * scaleY * heightScaleFactor;
 
   // Draw the image
   ctx.drawImage(
     designImage,
-    finalX,
-    finalY,
+    finalX + (imgX * scaleX),
+    finalY + (imgY * scaleY),
     finalWidth,
     finalHeight
   );
