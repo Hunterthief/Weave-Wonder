@@ -32,23 +32,47 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
   
-  // Remove any existing event listeners to prevent double triggering
-  const newBtn = downloadBtn.cloneNode(true);
-  downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
+  // Remove the button and create a completely new one to ensure no duplicate listeners
+  const parent = downloadBtn.parentNode;
+  const newBtn = document.createElement('button');
+  
+  // Copy all attributes from the original button
+  for (let attr of downloadBtn.attributes) {
+    newBtn.setAttribute(attr.name, attr.value);
+  }
+  
+  // Copy inner HTML
+  newBtn.innerHTML = downloadBtn.innerHTML;
+  
+  // Replace the button
+  parent.replaceChild(newBtn, downloadBtn);
   
   // Use a flag to prevent multiple simultaneous downloads
   let isDownloading = false;
   
-  newBtn.addEventListener('click', () => {
-    if (isDownloading) return; // Prevent multiple triggers
+  newBtn.addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent any default behavior
+    
+    if (isDownloading) {
+      console.log("Download already in progress");
+      return; // Prevent multiple triggers
+    }
+    
     isDownloading = true;
+    console.log("Starting download process");
     
     setTimeout(() => {
-      generateAndDownloadDesign();
-      setTimeout(() => {
-        isDownloading = false; // Reset after a short delay
-      }, 1000);
-    }, 10);
+      try {
+        generateAndDownloadDesign();
+      } catch (error) {
+        console.error("Error during download:", error);
+      } finally {
+        setTimeout(() => {
+          isDownloading = false;
+          console.log("Download process completed");
+        }, 1000);
+      }
+    }, 50);
   });
 });
 
@@ -104,44 +128,30 @@ function drawDesign(ctx, baseImage, designLayer) {
   const containerWidth = containerRect.width;
   const containerHeight = containerRect.height;
 
-  // Create a temporary canvas to render the container exactly as it appears
-  const tempCanvas = document.createElement('canvas');
-  const tempCtx = tempCanvas.getContext('2d');
-  
-  // Set temp canvas size to match container size
-  tempCanvas.width = containerWidth;
-  tempCanvas.height = containerHeight;
-  
-  // Fill with transparent background
-  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-  
-  // Render the design image within the container
+  // Get the design image
   const designImage = designContainer.querySelector('.design-image');
-  if (designImage && designImage.complete) {
-    // Get image position within container
-    const imgStyle = window.getComputedStyle(designImage);
-    const imgX = parseFloat(imgStyle.left) || 0;
-    const imgY = parseFloat(imgStyle.top) || 0;
-    const imgWidth = designImage.offsetWidth;
-    const imgHeight = designImage.offsetHeight;
-    
-    // Draw the image on the temporary canvas
-    tempCtx.drawImage(
-      designImage,
-      imgX,
-      imgY,
-      imgWidth,
-      imgHeight
-    );
-  }
+  if (!designImage || !designImage.complete) return;
 
-  // Now draw the temporary canvas onto the main canvas at the correct position and scale
+  // Get image position within container
+  const imgStyle = window.getComputedStyle(designImage);
+  const imgX = parseFloat(imgStyle.left) || 0;
+  const imgY = parseFloat(imgStyle.top) || 0;
+  const imgWidth = designImage.offsetWidth;
+  const imgHeight = designImage.offsetHeight;
+
+  // Calculate final position and size with proper scaling
+  const finalX = (containerX + imgX) * scaleX;
+  const finalY = (containerY + imgY) * scaleY;
+  const finalWidth = imgWidth * scaleX;
+  const finalHeight = imgHeight * scaleY;
+
+  // Draw the image directly on the main canvas
   ctx.drawImage(
-    tempCanvas,
-    containerX * scaleX,
-    containerY * scaleY,
-    containerWidth * scaleX,
-    containerHeight * scaleY
+    designImage,
+    finalX,
+    finalY,
+    finalWidth,
+    finalHeight
   );
 }
 
@@ -149,10 +159,17 @@ function downloadImage(canvas, filename) {
   const link = document.createElement('a');
   link.href = canvas.toDataURL('image/png');
   link.download = filename;
+  
   // Add to DOM temporarily to ensure click works
   document.body.appendChild(link);
+  
   setTimeout(() => {
-    link.click();
-    document.body.removeChild(link);
-  }, 10);
+    try {
+      link.click();
+    } catch (error) {
+      console.error("Error clicking download link:", error);
+    } finally {
+      document.body.removeChild(link);
+    }
+  }, 20);
 }
