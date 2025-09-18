@@ -371,58 +371,42 @@ function setupDesignSubmission() {
           inertia: true,
           modifiers: [
             interact.modifiers.restrictRect({
-              restriction: {
-                x: 0,
-                y: 0,
-                width: BOUNDARY.WIDTH,
-                height: BOUNDARY.HEIGHT
-              },
+              restriction: 'parent',
               endOnly: false
             })
           ],
           listeners: {
-            // Set initial offset when drag starts
             start: function (event) {
               const target = event.target;
-              const rect = target.getBoundingClientRect();
-              const clientX = event.clientX;
-              const clientY = event.clientY;
-              
-              // Calculate offset from the mouse position to the container's top-left corner
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              
-              // Store the offset
-              target.setAttribute('data-drag-offset-x', offsetX);
-              target.setAttribute('data-drag-offset-y', offsetY);
+              // Store the initial position
+              const initialX = parseFloat(target.style.left) || 0;
+              const initialY = parseFloat(target.style.top) || 0;
+              target.setAttribute('data-initial-x', initialX);
+              target.setAttribute('data-initial-y', initialY);
             },
-            // Use offset to drag smoothly
             move: function (event) {
               const target = event.target;
-              const layer = target.closest('.design-layer');
-              const layerRect = layer.getBoundingClientRect();
+              // Get the initial position
+              const initialX = parseFloat(target.getAttribute('data-initial-x')) || 0;
+              const initialY = parseFloat(target.getAttribute('data-initial-y')) || 0;
               
-              // Get saved offset
-              const offsetX = parseFloat(target.getAttribute('data-drag-offset-x')) || 0;
-              const offsetY = parseFloat(target.getAttribute('data-drag-offset-y')) || 0;
-              
-              // Calculate the new position based on mouse movement
-              const newX = event.clientX - layerRect.left - offsetX;
-              const newY = event.clientY - layerRect.top - offsetY;
+              // Calculate new position
+              const newX = initialX + event.dx;
+              const newY = initialY + event.dy;
               
               // Get container dimensions
               const containerWidth = target.offsetWidth;
               const containerHeight = target.offsetHeight;
               
-              // Enforce boundaries to prevent jumping out of bounds
+              // Enforce boundaries
               const boundedX = Math.max(0, Math.min(BOUNDARY.WIDTH - containerWidth, newX));
               const boundedY = Math.max(0, Math.min(BOUNDARY.HEIGHT - containerHeight, newY));
               
-              // Apply position using CSS top/left
+              // Apply position
               target.style.left = boundedX + 'px';
               target.style.top = boundedY + 'px';
               
-              // Update container position attributes for download.js
+              // Update data attributes for download.js
               target.setAttribute('data-container-x', boundedX);
               target.setAttribute('data-container-y', boundedY);
             }
@@ -430,26 +414,13 @@ function setupDesignSubmission() {
         });
         // Make the CONTAINER resizable with smaller edges
         interact(container).resizable({
-          edges: { 
-            left: true, 
-            right: true, 
-            top: true, 
-            bottom: true 
-          },
+          edges: { left: true, right: true, top: true, bottom: true },
           margin: 5, // Make resize handles smaller
           modifiers: [
             interact.modifiers.restrictSize({
               restriction: {
                 min: { width: 50, height: 50 },
                 max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
-              }
-            }),
-            interact.modifiers.restrictEdges({
-              outer: {
-                top: 0,
-                left: 0,
-                bottom: BOUNDARY.HEIGHT,
-                right: BOUNDARY.WIDTH
               }
             })
           ],
@@ -465,12 +436,6 @@ function setupDesignSubmission() {
               const aspectRatio = naturalWidth / naturalHeight;
               
               target.setAttribute('data-aspect-ratio', aspectRatio);
-              
-              // Store current position and dimensions
-              const currentLeft = parseFloat(target.style.left) || 0;
-              const currentTop = parseFloat(target.style.top) || 0;
-              target.setAttribute('data-start-x', currentLeft);
-              target.setAttribute('data-start-y', currentTop);
             },
             // Maintain aspect ratio and adjust position during resize
             move: function (event) {
@@ -497,21 +462,21 @@ function setupDesignSubmission() {
               height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
               
               // Adjust container position to prevent jumping
-              let newX = parseFloat(target.getAttribute('data-start-x')) || 0;
-              let newY = parseFloat(target.getAttribute('data-start-y')) || 0;
+              let newX = parseFloat(target.style.left) || 0;
+              let newY = parseFloat(target.style.top) || 0;
               
               if (event.edges.left) {
                 newX += event.deltaRect.left;
+                // Ensure we don't go out of bounds
+                newX = Math.max(0, newX);
+                newX = Math.min(BOUNDARY.WIDTH - width, newX);
               }
               if (event.edges.top) {
                 newY += event.deltaRect.top;
+                // Ensure we don't go out of bounds
+                newY = Math.max(0, newY);
+                newY = Math.min(BOUNDARY.HEIGHT - height, newY);
               }
-              
-              // Enforce boundaries after resize
-              newX = Math.max(0, newX);
-              newY = Math.max(0, newY);
-              newX = Math.min(BOUNDARY.WIDTH - width, newX);
-              newY = Math.min(BOUNDARY.HEIGHT - height, newY);
               
               // Apply new size and position to container
               target.style.width = width + 'px';
@@ -543,10 +508,6 @@ function setupDesignSubmission() {
               img.style.height = imgHeight + 'px';
               img.style.left = imgLeft + 'px';
               img.style.top = imgTop + 'px';
-              
-              // Update stored dimensions
-              img.setAttribute('data-width', imgWidth);
-              img.setAttribute('data-height', imgHeight);
             }
           }
         });
@@ -623,58 +584,42 @@ function setupDesignSubmission() {
           inertia: true,
           modifiers: [
             interact.modifiers.restrictRect({
-              restriction: {
-                x: 0,
-                y: 0,
-                width: BOUNDARY.WIDTH,
-                height: BOUNDARY.HEIGHT
-              },
+              restriction: 'parent',
               endOnly: false
             })
           ],
           listeners: {
-            // Set initial offset when drag starts
             start: function (event) {
               const target = event.target;
-              const rect = target.getBoundingClientRect();
-              const clientX = event.clientX;
-              const clientY = event.clientY;
-              
-              // Calculate offset from the mouse position to the container's top-left corner
-              const offsetX = clientX - rect.left;
-              const offsetY = clientY - rect.top;
-              
-              // Store the offset
-              target.setAttribute('data-drag-offset-x', offsetX);
-              target.setAttribute('data-drag-offset-y', offsetY);
+              // Store the initial position
+              const initialX = parseFloat(target.style.left) || 0;
+              const initialY = parseFloat(target.style.top) || 0;
+              target.setAttribute('data-initial-x', initialX);
+              target.setAttribute('data-initial-y', initialY);
             },
-            // Use offset to drag smoothly
             move: function (event) {
               const target = event.target;
-              const layer = target.closest('.design-layer');
-              const layerRect = layer.getBoundingClientRect();
+              // Get the initial position
+              const initialX = parseFloat(target.getAttribute('data-initial-x')) || 0;
+              const initialY = parseFloat(target.getAttribute('data-initial-y')) || 0;
               
-              // Get saved offset
-              const offsetX = parseFloat(target.getAttribute('data-drag-offset-x')) || 0;
-              const offsetY = parseFloat(target.getAttribute('data-drag-offset-y')) || 0;
-              
-              // Calculate the new position based on mouse movement
-              const newX = event.clientX - layerRect.left - offsetX;
-              const newY = event.clientY - layerRect.top - offsetY;
+              // Calculate new position
+              const newX = initialX + event.dx;
+              const newY = initialY + event.dy;
               
               // Get container dimensions
               const containerWidth = target.offsetWidth;
               const containerHeight = target.offsetHeight;
               
-              // Enforce boundaries to prevent jumping out of bounds
+              // Enforce boundaries
               const boundedX = Math.max(0, Math.min(BOUNDARY.WIDTH - containerWidth, newX));
               const boundedY = Math.max(0, Math.min(BOUNDARY.HEIGHT - containerHeight, newY));
               
-              // Apply position using CSS top/left
+              // Apply position
               target.style.left = boundedX + 'px';
               target.style.top = boundedY + 'px';
               
-              // Update container position attributes for download.js
+              // Update data attributes for download.js
               target.setAttribute('data-container-x', boundedX);
               target.setAttribute('data-container-y', boundedY);
             }
@@ -682,26 +627,13 @@ function setupDesignSubmission() {
         });
         // Make the CONTAINER resizable with smaller edges
         interact(container).resizable({
-          edges: { 
-            left: true, 
-            right: true, 
-            top: true, 
-            bottom: true 
-          },
+          edges: { left: true, right: true, top: true, bottom: true },
           margin: 5, // Make resize handles smaller
           modifiers: [
             interact.modifiers.restrictSize({
               restriction: {
                 min: { width: 50, height: 50 },
                 max: { width: BOUNDARY.WIDTH, height: BOUNDARY.HEIGHT }
-              }
-            }),
-            interact.modifiers.restrictEdges({
-              outer: {
-                top: 0,
-                left: 0,
-                bottom: BOUNDARY.HEIGHT,
-                right: BOUNDARY.WIDTH
               }
             })
           ],
@@ -717,12 +649,6 @@ function setupDesignSubmission() {
               const aspectRatio = naturalWidth / naturalHeight;
               
               target.setAttribute('data-aspect-ratio', aspectRatio);
-              
-              // Store current position and dimensions
-              const currentLeft = parseFloat(target.style.left) || 0;
-              const currentTop = parseFloat(target.style.top) || 0;
-              target.setAttribute('data-start-x', currentLeft);
-              target.setAttribute('data-start-y', currentTop);
             },
             // Maintain aspect ratio and adjust position during resize
             move: function (event) {
@@ -749,21 +675,21 @@ function setupDesignSubmission() {
               height = Math.max(50, Math.min(BOUNDARY.HEIGHT, height));
               
               // Adjust container position to prevent jumping
-              let newX = parseFloat(target.getAttribute('data-start-x')) || 0;
-              let newY = parseFloat(target.getAttribute('data-start-y')) || 0;
+              let newX = parseFloat(target.style.left) || 0;
+              let newY = parseFloat(target.style.top) || 0;
               
               if (event.edges.left) {
                 newX += event.deltaRect.left;
+                // Ensure we don't go out of bounds
+                newX = Math.max(0, newX);
+                newX = Math.min(BOUNDARY.WIDTH - width, newX);
               }
               if (event.edges.top) {
                 newY += event.deltaRect.top;
+                // Ensure we don't go out of bounds
+                newY = Math.max(0, newY);
+                newY = Math.min(BOUNDARY.HEIGHT - height, newY);
               }
-              
-              // Enforce boundaries after resize
-              newX = Math.max(0, newX);
-              newY = Math.max(0, newY);
-              newX = Math.min(BOUNDARY.WIDTH - width, newX);
-              newY = Math.min(BOUNDARY.HEIGHT - height, newY);
               
               // Apply new size and position to container
               target.style.width = width + 'px';
@@ -795,10 +721,6 @@ function setupDesignSubmission() {
               img.style.height = imgHeight + 'px';
               img.style.left = imgLeft + 'px';
               img.style.top = imgTop + 'px';
-              
-              // Update stored dimensions
-              img.setAttribute('data-width', imgWidth);
-              img.setAttribute('data-height', imgHeight);
             }
           }
         });
