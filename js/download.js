@@ -66,36 +66,39 @@ function drawDesign(ctx, baseImage, designLayer) {
   // Draw base image
   ctx.drawImage(baseImage, 0, 0);
 
-  // Draw design image if exists
+  // Find the design container (which holds the design image)
+  const designContainer = designLayer.querySelector('.design-container');
+  if (!designContainer) return;
+
   const designImage = designLayer.querySelector('.design-image');
   if (!designImage || !designImage.src) return;
 
-  // Get product view (the container of the design layer)
-  const productView = designLayer.closest('.product-view');
-  
-  // Get position of design layer inside product view
+  // Get the design container's position and size
+  const containerRect = designContainer.getBoundingClientRect();
   const layerRect = designLayer.getBoundingClientRect();
-  const viewRect = productView.getBoundingClientRect();
-  const layerOffsetX = layerRect.left - viewRect.left;
-  const layerOffsetY = layerRect.top - viewRect.top;
 
-  // Get style and transform of design image
-  const style = window.getComputedStyle(designImage);
-  const transform = style.transform;
+  // Calculate the container's position relative to the design layer
+  const containerX = containerRect.left - layerRect.left;
+  const containerY = containerRect.top - layerRect.top;
+  const containerWidth = containerRect.width;
+  const containerHeight = containerRect.height;
 
-  // Parse transform to get position and scale
-  const parsed = parseTransform(transform);
+  // Get the image's position and size within the container
+  const imgStyle = window.getComputedStyle(designImage);
+  const imgX = parseFloat(imgStyle.left) || 0;
+  const imgY = parseFloat(imgStyle.top) || 0;
+  const imgWidth = designImage.offsetWidth;
+  const imgHeight = designImage.offsetHeight;
 
-  // Calculate final position and size
-  const finalX = layerOffsetX + parsed.x;
-  let finalY = layerOffsetY + parsed.y; // Start with original Y
+  // Calculate the final position and size for the canvas
+  // Convert from design-layer coordinates to base image coordinates
+  const scaleX = ctx.canvas.width / layerRect.width;
+  const scaleY = ctx.canvas.height / layerRect.height;
 
-  // 🚨 Apply 4% downward offset to match script.js visual positioning
-  const baseHeight = baseImage.naturalHeight || baseImage.height;
-  finalY += baseHeight * 0.04; // Shift down by 4%
-
-  const finalWidth = designImage.offsetWidth * parsed.scaleX;
-  const finalHeight = designImage.offsetHeight * parsed.scaleY;
+  const finalX = (containerX + imgX) * scaleX;
+  const finalY = (containerY + imgY) * scaleY;
+  const finalWidth = imgWidth * scaleX;
+  const finalHeight = imgHeight * scaleY;
 
   // Draw the image
   ctx.drawImage(
@@ -105,40 +108,6 @@ function drawDesign(ctx, baseImage, designLayer) {
     finalWidth,
     finalHeight
   );
-}
-
-function parseTransform(transformString) {
-  if (transformString === 'none') {
-    return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
-  }
-  
-  // Try to match translate(x, y)
-  const translateMatch = transformString.match(/translate\(\s*([-\d.]+)px\s*,\s*([-\d.]+)px\s*\)/);
-  if (translateMatch) {
-    return {
-      x: parseFloat(translateMatch[1]),
-      y: parseFloat(translateMatch[2]),
-      scaleX: 1,
-      scaleY: 1
-    };
-  }
-  
-  // Try to match matrix(a, b, c, d, tx, ty)
-  const matrixMatch = transformString.match(/matrix\(([^)]+)\)/);
-  if (matrixMatch) {
-    const values = matrixMatch[1].split(',').map(n => parseFloat(n.trim()));
-    if (values.length >= 6) {
-      return {
-        x: values[4],
-        y: values[5],
-        scaleX: values[0],
-        scaleY: values[3]
-      };
-    }
-  }
-  
-  // Default to identity transform
-  return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
 }
 
 function downloadImage(canvas, filename) {
