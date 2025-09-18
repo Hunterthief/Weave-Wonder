@@ -114,22 +114,32 @@ function drawDesign(ctx, baseImage, designLayer) {
   const containerWidth = designContainer.offsetWidth;
   const containerHeight = designContainer.offsetHeight;
 
+  // Get the design area dimensions from BOUNDARY config (150x150px)
+  const designAreaWidth = 150;
+  const designAreaHeight = 150;
+
   // Calculate scaling factors based on the product view and base image
   const scaleX = baseImage.naturalWidth / viewRect.width;
   const scaleY = baseImage.naturalHeight / viewRect.height;
 
+  // Calculate the ratio of container size to design area size
+  const widthRatio = containerWidth / designAreaWidth;
+  const heightRatio = containerHeight / designAreaHeight;
+
   // Calculate final position and size
-  // The key is to use the actual container size and position, not the design area
+  // Position should be scaled directly
   const finalX = containerX * scaleX;
   const finalY = containerY * scaleY;
-  const finalWidth = imgWidth * scaleX;
-  const finalHeight = imgHeight * scaleY;
+  
+  // Size should be scaled by both the view scale AND the container-to-design-area ratio
+  const finalWidth = imgWidth * scaleX * widthRatio;
+  const finalHeight = imgHeight * scaleY * heightRatio;
 
   // Draw the image
   ctx.drawImage(
     designImage,
-    finalX + (imgX * scaleX),
-    finalY + (imgY * scaleY),
+    finalX + (imgX * scaleX * widthRatio),
+    finalY + (imgY * scaleY * heightRatio),
     finalWidth,
     finalHeight
   );
