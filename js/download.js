@@ -24,51 +24,75 @@ window.generateMockupCanvas = function(side) {
   return canvas;
 };
 
-// 🚀 Keep the original download functionality, but now it uses the shared function
-// Use a more robust approach to ensure only one event listener
-(function setupDownloadHandler() {
-  const downloadBtn = document.getElementById('download-design');
-  if (!downloadBtn) {
-    console.error("Download button not found!");
-    return;
+// 🚀 Completely re-engineered download setup to prevent double triggering
+(function setupSingleDownloadHandler() {
+  // Wait for DOM to be fully loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDownloadHandler);
+  } else {
+    initDownloadHandler();
   }
-  
-  // Remove ALL previous event listeners by replacing with a new element
-  const newBtn = downloadBtn.cloneNode(true);
-  downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
-  
-  // Single flag to prevent multiple downloads
-  let downloadInProgress = false;
-  
-  // Add the SINGLE event listener
-  newBtn.addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Prevent multiple downloads
-    if (downloadInProgress) {
-      console.log("Download already in progress - ignoring additional click");
+
+  function initDownloadHandler() {
+    const downloadBtn = document.getElementById('download-design');
+    if (!downloadBtn) {
+      console.error("Download button not found!");
       return;
     }
+
+    // Remove ALL previous event listeners by replacing with a completely new element
+    const parent = downloadBtn.parentNode;
+    const newBtn = document.createElement('button');
     
-    downloadInProgress = true;
-    console.log("Download initiated");
+    // Copy all attributes
+    for (let i = 0; i < downloadBtn.attributes.length; i++) {
+      const attr = downloadBtn.attributes[i];
+      newBtn.setAttribute(attr.name, attr.value);
+    }
     
-    // Small delay to allow UI to update
-    setTimeout(() => {
-      try {
-        generateAndDownloadDesign();
-      } catch (error) {
-        console.error("Download error:", error);
-      } finally {
-        // Reset flag after a reasonable time
-        setTimeout(() => {
-          downloadInProgress = false;
-          console.log("Download process reset");
-        }, 2000);
+    // Copy classes and innerHTML
+    newBtn.className = downloadBtn.className;
+    newBtn.innerHTML = downloadBtn.innerHTML;
+    newBtn.id = downloadBtn.id;
+    
+    // Replace the button
+    parent.replaceChild(newBtn, downloadBtn);
+    
+    // Single flag to prevent multiple downloads
+    let isDownloading = false;
+    
+    // Add the event listener with comprehensive prevention measures
+    newBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Double-check if already downloading
+      if (isDownloading) {
+        console.log("Download already in progress - ignoring click");
+        return false;
       }
-    }, 100);
-  }, { once: false });
+      
+      isDownloading = true;
+      console.log("Download process started");
+      
+      // Small delay to allow UI to update
+      setTimeout(() => {
+        try {
+          generateAndDownloadDesign();
+        } catch (error) {
+          console.error("Error during download:", error);
+        } finally {
+          // Reset flag after completion
+          setTimeout(() => {
+            isDownloading = false;
+            console.log("Download process completed and reset");
+          }, 1500);
+        }
+      }, 100);
+      
+      return false;
+    }, false);
+  }
 })();
 
 function generateAndDownloadDesign() {
@@ -129,7 +153,7 @@ function drawDesign(ctx, baseImage, designLayer) {
   const containerX = containerRect.left - viewRect.left;
   const containerY = containerRect.top - viewRect.top;
   
-  // Get container's current dimensions (this is the key - we use the actual resized dimensions)
+  // Get container's CURRENT dimensions (this is critical - we need the resized dimensions)
   const containerWidth = designContainer.offsetWidth;
   const containerHeight = designContainer.offsetHeight;
 
@@ -140,32 +164,27 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // Force the rendering to match exactly what's displayed on screen
-  // Create a temporary canvas that matches the container's current state
-  const tempCanvas = document.createElement('canvas');
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCanvas.width = containerWidth;
-  tempCanvas.height = containerHeight;
+  // FORCE CORRECT SCALING - This is the key fix
+  // Calculate the ratio of current container size to original design area (150x150)
+  const designAreaWidth = 150; // From BOUNDARY.WIDTH
+  const designAreaHeight = 150; // From BOUNDARY.HEIGHT
   
-  // Clear the temporary canvas
-  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+  const widthScale = containerWidth / designAreaWidth;
+  const heightScale = containerHeight / designAreaHeight;
   
-  // Draw the image on the temporary canvas at its current position and size
-  tempCtx.drawImage(
-    designImage,
-    imgX,
-    imgY,
-    imgWidth,
-    imgHeight
-  );
-  
-  // Now draw the temporary canvas (which contains the exact current state) onto the main canvas
+  // Calculate final position and size
+  const finalX = (containerX * scaleX) + (imgX * scaleX);
+  const finalY = (containerY * scaleY) + (imgY * scaleY);
+  const finalWidth = imgWidth * scaleX * widthScale;
+  const finalHeight = imgHeight * scaleY * heightScale;
+
+  // Draw the image
   ctx.drawImage(
-    tempCanvas,
-    containerX * scaleX,
-    containerY * scaleY,
-    containerWidth * scaleX,
-    containerHeight * scaleY
+    designImage,
+    finalX,
+    finalY,
+    finalWidth,
+    finalHeight
   );
 }
 
@@ -178,7 +197,7 @@ function downloadImage(canvas, filename) {
   // Add to document body
   document.body.appendChild(link);
   
-  // Trigger download with delay to ensure proper execution
+  // Trigger download with delay
   setTimeout(() => {
     try {
       link.click();
