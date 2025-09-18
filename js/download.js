@@ -31,14 +31,22 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error("Download button not found!");
     return;
   }
+  
+  // Remove any existing listeners to prevent duplicate triggers
+  const clone = downloadBtn.cloneNode(true);
+  downloadBtn.parentNode.replaceChild(clone, downloadBtn);
+  
+  // Add the event listener
   downloadBtn.addEventListener('click', () => {
     generateAndDownloadDesign();
   });
 });
 
 function generateAndDownloadDesign() {
-  const hasFront = document.getElementById('front-layer').querySelector('.design-image');
-  const hasBack = document.getElementById('back-layer').querySelector('.design-image');
+  const frontLayer = document.getElementById('front-layer');
+  const backLayer = document.getElementById('back-layer');
+  const hasFront = frontLayer.querySelector('.design-image');
+  const hasBack = backLayer.querySelector('.design-image');
 
   if (!hasFront && !hasBack) {
     alert("No design uploaded.");
@@ -76,13 +84,12 @@ function drawDesign(ctx, baseImage, designLayer) {
   // Get the design container's position and size
   const containerRect = designContainer.getBoundingClientRect();
   const layerRect = designLayer.getBoundingClientRect();
+  const viewRect = designLayer.closest('.product-view').getBoundingClientRect();
 
   // Calculate the container's position relative to the design layer
   const containerX = containerRect.left - layerRect.left;
   const containerY = containerRect.top - layerRect.top;
-  const containerWidth = containerRect.width;
-  const containerHeight = containerRect.height;
-
+  
   // Get the image's position and size within the container
   const imgStyle = window.getComputedStyle(designImage);
   const imgX = parseFloat(imgStyle.left) || 0;
@@ -90,11 +97,11 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // Calculate the final position and size for the canvas
-  // Convert from design-layer coordinates to base image coordinates
-  const scaleX = ctx.canvas.width / layerRect.width;
-  const scaleY = ctx.canvas.height / layerRect.height;
+  // Calculate scaling factors
+  const scaleX = baseImage.naturalWidth / viewRect.width;
+  const scaleY = baseImage.naturalHeight / viewRect.height;
 
+  // Calculate final position and size
   const finalX = (containerX + imgX) * scaleX;
   const finalY = (containerY + imgY) * scaleY;
   const finalWidth = imgWidth * scaleX;
@@ -114,5 +121,8 @@ function downloadImage(canvas, filename) {
   const link = document.createElement('a');
   link.href = canvas.toDataURL('image/png');
   link.download = filename;
+  // Add to DOM temporarily to ensure click works
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }
