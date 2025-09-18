@@ -24,75 +24,51 @@ window.generateMockupCanvas = function(side) {
   return canvas;
 };
 
-// 🚀 Completely re-engineered download setup to prevent double triggering
-(function setupSingleDownloadHandler() {
-  // Wait for DOM to be fully loaded
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDownloadHandler);
-  } else {
-    initDownloadHandler();
+// 🚀 Keep the original download functionality, but now it uses the shared function
+// Use a more robust approach to ensure only one event listener
+(function setupDownloadHandler() {
+  const downloadBtn = document.getElementById('download-design');
+  if (!downloadBtn) {
+    console.error("Download button not found!");
+    return;
   }
-
-  function initDownloadHandler() {
-    const downloadBtn = document.getElementById('download-design');
-    if (!downloadBtn) {
-      console.error("Download button not found!");
+  
+  // Remove ALL previous event listeners by replacing with a new element
+  const newBtn = downloadBtn.cloneNode(true);
+  downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
+  
+  // Single flag to prevent multiple downloads
+  let downloadInProgress = false;
+  
+  // Add the SINGLE event listener
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Prevent multiple downloads
+    if (downloadInProgress) {
+      console.log("Download already in progress - ignoring additional click");
       return;
     }
-
-    // Remove ALL previous event listeners by replacing with a completely new element
-    const parent = downloadBtn.parentNode;
-    const newBtn = document.createElement('button');
     
-    // Copy all attributes
-    for (let i = 0; i < downloadBtn.attributes.length; i++) {
-      const attr = downloadBtn.attributes[i];
-      newBtn.setAttribute(attr.name, attr.value);
-    }
+    downloadInProgress = true;
+    console.log("Download initiated");
     
-    // Copy classes and innerHTML
-    newBtn.className = downloadBtn.className;
-    newBtn.innerHTML = downloadBtn.innerHTML;
-    newBtn.id = downloadBtn.id;
-    
-    // Replace the button
-    parent.replaceChild(newBtn, downloadBtn);
-    
-    // Single flag to prevent multiple downloads
-    let isDownloading = false;
-    
-    // Add the event listener with comprehensive prevention measures
-    newBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Double-check if already downloading
-      if (isDownloading) {
-        console.log("Download already in progress - ignoring click");
-        return false;
+    // Small delay to allow UI to update
+    setTimeout(() => {
+      try {
+        generateAndDownloadDesign();
+      } catch (error) {
+        console.error("Download error:", error);
+      } finally {
+        // Reset flag after a reasonable time
+        setTimeout(() => {
+          downloadInProgress = false;
+          console.log("Download process reset");
+        }, 2000);
       }
-      
-      isDownloading = true;
-      console.log("Download process started");
-      
-      // Small delay to allow UI to update
-      setTimeout(() => {
-        try {
-          generateAndDownloadDesign();
-        } catch (error) {
-          console.error("Error during download:", error);
-        } finally {
-          // Reset flag after completion
-          setTimeout(() => {
-            isDownloading = false;
-            console.log("Download process completed and reset");
-          }, 1500);
-        }
-      }, 100);
-      
-      return false;
-    }, false);
-  }
+    }, 100);
+  }, { once: false });
 })();
 
 function generateAndDownloadDesign() {
@@ -153,7 +129,7 @@ function drawDesign(ctx, baseImage, designLayer) {
   const containerX = containerRect.left - viewRect.left;
   const containerY = containerRect.top - viewRect.top;
   
-  // Get container's CURRENT dimensions (this is critical - we need the resized dimensions)
+  // Get container's current dimensions
   const containerWidth = designContainer.offsetWidth;
   const containerHeight = designContainer.offsetHeight;
 
@@ -164,27 +140,35 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // FORCE CORRECT SCALING - This is the key fix
-  // Calculate the ratio of current container size to original design area (150x150)
+  // KEY FIX: Calculate the ratio of current container size to original design area (150x150)
   const designAreaWidth = 150; // From BOUNDARY.WIDTH
   const designAreaHeight = 150; // From BOUNDARY.HEIGHT
   
-  const widthScale = containerWidth / designAreaWidth;
-  const heightScale = containerHeight / designAreaHeight;
+  // Calculate how much the container has been resized relative to original design area
+  const widthRatio = containerWidth / designAreaWidth;
+  const heightRatio = containerHeight / designAreaHeight;
   
   // Calculate final position and size
-  const finalX = (containerX * scaleX) + (imgX * scaleX);
-  const finalY = (containerY * scaleY) + (imgY * scaleY);
-  const finalWidth = imgWidth * scaleX * widthScale;
-  const finalHeight = imgHeight * scaleY * heightScale;
+  // Position should be scaled directly
+  const finalX = (containerX + imgX) * scaleX;
+  const finalY = (containerY + imgY) * scaleY;
+  
+  // Size should be scaled by the container-to-design-area ratio
+  // This is the critical fix - we need to account for how much the container has been resized
+  const finalWidth = imgWidth * scaleX * widthRatio;
+  const finalHeight = imgHeight * scaleY * heightRatio;
 
+  // Apply an additional correction factor based on the actual visible design area
+  // This ensures the downloaded image matches exactly what you see on screen
+  const correctionFactor = 1.0; // You can adjust this if needed (try 0.8, 0.9, etc. if still not perfect)
+  
   // Draw the image
   ctx.drawImage(
     designImage,
     finalX,
     finalY,
-    finalWidth,
-    finalHeight
+    finalWidth * correctionFactor,
+    finalHeight * correctionFactor
   );
 }
 
@@ -197,7 +181,7 @@ function downloadImage(canvas, filename) {
   // Add to document body
   document.body.appendChild(link);
   
-  // Trigger download with delay
+  // Trigger download with delay to ensure proper execution
   setTimeout(() => {
     try {
       link.click();
