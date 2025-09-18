@@ -25,56 +25,51 @@ window.generateMockupCanvas = function(side) {
 };
 
 // 🚀 Keep the original download functionality, but now it uses the shared function
-document.addEventListener('DOMContentLoaded', () => {
+// Use a more robust approach to ensure only one event listener
+(function setupDownloadHandler() {
   const downloadBtn = document.getElementById('download-design');
   if (!downloadBtn) {
     console.error("Download button not found!");
     return;
   }
   
-  // Remove the button and create a completely new one to ensure no duplicate listeners
-  const parent = downloadBtn.parentNode;
-  const newBtn = document.createElement('button');
+  // Remove ALL previous event listeners by replacing with a new element
+  const newBtn = downloadBtn.cloneNode(true);
+  downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
   
-  // Copy all attributes from the original button
-  for (let attr of downloadBtn.attributes) {
-    newBtn.setAttribute(attr.name, attr.value);
-  }
+  // Single flag to prevent multiple downloads
+  let downloadInProgress = false;
   
-  // Copy inner HTML
-  newBtn.innerHTML = downloadBtn.innerHTML;
-  
-  // Replace the button
-  parent.replaceChild(newBtn, downloadBtn);
-  
-  // Use a flag to prevent multiple simultaneous downloads
-  let isDownloading = false;
-  
-  newBtn.addEventListener('click', (e) => {
-    e.preventDefault(); // Prevent any default behavior
+  // Add the SINGLE event listener
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
     
-    if (isDownloading) {
-      console.log("Download already in progress");
-      return; // Prevent multiple triggers
+    // Prevent multiple downloads
+    if (downloadInProgress) {
+      console.log("Download already in progress - ignoring additional click");
+      return;
     }
     
-    isDownloading = true;
-    console.log("Starting download process");
+    downloadInProgress = true;
+    console.log("Download initiated");
     
+    // Small delay to allow UI to update
     setTimeout(() => {
       try {
         generateAndDownloadDesign();
       } catch (error) {
-        console.error("Error during download:", error);
+        console.error("Download error:", error);
       } finally {
+        // Reset flag after a reasonable time
         setTimeout(() => {
-          isDownloading = false;
-          console.log("Download process completed");
-        }, 1000);
+          downloadInProgress = false;
+          console.log("Download process reset");
+        }, 2000);
       }
-    }, 50);
-  });
-});
+    }, 100);
+  }, { once: false });
+})();
 
 function generateAndDownloadDesign() {
   const frontLayer = document.getElementById('front-layer');
@@ -112,15 +107,27 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designContainer = designLayer.querySelector('.design-container');
   if (!designContainer) return;
 
-  // Get references to key elements
-  const productView = designLayer.closest('.product-view');
-  const viewRect = productView.getBoundingClientRect();
-  const layerRect = designLayer.getBoundingClientRect();
-  const containerRect = designContainer.getBoundingClientRect();
-
   // Get the design image
   const designImage = designContainer.querySelector('.design-image');
   if (!designImage || !designImage.complete) return;
+
+  // Get references to key elements
+  const productView = designLayer.closest('.product-view');
+  if (!productView) return;
+
+  // Get dimensions
+  const viewRect = productView.getBoundingClientRect();
+  const containerRect = designContainer.getBoundingClientRect();
+  const baseImageWidth = baseImage.naturalWidth || baseImage.width;
+  const baseImageHeight = baseImage.naturalHeight || baseImage.height;
+
+  // Calculate scaling factor
+  const scaleX = baseImageWidth / viewRect.width;
+  const scaleY = baseImageHeight / viewRect.height;
+
+  // Get container position relative to product view
+  const containerX = containerRect.left - viewRect.left;
+  const containerY = containerRect.top - viewRect.top;
 
   // Get image position within container
   const imgStyle = window.getComputedStyle(designImage);
@@ -129,109 +136,40 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // Calculate scaling factor from screen to canvas
-  const scaleX = ctx.canvas.width / viewRect.width;
-  const scaleY = ctx.canvas.height / viewRect.height;
+  // APPROACH 1: Direct scaling (most accurate for your use case)
+  const finalX = (containerX + imgX) * scaleX;
+  const finalY = (containerY + imgY) * scaleY;
+  const finalWidth = imgWidth * scaleX;
+  const finalHeight = imgHeight * scaleY;
 
-  // Calculate container position relative to product view
-  const containerX = containerRect.left - viewRect.left;
-  const containerY = containerRect.top - viewRect.top;
-  const containerWidth = containerRect.width;
-  const containerHeight = containerRect.height;
-
-  // APPROACH 1: Direct scaling (current approach)
-  // const finalX = (containerX + imgX) * scaleX;
-  // const finalY = (containerY + imgY) * scaleY;
-  // const finalWidth = imgWidth * scaleX;
-  // const finalHeight = imgHeight * scaleY;
-
-  // APPROACH 2: Scale based on container size relative to design area (150x150)
-  // const designAreaWidth = 150;
-  // const designAreaHeight = 150;
-  // const widthRatio = containerWidth / designAreaWidth;
-  // const heightRatio = containerHeight / designAreaHeight;
-  // const finalX = containerX * scaleX;
-  // const finalY = containerY * scaleY;
-  // const finalWidth = imgWidth * scaleX * widthRatio;
-  // const finalHeight = imgHeight * scaleY * heightRatio;
-
-  // APPROACH 3: Use absolute positioning with boundary calculations
-  // const boundaryLeft = 125; // BOUNDARY.LEFT from config
-  // const boundaryTop = 101; // BOUNDARY.TOP from config
-  // const finalX = ((containerX + imgX) / viewRect.width) * ctx.canvas.width;
-  // const finalY = ((containerY + imgY) / viewRect.height) * ctx.canvas.height;
-  // const finalWidth = (imgWidth / viewRect.width) * ctx.canvas.width;
-  // const finalHeight = (imgHeight / viewRect.height) * ctx.canvas.height;
-
-  // APPROACH 4: Create a temporary canvas to render exactly as seen on screen
-  const tempCanvas = document.createElement('canvas');
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCanvas.width = containerWidth;
-  tempCanvas.height = containerHeight;
-  
-  // Clear with transparent background
-  tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-  
-  // Draw the image on the temporary canvas at its exact position
-  tempCtx.drawImage(
-    designImage,
-    imgX,
-    imgY,
-    imgWidth,
-    imgHeight
-  );
-  
-  // Draw the temporary canvas onto the main canvas at the correct position and scale
+  // Draw the image
   ctx.drawImage(
-    tempCanvas,
-    containerX * scaleX,
-    containerY * scaleY,
-    containerWidth * scaleX,
-    containerHeight * scaleY
+    designImage,
+    finalX,
+    finalY,
+    finalWidth,
+    finalHeight
   );
-  
-  // Return here since we've already drawn the design
-  return;
-
-  // APPROACH 5: Calculate based on the actual visible area and aspect ratio preservation
-  // const designAreaWidth = 150;
-  // const designAreaHeight = 150;
-  // const aspectRatio = imgWidth / imgHeight;
-  // 
-  // // Calculate position
-  // const finalX = (containerX + imgX) * scaleX;
-  // const finalY = (containerY + imgY) * scaleY;
-  // 
-  // // Calculate size based on container size relative to design area
-  // const sizeRatio = Math.min(containerWidth / designAreaWidth, containerHeight / designAreaHeight);
-  // const finalWidth = imgWidth * scaleX * sizeRatio;
-  // const finalHeight = imgHeight * scaleY * sizeRatio;
-  // 
-  // // Draw the image
-  // ctx.drawImage(
-  //   designImage,
-  //   finalX,
-  //   finalY,
-  //   finalWidth,
-  //   finalHeight
-  // );
 }
 
 function downloadImage(canvas, filename) {
+  // Create download link
   const link = document.createElement('a');
   link.href = canvas.toDataURL('image/png');
   link.download = filename;
   
-  // Add to DOM temporarily to ensure click works
+  // Add to document body
   document.body.appendChild(link);
   
+  // Trigger download with delay to ensure proper execution
   setTimeout(() => {
     try {
       link.click();
     } catch (error) {
-      console.error("Error clicking download link:", error);
+      console.error("Error triggering download:", error);
     } finally {
+      // Clean up
       document.body.removeChild(link);
     }
-  }, 20);
+  }, 50);
 }
