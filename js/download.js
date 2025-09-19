@@ -1,9 +1,13 @@
+// --- Assuming BOUNDARY is defined somewhere in your script like this ---
+// Please ensure this matches the actual BOUNDARY definition in your code
+const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
+
 // 🚀 Expose a function to generate the mockup canvas for a specific side
-window.generateMockupCanvas = function(side) {
+window.generateMockupCanvas = function (side) {
   const viewId = side === 'front' ? 'front-view' : 'back-view';
   const layerId = side === 'front' ? 'front-layer' : 'back-layer';
 
-  const baseImage = document.getElementById(viewId).querySelector('.base-image');
+  const baseImage = document.getElementById(viewId)?.querySelector('.base-image');
   const designLayer = document.getElementById(layerId);
 
   if (!baseImage || !designLayer) {
@@ -24,36 +28,36 @@ window.generateMockupCanvas = function(side) {
   return canvas;
 };
 
-// 🚀 Keep the original download functionality, but now it uses the shared function
-// Use a more robust approach to ensure only one event listener
-(function setupDownloadHandler() {
+// 🚀 Setup download functionality to run only once after the page loads
+// and prevent multiple clicks
+document.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('download-design');
   if (!downloadBtn) {
     console.error("Download button not found!");
     return;
   }
-  
-  // Remove ALL previous event listeners by replacing with a new element
+
+  // Flag to prevent multiple simultaneous downloads
+  let downloadInProgress = false;
+
+  // Remove any existing event listeners (good practice)
   const newBtn = downloadBtn.cloneNode(true);
   downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
-  
-  // Single flag to prevent multiple downloads
-  let downloadInProgress = false;
-  
-  // Add the SINGLE event listener
-  newBtn.addEventListener('click', function(e) {
+
+  // Add the single, definitive event listener
+  newBtn.addEventListener('click', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Prevent multiple downloads
     if (downloadInProgress) {
       console.log("Download already in progress - ignoring additional click");
       return;
     }
-    
+
     downloadInProgress = true;
     console.log("Download initiated");
-    
+
     // Small delay to allow UI to update
     setTimeout(() => {
       try {
@@ -61,15 +65,13 @@ window.generateMockupCanvas = function(side) {
       } catch (error) {
         console.error("Download error:", error);
       } finally {
-        // Reset flag after a reasonable time
-        setTimeout(() => {
-          downloadInProgress = false;
-          console.log("Download process reset");
-        }, 2000);
+        // Reset flag after download attempt finishes
+        downloadInProgress = false;
+        console.log("Download process reset");
       }
     }, 100);
-  }, { once: false });
-})();
+  });
+});
 
 function generateAndDownloadDesign() {
   const frontLayer = document.getElementById('front-layer');
@@ -99,36 +101,31 @@ function setCanvasSize(ctx, baseImage) {
   ctx.canvas.height = baseImage.naturalHeight || baseImage.height;
 }
 
+// --- Updated drawDesign function ---
 function drawDesign(ctx, baseImage, designLayer) {
-  // Draw base image
+  // 1. Draw the base mockup image onto the canvas
   ctx.drawImage(baseImage, 0, 0);
 
-  // Find the design container
+  // 2. Find the design elements
   const designContainer = designLayer.querySelector('.design-container');
-  if (!designContainer) return;
+  if (!designContainer) return; // No design to draw
 
-  // Get the design image
   const designImage = designContainer.querySelector('.design-image');
-  if (!designImage || !designImage.complete) return;
+  if (!designImage || !designImage.complete) return; // Image not ready
 
-  // --- Force the image to be drawn at exactly 150x150 pixels ---
-  const FORCED_WIDTH = 150;
-  const FORCED_HEIGHT = 150;
+  // 3. Force the design image to be 150x150 pixels
+  const finalWidth = 150;
+  const finalHeight = 150;
 
-  // --- Get the boundary configuration from your script ---
-  // This defines WHERE on the base image the 150x150 area is located.
-  const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
-
-  // --- Calculate final position and size on the base image canvas ---
-  // The image will fill the BOUNDARY area exactly.
+  // 4. Position it according to the BOUNDARY defined for the mockup
+  //    This places the 150x150 design area correctly on the T-shirt.
   const finalX = BOUNDARY.LEFT;
   const finalY = BOUNDARY.TOP;
-  const finalWidth = FORCED_WIDTH;
-  const finalHeight = FORCED_HEIGHT;
 
-  console.log(`Drawing design at forced size: ${finalWidth} x ${finalHeight} at (${finalX}, ${finalY})`);
-
-  // --- Draw the image ---
+  // 5. Draw the design image, stretched or fitted to the 150x150 area.
+  //    Note: This will distort the image if its natural aspect ratio is not 1:1.
+  //    If you want to fit it without distortion, you'd need to calculate scale/offsets again.
+  //    But the request was "force size to 150x150".
   ctx.drawImage(
     designImage,
     finalX,
@@ -136,38 +133,27 @@ function drawDesign(ctx, baseImage, designLayer) {
     finalWidth,
     finalHeight
   );
+
+  // Optional: Add a console log to verify
+  console.log(`Drew design at (${finalX}, ${finalY}) size ${finalWidth}x${finalHeight}`);
 }
+
 function downloadImage(canvas, filename) {
   // Create download link
   const link = document.createElement('a');
   link.href = canvas.toDataURL('image/png');
   link.download = filename;
-  
+
   // Add to document body
   document.body.appendChild(link);
-  
-  // Trigger download with delay to ensure proper execution
-  setTimeout(() => {
-    try {
-      link.click();
-    } catch (error) {
-      console.error("Error triggering download:", error);
-    } finally {
-      // Clean up
-      document.body.removeChild(link);
-    }
-  }, 50);
+
+  // Trigger download
+  try {
+    link.click();
+  } catch (error) {
+    console.error("Error triggering download:", error);
+  } finally {
+    // Clean up immediately
+    document.body.removeChild(link);
+  }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
