@@ -121,7 +121,7 @@ function drawDesign(ctx, baseImage, designLayer) {
   const baseImageWidth = baseImage.naturalWidth || baseImage.width;
   const baseImageHeight = baseImage.naturalHeight || baseImage.height;
 
-  // Calculate scale factor from the visible product view to the final canvas
+  // Calculate scale factor from visible product view to final canvas
   const scaleX = baseImageWidth / viewRect.width;
   const scaleY = baseImageHeight / viewRect.height;
 
@@ -134,19 +134,42 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgX = parseFloat(imgStyle.left) || 0;
   const imgY = parseFloat(imgStyle.top) || 0;
 
-  // Get the ACTUAL rendered size of the image element
+  // Get actual rendered size of the image
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // Calculate final position: (Container + Image offset) * Scale Factor
-  const finalX = (containerX + imgX) * scaleX;
-  const finalY = (containerY + imgY) * scaleY;
+  // 🚀 Step 1: Simulate the editor's initial scaling to 150x150
+  const MAX_DIMENSION = 150;
+  const naturalWidth = designImage.naturalWidth || designImage.width;
+  const naturalHeight = designImage.naturalHeight || designImage.height;
 
-  // Calculate final size: Image's rendered size * Scale Factor
-  const finalWidth = imgWidth * scaleX;
-  const finalHeight = imgHeight * scaleY;
+  // Calculate scale to fit within 150px max dimension
+  const scaleToFit = Math.min(MAX_DIMENSION / naturalWidth, MAX_DIMENSION / naturalHeight);
+  const scaledWidth = naturalWidth * scaleToFit;
+  const scaledHeight = naturalHeight * scaleToFit;
 
-  // Draw the image at its correct, scaled position and size
+  // Center the image in the 150x150 container
+  const leftOffset = (MAX_DIMENSION - scaledWidth) / 2;
+  const topOffset = (MAX_DIMENSION - scaledHeight) / 2;
+
+  // Now, apply the user's transformations (positioning and resizing)
+  // These are stored in the style of .design-image
+  const finalImgX = imgX; // This is relative to the container
+  const finalImgY = imgY;
+
+  // Final width/height after user resizing
+  const finalImgWidth = imgWidth;
+  const finalImgHeight = imgHeight;
+
+  // Convert everything to final canvas coordinates
+  const finalX = (containerX + finalImgX) * scaleX;
+  const finalY = (containerY + finalImgY) * scaleY;
+
+  // Scale the final size by the same factor
+  const finalWidth = finalImgWidth * scaleX;
+  const finalHeight = finalImgHeight * scaleY;
+
+  // Draw the image
   ctx.drawImage(
     designImage,
     finalX,
@@ -154,8 +177,11 @@ function drawDesign(ctx, baseImage, designLayer) {
     finalWidth,
     finalHeight
   );
+  console.log("Original:", naturalWidth, "x", naturalHeight);
+console.log("Scaled to fit:", scaledWidth, "x", scaledHeight);
+console.log("User resized:", finalImgWidth, "x", finalImgHeight);
+console.log("Final drawn:", finalWidth, "x", finalHeight);
 }
-
 function downloadImage(canvas, filename) {
   // Create download link
   const link = document.createElement('a');
@@ -177,6 +203,7 @@ function downloadImage(canvas, filename) {
     }
   }, 50);
 }
+
 
 
 
