@@ -121,44 +121,40 @@ function drawDesign(ctx, baseImage, designLayer) {
   const baseImageWidth = baseImage.naturalWidth || baseImage.width;
   const baseImageHeight = baseImage.naturalHeight || baseImage.height;
 
-  // Calculate scaling factor from the visible product view to the final canvas (base image)
+  // Calculate scaling factor from the visible product view to the final canvas
   const scaleX = baseImageWidth / viewRect.width;
   const scaleY = baseImageHeight / viewRect.height;
 
   // Get container position relative to product view
   const containerX = containerRect.left - viewRect.left;
   const containerY = containerRect.top - viewRect.top;
-  
-  // Get image position within container
+
+  // Get image position within container (in pixels)
   const imgStyle = window.getComputedStyle(designImage);
   const imgX = parseFloat(imgStyle.left) || 0;
   const imgY = parseFloat(imgStyle.top) || 0;
-  
-  // Get the ACTUAL rendered size of the image element
-  const imgWidth = designImage.offsetWidth;
-  const imgHeight = designImage.offsetHeight;
 
-  // Get the image's original natural dimensions
-  const naturalWidth = parseFloat(designImage.getAttribute('data-original-width')) || imgWidth;
-  const naturalHeight = parseFloat(designImage.getAttribute('data-original-height')) || imgHeight;
+  // 🚀 CRITICAL: Use the original natural width/height, not offsetWidth
+  const naturalWidth = parseFloat(designImage.getAttribute('data-original-width')) || designImage.naturalWidth;
+  const naturalHeight = parseFloat(designImage.getAttribute('data-original-height')) || designImage.naturalHeight;
 
-  // Calculate the scale factor applied to the image within its container
-  // This accounts for any resizing done by the user
-  const containerScaleX = imgWidth / naturalWidth;
-  const containerScaleY = imgHeight / naturalHeight;
+  // Get current rendered size (after user resize)
+  const currentWidth = parseFloat(designImage.getAttribute('data-width')) || designImage.offsetWidth;
+  const currentHeight = parseFloat(designImage.getAttribute('data-height')) || designImage.offsetHeight;
 
-  // Calculate final position: 
-  // (Container position + Image offset within container) * Scale Factor
+  // Calculate the actual scale factor applied by the user
+  const userScaleX = currentWidth / naturalWidth;
+  const userScaleY = currentHeight / naturalHeight;
+
+  // Apply user's scale to the final drawing
+  const finalWidth = naturalWidth * userScaleX;
+  const finalHeight = naturalHeight * userScaleY;
+
+  // Final position: container + image offset, scaled to base image
   const finalX = (containerX + imgX) * scaleX;
   const finalY = (containerY + imgY) * scaleY;
-  
-  // Calculate final size: 
-  // (Image's original size * Container scale) * Canvas scale
-  // This ensures the downloaded image matches exactly what you see on screen
-  const finalWidth = naturalWidth * containerScaleX * scaleX;
-  const finalHeight = naturalHeight * containerScaleY * scaleY;
 
-  // Draw the image at its correct, scaled position and size
+  // Draw the image at correct size and position
   ctx.drawImage(
     designImage,
     finalX,
@@ -189,6 +185,7 @@ function downloadImage(canvas, filename) {
     }
   }, 50);
 }
+
 
 
 
