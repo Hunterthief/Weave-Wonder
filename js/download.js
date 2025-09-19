@@ -1,6 +1,4 @@
-// --- Assuming BOUNDARY is defined somewhere in your script like this ---
-// Please ensure this matches the actual BOUNDARY definition in your code
-const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
+// --- download.js ---
 
 // 🚀 Expose a function to generate the mockup canvas for a specific side
 window.generateMockupCanvas = function (side) {
@@ -76,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function generateAndDownloadDesign() {
   const frontLayer = document.getElementById('front-layer');
   const backLayer = document.getElementById('back-layer');
+  // Use querySelector to check for the actual container, not just the image
   const hasFront = frontLayer.querySelector('.design-container');
   const hasBack = backLayer.querySelector('.design-container');
 
@@ -102,6 +101,7 @@ function setCanvasSize(ctx, baseImage) {
 }
 
 // --- Updated drawDesign function ---
+// Forces the design to be drawn at exactly 150x150 pixels within the BOUNDARY area.
 function drawDesign(ctx, baseImage, designLayer) {
   // 1. Draw the base mockup image onto the canvas
   ctx.drawImage(baseImage, 0, 0);
@@ -113,19 +113,18 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designContainer.querySelector('.design-image');
   if (!designImage || !designImage.complete) return; // Image not ready
 
-  // 3. Force the design image to be 150x150 pixels
+  // 3. Force the design area to be 150x150 pixels
   const finalWidth = 150;
   const finalHeight = 150;
 
   // 4. Position it according to the BOUNDARY defined for the mockup
   //    This places the 150x150 design area correctly on the T-shirt.
+  //    Uses the BOUNDARY constant defined in your main script.
   const finalX = BOUNDARY.LEFT;
   const finalY = BOUNDARY.TOP;
 
   // 5. Draw the design image, stretched or fitted to the 150x150 area.
   //    Note: This will distort the image if its natural aspect ratio is not 1:1.
-  //    If you want to fit it without distortion, you'd need to calculate scale/offsets again.
-  //    But the request was "force size to 150x150".
   ctx.drawImage(
     designImage,
     finalX,
