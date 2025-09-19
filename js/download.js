@@ -130,7 +130,6 @@ function drawDesign(ctx, baseImage, designLayer) {
   const containerY = containerRect.top - viewRect.top;
   
   // Get image position within container
-  // These values (imgX, imgY) are already in pixels relative to the container
   const imgStyle = window.getComputedStyle(designImage);
   const imgX = parseFloat(imgStyle.left) || 0;
   const imgY = parseFloat(imgStyle.top) || 0;
@@ -139,16 +138,25 @@ function drawDesign(ctx, baseImage, designLayer) {
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
+  // Get the image's original natural dimensions
+  const naturalWidth = parseFloat(designImage.getAttribute('data-original-width')) || imgWidth;
+  const naturalHeight = parseFloat(designImage.getAttribute('data-original-height')) || imgHeight;
+
+  // Calculate the scale factor applied to the image within its container
+  // This accounts for any resizing done by the user
+  const containerScaleX = imgWidth / naturalWidth;
+  const containerScaleY = imgHeight / naturalHeight;
+
   // Calculate final position: 
   // (Container position + Image offset within container) * Scale Factor
   const finalX = (containerX + imgX) * scaleX;
   const finalY = (containerY + imgY) * scaleY;
   
   // Calculate final size: 
-  // Image's rendered size * Scale Factor
-  // This is the CRITICAL FIX: We scale the image's actual size, not the container's size.
-  const finalWidth = imgWidth * scaleX;
-  const finalHeight = imgHeight * scaleY;
+  // (Image's original size * Container scale) * Canvas scale
+  // This ensures the downloaded image matches exactly what you see on screen
+  const finalWidth = naturalWidth * containerScaleX * scaleX;
+  const finalHeight = naturalHeight * containerScaleY * scaleY;
 
   // Draw the image at its correct, scaled position and size
   ctx.drawImage(
@@ -181,6 +189,7 @@ function downloadImage(canvas, filename) {
     }
   }, 50);
 }
+
 
 
 
