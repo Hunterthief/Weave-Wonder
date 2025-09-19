@@ -3,6 +3,7 @@
 // Make sure this line exists in your main script file.
 
 // 🚀 Expose a function to generate the mockup canvas for a specific side
+// This version simulates user resizing the image to fit the 150x150 boundary
 window.generateMockupCanvas = function (side) {
   console.log(`Generating canvas for ${side}`);
   const viewId = side === 'front' ? 'front-view' : 'back-view';
@@ -39,14 +40,18 @@ window.generateMockupCanvas = function (side) {
       console.log("Base image drawn successfully.");
   } catch (imgError) {
       console.error("Failed to draw base image:", imgError);
-      return canvas; // Return canvas even if base image failed, but log the error
+      // Return canvas even if base image failed, but log the error
+      // Returning early here might be better depending on requirements
+      // For now, let's continue to see if design drawing reports issues
   }
+
 
   // 2. Find the design elements
   const designContainer = designLayer.querySelector('.design-container');
   if (!designContainer) {
       console.log("No design container found for this side.");
-      return canvas; // Return canvas with just the base image
+      // Return canvas with just the base image if no design
+      return canvas;
   }
 
   const designImage = designContainer.querySelector('.design-image');
@@ -58,6 +63,8 @@ window.generateMockupCanvas = function (side) {
   // Wait for the design image to load if it's not complete
   if (!designImage.complete) {
       console.log("Design image is not loaded yet, waiting...");
+      // Returning canvas here means the design won't be drawn if it's not ready.
+      // A more advanced solution would involve Promises.
       return canvas;
   }
 
@@ -66,52 +73,135 @@ window.generateMockupCanvas = function (side) {
        return canvas;
   }
 
-  // --- SIMULATE USER RESIZE TO 150x150 ---
+  // --- SIMULATE USER RESIZING THE IMAGE TO FIT THE 150x150 CONTAINER ---
   const naturalWidth = designImage.naturalWidth;
   const naturalHeight = designImage.naturalHeight;
   console.log(`Design image natural size: ${naturalWidth} x ${naturalHeight}`);
 
-  // Calculate scale factors to make width=150 and height=150
-  // We use the larger scale to ensure at least one dimension hits 150,
-  // and the other fills or overflows the 150px boundary (simulating user stretch-to-edge)
-  const scaleForWidth = 150 / naturalWidth;
-  const scaleForHeight = 150 / naturalHeight;
-  const simulatedUserScale = Math.max(scaleForWidth, scaleForHeight);
+  // The editor container is 150x150
+  const CONTAINER_SIZE = 150;
 
-  // Calculate the simulated final dimensions after user resize
-  const simulatedWidth = naturalWidth * simulatedUserScale;
-  const simulatedHeight = naturalHeight * simulatedUserScale;
-  console.log(`Simulated user-resized dimensions: ${simulatedWidth} x ${simulatedHeight}`);
+  // Calculate the scale factor to make the image touch both edges of the 150x150 container
+  // This mimics the user dragging a corner handle until it fits perfectly
+  const scaleToFillContainer = Math.max(CONTAINER_SIZE / naturalWidth, CONTAINER_SIZE / naturalHeight);
+  console.log(`Scale factor to fill 150x150 container: ${scaleToFillContainer}`);
 
-  // Center this simulated size within the 150x150 container
-  const centeredXOffset = (150 - simulatedWidth) / 2;
-  const centeredYOffset = (150 - simulatedHeight) / 2;
-  console.log(`Simulated user-resized position within container: (${centeredXOffset}, ${centeredYOffset})`);
+  // Calculate the final width and height the image would have after this simulated resize
+  // Note: Using 'max' means one dimension will be exactly 150, the other might be larger before clamping
+  // But since the container is 150x150, the final drawn size will effectively be <= 150 in both dims,
+  // and at least one will be exactly 150. This is how user resizing works too.
+  const simulatedUserResizedWidth = naturalWidth * scaleToFillContainer;
+  const simulatedUserResizedHeight = naturalHeight * scaleToFillContainer;
+  console.log(`Simulated user-resized image size: ${simulatedUserResizedWidth} x ${simulatedUserResizedHeight}`);
 
-  // --- Map simulated user state to final canvas coordinates ---
-  // Final position is the BOUNDARY's top-left plus the simulated centered offset
-  const finalX = BOUNDARY.LEFT + centeredXOffset;
-  const finalY = BOUNDARY.TOP + centeredYOffset;
-  // Final size is the simulated user-resized dimensions
-  const finalWidth = simulatedWidth;
-  const finalHeight = simulatedHeight;
+  // Calculate the position (left, top) to center this resized image within the 150x150 container
+  // This is identical to the initial centering logic in reader.onload
+  const simulatedUserLeft = (CONTAINER_SIZE - simulatedUserResizedWidth) / 2;
+  const simulatedUserTop = (CONTAINER_SIZE - simulatedUserResizedHeight) / 2;
+  console.log(`Simulated user position (centered in 150x150): left=${simulatedUserLeft}, top=${simulatedUserTop}`);
 
-  // 5. Draw the design image onto the canvas using the simulated state
+  // --- Temporarily override the image's style to simulate the user's final action ---
+  // Store original styles to restore later
+  const originalStyleWidth = designImage.style.width;
+  const originalStyleHeight = designImage.style.height;
+  const originalStyleLeft = designImage.style.left;
+  const originalStyleTop = designImage.style.top;
+
+  // Apply the simulated user resize/position
+  designImage.style.width = simulatedUserResizedWidth + 'px';
+  designImage.style.height = simulatedUserResizedHeight + 'px';
+  designImage.style.left = simulatedUserLeft + 'px';
+  designImage.style.top = simulatedUserTop + 'px';
+
+  console.log("--- Simulated user resize/position applied ---");
+
+  // --- Now, call the EXISTING drawDesign function ---
+  // It will read the new offsetWidth/offsetHeight and computed styles
+  // and draw the image correctly onto the full-size canvas based on the BOUNDARY
   try {
-    ctx.drawImage(
-      designImage,
-      finalX,      // x-coordinate on the final canvas
-      finalY,      // y-coordinate on the final canvas
-      finalWidth,  // Simulated width (>= 150)
-      finalHeight  // Simulated height (>= 150)
-    );
-    console.log(`--- Drew design (Simulated User Resize) at (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)} ---`);
+      drawDesign(ctx, baseImage, designLayer);
+      console.log("--- drawDesign executed with simulated user input ---");
   } catch (drawError) {
-      console.error("Failed to draw design image:", drawError);
+      console.error("Error in drawDesign function:", drawError);
+  } finally {
+      // --- Restore the original styles ---
+      designImage.style.width = originalStyleWidth;
+      designImage.style.height = originalStyleHeight;
+      designImage.style.left = originalStyleLeft;
+      designImage.style.top = originalStyleTop;
+      console.log("--- Original image styles restored ---");
   }
 
   return canvas;
 };
+
+// --- Keep the existing drawDesign function ---
+// This function contains the logic that correctly maps the 150x150 editor
+// coordinates/sizes to the full base image canvas coordinates/sizes.
+function drawDesign(ctx, baseImage, designLayer) {
+  // Draw base image
+  ctx.drawImage(baseImage, 0, 0);
+
+  // Find the design container
+  const designContainer = designLayer.querySelector('.design-container');
+  if (!designContainer) return;
+
+  // Get the design image
+  const designImage = designContainer.querySelector('.design-image');
+  if (!designImage || !designImage.complete) return; // Or check .src
+
+  // Get references to key elements
+  const productView = designLayer.closest('.product-view');
+  if (!productView) return;
+
+  // Get dimensions
+  const viewRect = productView.getBoundingClientRect();
+  const containerRect = designContainer.getBoundingClientRect();
+  const baseImageWidth = baseImage.naturalWidth || baseImage.width;
+  const baseImageHeight = baseImage.naturalHeight || baseImage.height;
+
+  // Calculate scaling factor from the visible product view to the final canvas (base image)
+  // This maps the 150x150 editor view to the full base image size (e.g., 400x440)
+  const scaleX = baseImageWidth / viewRect.width;
+  const scaleY = baseImageHeight / viewRect.height;
+
+  // Get container position relative to product view
+  const containerX = containerRect.left - viewRect.left;
+  const containerY = containerRect.top - viewRect.top;
+
+  // Get image position within container
+  // These values (imgX, imgY) are already in pixels relative to the container
+  const imgStyle = window.getComputedStyle(designImage);
+  const imgX = parseFloat(imgStyle.left) || 0;
+  const imgY = parseFloat(imgStyle.top) || 0;
+
+  // Get the ACTUAL rendered size of the image element (after our simulation)
+  // This is the key part - it reads the size the user *would have set*
+  const imgWidth = designImage.offsetWidth;
+  const imgHeight = designImage.offsetHeight;
+
+  // Calculate final position:
+  // (Container position + Image offset within container) * Scale Factor
+  const finalX = (containerX + imgX) * scaleX;
+  const finalY = (containerY + imgY) * scaleY;
+
+  // Calculate final size:
+  // Image's rendered size * Scale Factor
+  // This maps the simulated 150x150 user size to the correct size on the big canvas
+  const finalWidth = imgWidth * scaleX;
+  const finalHeight = imgHeight * scaleY;
+
+  // Draw the image at its correct, scaled position and size
+  ctx.drawImage(
+    designImage,
+    finalX,
+    finalY,
+    finalWidth,
+    finalHeight
+  );
+  console.log(`Drew design at (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}`);
+}
+
 
 // --- Setup download button to prevent multiple clicks ---
 // (The rest of your download button setup code remains the same)
