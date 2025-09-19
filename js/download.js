@@ -39,14 +39,14 @@ window.generateMockupCanvas = function (side) {
       console.log("Base image drawn successfully.");
   } catch (imgError) {
       console.error("Failed to draw base image:", imgError);
-      return canvas;
+      return canvas; // Return canvas even if base image failed, but log the error
   }
 
   // 2. Find the design elements
   const designContainer = designLayer.querySelector('.design-container');
   if (!designContainer) {
       console.log("No design container found for this side.");
-      return canvas;
+      return canvas; // Return canvas with just the base image
   }
 
   const designImage = designContainer.querySelector('.design-image');
@@ -66,31 +66,46 @@ window.generateMockupCanvas = function (side) {
        return canvas;
   }
 
-  // --- DEBUGGING EXPERIMENT: FORCE the design to be drawn at exactly 150x150 pixels ---
-  console.log(`Design image natural size: ${designImage.naturalWidth} x ${designImage.naturalHeight}`);
+  // --- SIMULATE USER RESIZE TO 150x150 ---
+  const naturalWidth = designImage.naturalWidth;
+  const naturalHeight = designImage.naturalHeight;
+  console.log(`Design image natural size: ${naturalWidth} x ${naturalHeight}`);
 
-  // Define the EXACT final size
-  const finalWidth = 150;
-  const finalHeight = 150;
-  console.log(`Design FORCED final size: ${finalWidth} x ${finalHeight}`);
+  // Calculate scale factors to make width=150 and height=150
+  // We use the larger scale to ensure at least one dimension hits 150,
+  // and the other fills or overflows the 150px boundary (simulating user stretch-to-edge)
+  const scaleForWidth = 150 / naturalWidth;
+  const scaleForHeight = 150 / naturalHeight;
+  const simulatedUserScale = Math.max(scaleForWidth, scaleForHeight);
 
-  // Calculate the final top-left coordinates on the 400x440 canvas
-  // Place it exactly where the BOUNDARY area is defined
-  const finalX = BOUNDARY.LEFT; // Should be 125
-  const finalY = BOUNDARY.TOP;  // Should be 101
-  console.log(`Design FORCED final position: (${finalX}, ${finalY})`);
+  // Calculate the simulated final dimensions after user resize
+  const simulatedWidth = naturalWidth * simulatedUserScale;
+  const simulatedHeight = naturalHeight * simulatedUserScale;
+  console.log(`Simulated user-resized dimensions: ${simulatedWidth} x ${simulatedHeight}`);
 
-  // 5. Draw the design image onto the canvas at the EXACT 150x150 size
-  //    This will stretch it if the natural aspect ratio is not 1:1
+  // Center this simulated size within the 150x150 container
+  const centeredXOffset = (150 - simulatedWidth) / 2;
+  const centeredYOffset = (150 - simulatedHeight) / 2;
+  console.log(`Simulated user-resized position within container: (${centeredXOffset}, ${centeredYOffset})`);
+
+  // --- Map simulated user state to final canvas coordinates ---
+  // Final position is the BOUNDARY's top-left plus the simulated centered offset
+  const finalX = BOUNDARY.LEFT + centeredXOffset;
+  const finalY = BOUNDARY.TOP + centeredYOffset;
+  // Final size is the simulated user-resized dimensions
+  const finalWidth = simulatedWidth;
+  const finalHeight = simulatedHeight;
+
+  // 5. Draw the design image onto the canvas using the simulated state
   try {
     ctx.drawImage(
       designImage,
-      finalX,      // x-coordinate on the canvas
-      finalY,      // y-coordinate on the canvas
-      finalWidth,  // FORCED width = 150
-      finalHeight  // FORCED height = 150
+      finalX,      // x-coordinate on the final canvas
+      finalY,      // y-coordinate on the final canvas
+      finalWidth,  // Simulated width (>= 150)
+      finalHeight  // Simulated height (>= 150)
     );
-    console.log(`--- Drew design (FORCED 150x150) at (${finalX}, ${finalY}) size ${finalWidth}x${finalHeight} ---`);
+    console.log(`--- Drew design (Simulated User Resize) at (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)} ---`);
   } catch (drawError) {
       console.error("Failed to draw design image:", drawError);
   }
