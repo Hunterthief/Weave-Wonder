@@ -103,39 +103,54 @@ function drawDesign(ctx, baseImage, designLayer) {
   // Draw base image
   ctx.drawImage(baseImage, 0, 0);
 
-  // Find the design container and image
+  // Find the design container
   const designContainer = designLayer.querySelector('.design-container');
-  const designImage = designContainer?.querySelector('.design-image');
-  
-  if (!designContainer || !designImage || !designImage.src) return;
+  if (!designContainer) return;
 
-  // Get the image's position and size within its container
+  // Get the design image
+  const designImage = designContainer.querySelector('.design-image');
+  if (!designImage || !designImage.complete) return;
+
+  // Get references to key elements
+  const productView = designLayer.closest('.product-view');
+  if (!productView) return;
+
+  // Get dimensions
+  const viewRect = productView.getBoundingClientRect();
+  const containerRect = designContainer.getBoundingClientRect();
+  const baseImageWidth = baseImage.naturalWidth || baseImage.width;
+  const baseImageHeight = baseImage.naturalHeight || baseImage.height;
+
+  // Calculate scaling factor from the visible product view to the final canvas (base image)
+  const scaleX = baseImageWidth / viewRect.width;
+  const scaleY = baseImageHeight / viewRect.height;
+
+  // Get container position relative to product view
+  const containerX = containerRect.left - viewRect.left;
+  const containerY = containerRect.top - viewRect.top;
+  
+  // Get image position within container
+  // These values (imgX, imgY) are already in pixels relative to the container
   const imgStyle = window.getComputedStyle(designImage);
   const imgX = parseFloat(imgStyle.left) || 0;
   const imgY = parseFloat(imgStyle.top) || 0;
+  
+  // Get the ACTUAL rendered size of the image element
   const imgWidth = designImage.offsetWidth;
   const imgHeight = designImage.offsetHeight;
 
-  // Get the container's position within the design layer
-  // This is its CSS 'top' and 'left' values
-  const containerStyle = window.getComputedStyle(designContainer);
-  const containerX = parseFloat(containerStyle.left) || 0;
-  const containerY = parseFloat(containerStyle.top) || 0;
-
-  // 🚀 KEY FIX: Scale relative to the BOUNDARY (150x150), not the layer's bounding rect
-  // The BOUNDARY defines the logical design area you interact with.
-  const scaleX = ctx.canvas.width / BOUNDARY.WIDTH;
-  const scaleY = ctx.canvas.height / BOUNDARY.HEIGHT;
-
-  // Calculate final position and size
-  // Position: (Container position + Image offset within container) * Scale Factor
+  // Calculate final position: 
+  // (Container position + Image offset within container) * Scale Factor
   const finalX = (containerX + imgX) * scaleX;
   const finalY = (containerY + imgY) * scaleY;
-  // Size: Image's size * Scale Factor
+  
+  // Calculate final size: 
+  // Image's rendered size * Scale Factor
+  // This is the CRITICAL FIX: We scale the image's actual size, not the container's size.
   const finalWidth = imgWidth * scaleX;
   const finalHeight = imgHeight * scaleY;
 
-  // Draw the image
+  // Draw the image at its correct, scaled position and size
   ctx.drawImage(
     designImage,
     finalX,
@@ -166,5 +181,6 @@ function downloadImage(canvas, filename) {
     }
   }, 50);
 }
+
 
 
