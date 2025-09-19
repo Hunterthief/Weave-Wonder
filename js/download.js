@@ -168,7 +168,11 @@ function drawDesign(ctx, baseImage, designLayer) {
   // Scale the final size by the same factor
   const finalWidth = finalImgWidth * scaleX;
   const finalHeight = finalImgHeight * scaleY;
-
+  
+  console.log("Original:", naturalWidth, "x", naturalHeight);
+console.log("Scaled to fit:", scaledWidth, "x", scaledHeight);
+console.log("User resized:", finalImgWidth, "x", finalImgHeight);
+console.log("Final drawn:", finalWidth, "x", finalHeight);
   // Draw the image
   ctx.drawImage(
     designImage,
@@ -177,10 +181,6 @@ function drawDesign(ctx, baseImage, designLayer) {
     finalWidth,
     finalHeight
   );
-  console.log("Original:", naturalWidth, "x", naturalHeight);
-console.log("Scaled to fit:", scaledWidth, "x", scaledHeight);
-console.log("User resized:", finalImgWidth, "x", finalImgHeight);
-console.log("Final drawn:", finalWidth, "x", finalHeight);
 }
 function downloadImage(canvas, filename) {
   // Create download link
@@ -203,6 +203,7 @@ function downloadImage(canvas, filename) {
     }
   }, 50);
 }
+
 
 
 
