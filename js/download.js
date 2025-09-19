@@ -66,44 +66,31 @@ window.generateMockupCanvas = function (side) {
        return canvas;
   }
 
-  // --- DEBUGGING EXPERIMENT: Force-resize and center the design ---
-  // 1. Get the natural dimensions of the uploaded design image
-  const naturalWidth = designImage.naturalWidth;
-  const naturalHeight = designImage.naturalHeight;
-  console.log(`Design image natural size: ${naturalWidth} x ${naturalHeight}`);
+  // --- DEBUGGING EXPERIMENT: FORCE the design to be drawn at exactly 150x150 pixels ---
+  console.log(`Design image natural size: ${designImage.naturalWidth} x ${designImage.naturalHeight}`);
 
-  // 2. Calculate the scale factor to force-fit it within 150x150 while preserving aspect ratio
-  //    This ensures finalWidth <= 150 AND finalHeight <= 150
-  const MAX_FINAL_DIMENSION = 150;
-  const scaleToFitFinal = Math.min(
-    MAX_FINAL_DIMENSION / naturalWidth,
-    MAX_FINAL_DIMENSION / naturalHeight
-  );
-  const finalWidth = naturalWidth * scaleToFitFinal;
-  const finalHeight = naturalHeight * scaleToFitFinal;
+  // Define the EXACT final size
+  const finalWidth = 150;
+  const finalHeight = 150;
   console.log(`Design FORCED final size: ${finalWidth} x ${finalHeight}`);
 
-  // 3. Calculate the position to center this final size within the BOUNDARY area
-  //    BOUNDARY defines the 150x150px area on the 400x440px canvas
-  const centeredXOffset = (BOUNDARY.WIDTH - finalWidth) / 2;
-  const centeredYOffset = (BOUNDARY.HEIGHT - finalHeight) / 2;
-
-  // 4. Calculate the final top-left coordinates on the 400x440 canvas
-  //    This is the BOUNDARY's top-left corner plus the centering offset
-  const finalX = BOUNDARY.LEFT + centeredXOffset;
-  const finalY = BOUNDARY.TOP + centeredYOffset;
+  // Calculate the final top-left coordinates on the 400x440 canvas
+  // Place it exactly where the BOUNDARY area is defined
+  const finalX = BOUNDARY.LEFT; // Should be 125
+  const finalY = BOUNDARY.TOP;  // Should be 101
   console.log(`Design FORCED final position: (${finalX}, ${finalY})`);
 
-  // 5. Draw the design image onto the canvas at the forced size and centered position
+  // 5. Draw the design image onto the canvas at the EXACT 150x150 size
+  //    This will stretch it if the natural aspect ratio is not 1:1
   try {
     ctx.drawImage(
       designImage,
       finalX,      // x-coordinate on the canvas
       finalY,      // y-coordinate on the canvas
-      finalWidth,  // Forced width (<= 150)
-      finalHeight  // Forced height (<= 150)
+      finalWidth,  // FORCED width = 150
+      finalHeight  // FORCED height = 150
     );
-    console.log(`--- Drew design (FORCED SIZE) at (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)} ---`);
+    console.log(`--- Drew design (FORCED 150x150) at (${finalX}, ${finalY}) size ${finalWidth}x${finalHeight} ---`);
   } catch (drawError) {
       console.error("Failed to draw design image:", drawError);
   }
