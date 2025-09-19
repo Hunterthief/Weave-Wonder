@@ -111,41 +111,36 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designContainer.querySelector('.design-image');
   if (!designImage || !designImage.complete) return;
 
-  // --- DEBUG: Force resize to 150x150 max ---
+  // --- Force-fit image to 150x150px ---
   const MAX_DIMENSION = 150;
   const naturalWidth = designImage.naturalWidth || designImage.width;
   const naturalHeight = designImage.naturalHeight || designImage.height;
 
-  // Calculate scale factor to fit inside 150px
-  const scale = Math.min(MAX_DIMENSION / naturalWidth, MAX_DIMENSION / naturalHeight);
-  const resizedWidth = naturalWidth * scale;
-  const resizedHeight = naturalHeight * scale;
+  // Calculate scale to fit within 150px max dimension
+  const scaleToFit = Math.min(MAX_DIMENSION / naturalWidth, MAX_DIMENSION / naturalHeight);
+  const scaledWidth = naturalWidth * scaleToFit;
+  const scaledHeight = naturalHeight * scaleToFit;
 
-  // Center the image in the 150x150 area
-  const leftOffset = (MAX_DIMENSION - resizedWidth) / 2;
-  const topOffset = (MAX_DIMENSION - resizedHeight) / 2;
+  // Center the image in the 150x150 container
+  const leftOffset = (MAX_DIMENSION - scaledWidth) / 2;
+  const topOffset = (MAX_DIMENSION - scaledHeight) / 2;
 
-  // --- Map to final canvas ---
-  // Use the same approach as before: map from editor container (150x150) to base image
+  // --- Now draw it at the scaled size ---
+  // We assume the .product-view is exactly 150x150px
   const productView = designLayer.closest('.product-view');
   if (!productView) return;
 
   const viewRect = productView.getBoundingClientRect();
-  const containerRect = designContainer.getBoundingClientRect();
 
-  // Position of container within product view
-  const containerX = containerRect.left - viewRect.left;
-  const containerY = containerRect.top - viewRect.top;
+  // Position: center of the container
+  const finalX = (viewRect.width / 2 - scaledWidth / 2);
+  const finalY = (viewRect.height / 2 - scaledHeight / 2);
 
-  // Final position on canvas: container + offset
-  const finalX = (containerX + leftOffset) * (baseImage.naturalWidth / viewRect.width);
-  const finalY = (containerY + topOffset) * (baseImage.naturalHeight / viewRect.height);
+  // Size: use the scaled size directly
+  const finalWidth = scaledWidth;
+  const finalHeight = scaledHeight;
 
-  // Final size: scaled image size
-  const finalWidth = resizedWidth * (baseImage.naturalWidth / viewRect.width);
-  const finalHeight = resizedHeight * (baseImage.naturalHeight / viewRect.height);
-
-  // Draw the image
+  // Draw the image at the correct size and position
   ctx.drawImage(
     designImage,
     finalX,
@@ -175,6 +170,7 @@ function downloadImage(canvas, filename) {
     }
   }, 50);
 }
+
 
 
 
