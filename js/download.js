@@ -111,36 +111,24 @@ function drawDesign(ctx, baseImage, designLayer) {
   const designImage = designContainer.querySelector('.design-image');
   if (!designImage || !designImage.complete) return;
 
-  // --- Force-fit image to 150x150px ---
-  const MAX_DIMENSION = 150;
-  const naturalWidth = designImage.naturalWidth || designImage.width;
-  const naturalHeight = designImage.naturalHeight || designImage.height;
+  // --- Force the image to be drawn at exactly 150x150 pixels ---
+  const FORCED_WIDTH = 150;
+  const FORCED_HEIGHT = 150;
 
-  // Calculate scale to fit within 150px max dimension
-  const scaleToFit = Math.min(MAX_DIMENSION / naturalWidth, MAX_DIMENSION / naturalHeight);
-  const scaledWidth = naturalWidth * scaleToFit;
-  const scaledHeight = naturalHeight * scaleToFit;
+  // --- Get the boundary configuration from your script ---
+  // This defines WHERE on the base image the 150x150 area is located.
+  const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
 
-  // Center the image in the 150x150 container
-  const leftOffset = (MAX_DIMENSION - scaledWidth) / 2;
-  const topOffset = (MAX_DIMENSION - scaledHeight) / 2;
+  // --- Calculate final position and size on the base image canvas ---
+  // The image will fill the BOUNDARY area exactly.
+  const finalX = BOUNDARY.LEFT;
+  const finalY = BOUNDARY.TOP;
+  const finalWidth = FORCED_WIDTH;
+  const finalHeight = FORCED_HEIGHT;
 
-  // --- Now draw it at the scaled size ---
-  // We assume the .product-view is exactly 150x150px
-  const productView = designLayer.closest('.product-view');
-  if (!productView) return;
+  console.log(`Drawing design at forced size: ${finalWidth} x ${finalHeight} at (${finalX}, ${finalY})`);
 
-  const viewRect = productView.getBoundingClientRect();
-
-  // Position: center of the container
-  const finalX = (viewRect.width / 2 - scaledWidth / 2);
-  const finalY = (viewRect.height / 2 - scaledHeight / 2);
-
-  // Size: use the scaled size directly
-  const finalWidth = scaledWidth;
-  const finalHeight = scaledHeight;
-
-  // Draw the image at the correct size and position
+  // --- Draw the image ---
   ctx.drawImage(
     designImage,
     finalX,
@@ -170,6 +158,7 @@ function downloadImage(canvas, filename) {
     }
   }, 50);
 }
+
 
 
 
