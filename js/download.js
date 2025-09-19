@@ -1,5 +1,6 @@
 // --- download.js ---
 
+
 // 🚀 Expose a function to generate the mockup canvas for a specific side
 window.generateMockupCanvas = function (side) {
   const viewId = side === 'front' ? 'front-view' : 'back-view';
@@ -156,3 +157,4 @@ function downloadImage(canvas, filename) {
     document.body.removeChild(link);
   }
 }
+
