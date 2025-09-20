@@ -1,22 +1,23 @@
 // download.js
-// Implements exact requested export flow:
-// 1) final canvas = base mockup (use baseImage.naturalWidth/H, fallback 400x440)
-// 2) place full-sized design image "virtually" then scale it so it fits inside 150x150 (maintain aspect ratio)
-// 3) apply user's position (relative to the 150x150 editor) and user's resize factors (applied to the already-fit-to-150 source)
-// 4) draw the small result into the base canvas boundary (B.LEFT,B.TOP,B.WIDTH,B.HEIGHT)
-// 5) single safe download handler attached to #download-design
+// - Rasterize editor (150x150) -> snapshot canvas
+// - Paste snapshot into base mockup canvas (400x440 default or base natural size)
+// - Clamp the drawn snapshot on final canvas to window.MAX_FINAL_ON_CANVAS (default 150px)
+// - Expose preview + generate functions and attach a single safe download handler
+
 (function () {
   'use strict';
 
-  // Canonical logical editor boundary dimensions (what uploaded designs are fit into)
+  // ---------- Config / globals ----------
   const EDITOR_W = 150;
   const EDITOR_H = 150;
-
-  // Fallback base mockup dims if base image lacks natural size
   const FALLBACK_BASE_W = 400;
   const FALLBACK_BASE_H = 440;
 
-  // Helpers
+  // You can override this in console if you want a different clamp:
+  // e.g. window.MAX_FINAL_ON_CANVAS = 120;
+  window.MAX_FINAL_ON_CANVAS = window.MAX_FINAL_ON_CANVAS || 150;
+
+  // ---------- Helpers ----------
   function safeInt(v, fallback = 0) {
     const n = parseInt(v, 10);
     return Number.isFinite(n) ? n : fallback;
@@ -43,226 +44,227 @@
     }
   }
 
-  function createFinalCanvasForBase(baseImage) {
-    const w = baseImage.naturalWidth || baseImage.width || FALLBACK_BASE_W;
-    const h = baseImage.naturalHeight || baseImage.height || FALLBACK_BASE_H;
+  function createCanvas(w, h) {
     const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
+    c.width = Math.max(1, Math.round(w));
+    c.height = Math.max(1, Math.round(h));
     return c;
   }
 
-  /**
-   * Compute how the upload is initially fit into the editor:
-   * initialFitScale = min(150 / naturalW, 150 / naturalH, 1)
-   * initialFitW/H = naturalW * initialFitScale
-   */
-  function computeInitialFit(naturalW, naturalH) {
-    const scale = Math.min(EDITOR_W / naturalW, EDITOR_H / naturalH, 1);
-    return {
-      scale,
-      fitW: naturalW * scale,
-      fitH: naturalH * scale
-    };
+  function createFinalCanvasForBase(baseImage) {
+    const w = baseImage.naturalWidth || baseImage.width || FALLBACK_BASE_W;
+    const h = baseImage.naturalHeight || baseImage.height || FALLBACK_BASE_H;
+    return createCanvas(w, h);
   }
 
-  /**
-   * Read user's current display state from DOM and map to canonical editor coords (150x150)
-   * designContainer: the element that represents the 150x150 editor area (on-screen may be diff size)
-   * designImage: the user's image element inside it (position / size / style reflect user's edits)
-   *
-   * Returns object:
-   * { canonicalX, canonicalY, canonicalDisplayedW, canonicalDisplayedH, userScaleRelativeToInitial, notes }
-   */
-  function getUserEditorState(designContainer, designImage, initialFit) {
-    // bounding rects (CSS px)
+  // ---------- Editor snapshot rasterization ----------
+  // Builds a 150x150 canvas representing exactly what user sees inside the editor boundary.
+  // Returns an HTMLCanvasElement (150x150) or null on failure.
+  function buildEditorSnapshotCanvas(designContainer, designImage) {
+    if (!designContainer || !designImage) {
+      console.error('buildEditorSnapshotCanvas: missing args');
+      return null;
+    }
+
+    // On-screen bounding rectangles (CSS pixels)
     const containerRect = designContainer.getBoundingClientRect();
     const imgRect = designImage.getBoundingClientRect();
 
-    // defensive fallback if rects are zero
+    // defensive fallbacks
     const containerW = containerRect.width || designContainer.offsetWidth || EDITOR_W;
     const containerH = containerRect.height || designContainer.offsetHeight || EDITOR_H;
 
-    const imgW = imgRect.width || designImage.offsetWidth || initialFit.fitW;
-    const imgH = imgRect.height || designImage.offsetHeight || initialFit.fitH;
+    const imgW = imgRect.width || designImage.offsetWidth || designImage.naturalWidth || 1;
+    const imgH = imgRect.height || designImage.offsetHeight || designImage.naturalHeight || 1;
 
     // position of image relative to container (screen px)
-    const relX = (imgRect.left === 0 && containerRect.left === 0) ?
-      (parseFloat(getComputedStyle(designImage).left) || parseFloat(designImage.getAttribute('data-left')) || 0) :
-      (imgRect.left - containerRect.left);
-
-    const relY = (imgRect.top === 0 && containerRect.top === 0) ?
-      (parseFloat(getComputedStyle(designImage).top) || parseFloat(designImage.getAttribute('data-top')) || 0) :
-      (imgRect.top - containerRect.top);
+    // If getBoundingClientRect returned 0 (rare inside hidden/off-DOM), attempt style/data attributes
+    let relX = (imgRect.left && containerRect.left) ? (imgRect.left - containerRect.left) : (parseFloat(getComputedStyle(designImage).left) || parseFloat(designImage.getAttribute('data-left')) || 0);
+    let relY = (imgRect.top && containerRect.top) ? (imgRect.top - containerRect.top) : (parseFloat(getComputedStyle(designImage).top) || parseFloat(designImage.getAttribute('data-top')) || 0);
 
     // Map screen container -> canonical 150x150
-    const scaleX = EDITOR_W / containerW;
-    const scaleY = EDITOR_H / containerH;
+    const scaleToCanonicalX = EDITOR_W / containerW;
+    const scaleToCanonicalY = EDITOR_H / containerH;
 
-    // canonical coordinates and sizes inside the logical 150x150 editor
-    const canonicalX = relX * scaleX;
-    const canonicalY = relY * scaleY;
-    const canonicalDisplayedW = imgW * scaleX;
-    const canonicalDisplayedH = imgH * scaleY;
+    // canonical coordinates and displayed size inside 150x150
+    const canonicalX = relX * scaleToCanonicalX;
+    const canonicalY = relY * scaleToCanonicalY;
+    const canonicalW = imgW * scaleToCanonicalX;
+    const canonicalH = imgH * scaleToCanonicalY;
 
-    // userScaleRelativeToInitial = canonicalDisplayedW / initialFit.fitW
-    const userScaleRelativeToInitial = (initialFit.fitW > 0) ? (canonicalDisplayedW / initialFit.fitW) : 1;
+    // Create offscreen canonical canvas
+    const off = createCanvas(EDITOR_W, EDITOR_H);
+    const octx = off.getContext('2d');
 
-    return {
-      canonicalX,
-      canonicalY,
-      canonicalDisplayedW,
-      canonicalDisplayedH,
-      userScaleRelativeToInitial,
-      containerW,
-      containerH
-    };
+    // Clear transparent background
+    octx.clearRect(0, 0, off.width, off.height);
+
+    // Try drawing designImage into canonical coords.
+    // This assumes the editor applied transforms via width/height/left/top (not CSS rotate).
+    try {
+      octx.drawImage(designImage, canonicalX, canonicalY, canonicalW, canonicalH);
+    } catch (err) {
+      // Fallback: try loading a new Image() with crossOrigin if possible
+      console.warn('buildEditorSnapshotCanvas: drawImage failed, trying fallback via new Image():', err);
+      try {
+        const fallback = new Image();
+        fallback.crossOrigin = 'anonymous';
+        fallback.src = designImage.src;
+        if (fallback.complete && fallback.naturalWidth) {
+          octx.drawImage(fallback, canonicalX, canonicalY, canonicalW, canonicalH);
+        } else {
+          // Can't synchronously load fallback -> still return partial snapshot (maybe empty)
+          console.error('buildEditorSnapshotCanvas: fallback image not loaded synchronously; returning partial snapshot.');
+        }
+      } catch (err2) {
+        console.error('buildEditorSnapshotCanvas: fallback draw also failed', err2);
+      }
+    }
+
+    // Expose last snapshot for debugging
+    try {
+      window.__lastEditorSnapshot = off;
+      window.__lastEditorSnapshotDataUrl = off.toDataURL('image/png');
+    } catch (e) {
+      // ignore if toDataURL fails (CORS)
+    }
+
+    return off;
   }
 
+  // Convenience: preview function that returns dataURL or null
+  window.previewEditorSnapshot = function (side) {
+    try {
+      const layerId = side === 'front' ? 'front-layer' : 'back-layer';
+      const layer = document.getElementById(layerId);
+      if (!layer) return null;
+      const container = layer.querySelector('.design-container');
+      const img = container ? container.querySelector('.design-image') : null;
+      if (!container || !img) return null;
+      const snap = buildEditorSnapshotCanvas(container, img);
+      if (!snap) return null;
+      try {
+        return snap.toDataURL('image/png');
+      } catch (e) {
+        // CORS may prevent dataURL; still return null gracefully
+        console.warn('previewEditorSnapshot: toDataURL failed', e);
+        return null;
+      }
+    } catch (e) {
+      console.error('previewEditorSnapshot error', e);
+      return null;
+    }
+  };
+
+  // ---------- Generate final mockup by pasting rasterized editor snapshot ----------
+
   /**
-   * Main function that follows requested steps.
-   *
-   * Steps implemented:
-   * A) Final canvas = base mockup (size derived from base image)
-   * B) Draw the full-size design on an offscreen intermediate (logical) representation so we can scale to fit 150x150
-   * C) Compute initial fit-to-150 for the full original design (preserve aspect)
-   * D) Compute user's adjustments in canonical editor coordinates (150x150)
-   * E) Starting from the initial-fit size, apply user's relative scale (userScaleRelativeToInitial)
-   * F) Place the small scaled result inside the base canvas at the BOUNDARY position + the canonical offsets mapped into base canvas coords
-   *
-   * Returns the final canvas element (or null on failure)
+   * Generates final canvas for the requested side.
+   * Options:
+   *   clampMaxPx: number | undefined  -> if set, the drawn snapshot on final canvas will be clamped so width/height <= clampMaxPx
+   * Returns final canvas or null.
    */
-  function generateMockupForSide(side) {
+  function generateMockupForSide(side, options = {}) {
     try {
       if (side !== 'front' && side !== 'back') {
         console.warn('generateMockupForSide: invalid side', side);
         return null;
       }
-
       const viewId = side === 'front' ? 'front-view' : 'back-view';
       const layerId = side === 'front' ? 'front-layer' : 'back-layer';
       const viewEl = document.getElementById(viewId);
       const layerEl = document.getElementById(layerId);
-
       if (!viewEl || !layerEl) {
-        console.error('generateMockupForSide: missing elements', viewId, layerId);
+        console.error('generateMockupForSide: missing view or layer', viewId, layerId);
         return null;
       }
 
       const baseImg = viewEl.querySelector('.base-image');
       if (!baseImg) {
-        console.error('generateMockupForSide: base-image not found in', viewId);
+        console.error('generateMockupForSide: base-image not found inside', viewId);
         return null;
       }
       if (!(baseImg.complete || baseImg.naturalWidth)) {
-        console.warn('generateMockupForSide: base image not yet loaded; aborting.');
+        console.warn('generateMockupForSide: base image not loaded yet; aborting.');
         return null;
       }
 
-      // Build final canvas from base mockup (use natural dims or fallback)
+      // Final canvas sized to base image natural size (or fallback 400x440)
       const finalCanvas = createFinalCanvasForBase(baseImg);
       const fctx = finalCanvas.getContext('2d');
 
-      // Step 1: draw the base mockup as the background (full-size)
+      // Draw base mockup full-size
       try {
         fctx.drawImage(baseImg, 0, 0, finalCanvas.width, finalCanvas.height);
       } catch (e) {
-        console.error('Failed drawing base image onto final canvas', e);
-        // continue — might still attempt overlay
+        console.error('generateMockupForSide: failed drawing base image', e);
       }
 
-      // Step 2: find design container & image
+      // Find editor container and design image
       const designContainer = layerEl.querySelector('.design-container');
       if (!designContainer) {
-        // no design uploaded — return base mockup only
-        return finalCanvas;
+        return finalCanvas; // nothing to overlay
       }
       const designImage = designContainer.querySelector('.design-image');
       if (!designImage || !designImage.src) {
         return finalCanvas;
       }
 
-      // Ensure designImage loaded enough to read natural dims; if not, try fallback
-      const naturalW = designImage.naturalWidth || designImage.width || 1;
-      const naturalH = designImage.naturalHeight || designImage.height || 1;
-
-      // Step 3: compute initial fit-to-150 for the original design
-      const initial = computeInitialFit(naturalW, naturalH);
-      // initial.fitW/fitH are the dimensions the original would get when fit into 150x150 while preserving aspect
-
-      // Step 4: read user's editor state and map to canonical 150x150 coordinates
-      const userState = getUserEditorState(designContainer, designImage, initial);
-      // canonicalDisplayedW/H represent how large the user is currently displaying the design inside the editor (in 150x150 units)
-
-      // Step 5: compute the final small size that should be drawn into the base canvas:
-      // finalSmallW/H_in_editor_coords = initial.fitW * userScaleRelativeToInitial
-      const finalSmallW_editor = initial.fitW * userState.userScaleRelativeToInitial;
-      const finalSmallH_editor = initial.fitH * userState.userScaleRelativeToInitial;
-
-      // Important: the user's position inside the editor is userState.canonicalX/Y — this is where the top-left of the displayed image appears inside the 150x150 box.
-      // However, because the original is first fit to initial.fitW/fitH and then the user may have translated/scaled it, we must compute the relative offset of the top-left of the finalSmall image.
-      // We'll use canonicalX/Y as the top-left of the currently displayed image inside the editor (which was derived from the DOM).
-      const topLeftX_editor = userState.canonicalX;
-      const topLeftY_editor = userState.canonicalY;
-
-      // Optionally, if the editor stores data-left/data-top or data-width/data-height that better reflect the user's transforms, prefer them:
-      const storedLeft = parseFloat(designImage.getAttribute('data-left'));
-      const storedTop = parseFloat(designImage.getAttribute('data-top'));
-      const storedW = parseFloat(designImage.getAttribute('data-width'));
-      const storedH = parseFloat(designImage.getAttribute('data-height'));
-      let useX = topLeftX_editor;
-      let useY = topLeftY_editor;
-      let useW = finalSmallW_editor;
-      let useH = finalSmallH_editor;
-      if (!Number.isNaN(storedW) && !Number.isNaN(storedH)) {
-        // stored values are likely in editor pixels (150x150 coordinate space)
-        useW = storedW;
-        useH = storedH;
-      }
-      if (!Number.isNaN(storedLeft) && !Number.isNaN(storedTop)) {
-        useX = storedLeft;
-        useY = storedTop;
+      // Build canonical 150x150 snapshot
+      const snapshot = buildEditorSnapshotCanvas(designContainer, designImage);
+      if (!snapshot) {
+        console.error('generateMockupForSide: failed to build editor snapshot');
+        return finalCanvas;
       }
 
-      // Step 6: Map editor-space (150x150) coords into final canvas coords (BOUNDARY)
+      // Map snapshot into BOUNDARY
       const B = getBoundary();
-      // boundaryScale maps canonical editor units -> final canvas boundary units
-      const boundaryScaleX = B.WIDTH / EDITOR_W;
-      const boundaryScaleY = B.HEIGHT / EDITOR_H;
 
-      // final position on canvas:
-      const finalX_onCanvas = B.LEFT + (useX * boundaryScaleX);
-      const finalY_onCanvas = B.TOP + (useY * boundaryScaleY);
-      const finalW_onCanvas = useW * boundaryScaleX;
-      const finalH_onCanvas = useH * boundaryScaleY;
+      // baseScale maps canonical 150x150 -> boundary size
+      const baseScaleX = B.WIDTH / EDITOR_W;
+      const baseScaleY = B.HEIGHT / EDITOR_H;
 
-      // Step 7: Draw the design onto the final canvas using these final values.
-      // But the user asked: put full-sized design on canvas THEN resize it to fit 150 then position and apply user resize.
-      // Drawing with drawImage(originalImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas)
-      // has the same visual effect as drawing then resizing. We'll do it directly to avoid unnecessary extra canvas steps.
+      // final snapshot drawing size on final canvas before clamp
+      let drawW = EDITOR_W * baseScaleX;
+      let drawH = EDITOR_H * baseScaleY;
+
+      // If user requested clamp or global clamp configured, enforce it
+      const clampPx = (typeof options.clampMaxPx === 'number') ? options.clampMaxPx : window.MAX_FINAL_ON_CANVAS;
+      if (clampPx && clampPx > 0) {
+        // compute uniform extraScale so neither axis exceeds clampPx
+        const extraScale = Math.min(1, clampPx / Math.max(drawW, drawH));
+        if (extraScale < 1) {
+          drawW = drawW * extraScale;
+          drawH = drawH * extraScale;
+        }
+      }
+
+      // final drawing origin on canvas: keep top-left at B.LEFT,B.TOP to preserve user's position mapping
+      const finalX = B.LEFT;
+      const finalY = B.TOP;
+
+      // Draw the snapshot scaled into final canvas
       try {
-        fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log(`generateMockupForSide: drew design into base canvas at (${finalX_onCanvas.toFixed(1)}, ${finalY_onCanvas.toFixed(1)}) size ${finalW_onCanvas.toFixed(1)}x${finalH_onCanvas.toFixed(1)}`);
+        fctx.drawImage(snapshot, finalX, finalY, drawW, drawH);
+        console.log(`generateMockupForSide: drew snapshot into final canvas at (${finalX},${finalY}) size ${drawW}x${drawH}`);
       } catch (e) {
-        console.error('generateMockupForSide: drawImage failed — possible CORS or bad image', e);
-        // Attempt fallback: draw via an Image() instance with crossOrigin anonymous
+        console.error('generateMockupForSide: failed to draw snapshot to final canvas', e);
+        // fallback attempt via new Image()
         try {
           const fallback = new Image();
           fallback.crossOrigin = 'anonymous';
-          fallback.src = designImage.src;
+          fallback.src = snapshot.toDataURL(); // might fail under CORS but attempt
           if (fallback.complete && fallback.naturalWidth) {
-            fctx.drawImage(fallback, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-            console.log('generateMockupForSide: fallback draw succeeded.');
+            fctx.drawImage(fallback, finalX, finalY, drawW, drawH);
           } else {
-            // Can't synchronously draw fallback — schedule and return base for now
-            console.warn('generateMockupForSide: fallback source not loaded synchronously; returning base-only canvas.');
+            console.warn('generateMockupForSide: fallback snapshot not loaded synchronously; returning canvas with base image only.');
           }
         } catch (e2) {
           console.error('generateMockupForSide: fallback draw failed', e2);
         }
       }
 
-      // Final canvas (400x440 or base image natural size) returned
+      // Return final composed canvas
       return finalCanvas;
     } catch (ex) {
       console.error('generateMockupForSide: unexpected error', ex);
@@ -270,14 +272,13 @@
     }
   }
 
-  // Expose function used elsewhere
+  // Expose for other modules (email.js etc.)
   window.generateMockupCanvas = function (side) {
-    return generateMockupForSide(side);
+    return generateMockupForSide(side, { clampMaxPx: window.MAX_FINAL_ON_CANVAS });
   };
 
-  // Data URL convenience used by email.js
   window.generateMockupFromDownloadPreview = async function (side) {
-    const canv = generateMockupForSide(side);
+    const canv = generateMockupForSide(side, { clampMaxPx: window.MAX_FINAL_ON_CANVAS });
     if (!canv) return 'No design uploaded';
     try {
       return canv.toDataURL('image/jpeg', 0.9);
@@ -287,14 +288,38 @@
     }
   };
 
-  // ---------- Single safe download handler ---------- //
+  // Preview helper: returns dataURL string of editor snapshot or null
+  window.previewEditorSnapshotDataUrl = function (side) {
+    try {
+      const layerId = side === 'front' ? 'front-layer' : 'back-layer';
+      const layer = document.getElementById(layerId);
+      if (!layer) return null;
+      const container = layer.querySelector('.design-container');
+      const img = container ? container.querySelector('.design-image') : null;
+      if (!container || !img) return null;
+      const snap = buildEditorSnapshotCanvas(container, img);
+      if (!snap) return null;
+      try {
+        const url = snap.toDataURL('image/png');
+        window.__lastEditorSnapshotDataUrl = url;
+        return url;
+      } catch (e) {
+        console.warn('previewEditorSnapshotDataUrl: toDataURL failed (likely CORS)', e);
+        return null;
+      }
+    } catch (e) {
+      console.error('previewEditorSnapshotDataUrl error', e);
+      return null;
+    }
+  };
+
+  // ---------- Single safe download handler ----------
   (function setupDownloadButton() {
     const original = document.getElementById('download-design');
     if (!original) {
-      console.warn('setupDownloadButton: #download-design not present.');
+      console.warn('setupDownloadButton: #download-design not found.');
       return;
     }
-    // Replace node to clear old listeners
     const btn = original.cloneNode(true);
     original.parentNode.replaceChild(btn, original);
 
@@ -303,51 +328,50 @@
       e.preventDefault();
       e.stopPropagation();
       if (running) {
-        console.log('Download already in progress, ignoring click.');
+        console.log('Download already in progress; ignoring.');
         return;
       }
       running = true;
       btn.disabled = true;
 
-      // Micro-delay to ensure UI changes settle
       setTimeout(() => {
-        try {
-          const frontLayer = document.getElementById('front-layer');
-          const backLayer = document.getElementById('back-layer');
+        (async () => {
+          try {
+            const frontLayer = document.getElementById('front-layer');
+            const backLayer = document.getElementById('back-layer');
 
-          const frontHas = frontLayer && frontLayer.querySelector('.design-container') && frontLayer.querySelector('.design-image');
-          const backHas = backLayer && backLayer.querySelector('.design-container') && backLayer.querySelector('.design-image');
+            const frontHas = frontLayer && frontLayer.querySelector('.design-container') && frontLayer.querySelector('.design-image');
+            const backHas = backLayer && backLayer.querySelector('.design-container') && backLayer.querySelector('.design-image');
 
-          if (!frontHas && !backHas) {
-            alert('No design uploaded.');
-            return;
-          }
+            if (!frontHas && !backHas) {
+              alert('No design uploaded.');
+              return;
+            }
 
-          // Only run one download action per click; proceed sequentially to avoid pop-up blocking
-          (async () => {
+            // Sequentially generate/download to minimize blocking/pop-up issues
             if (frontHas) {
-              const c = generateMockupForSide('front');
+              const c = generateMockupForSide('front', { clampMaxPx: window.MAX_FINAL_ON_CANVAS });
               if (c) downloadCanvas(c, 'front-preview.png');
-              else console.error('Failed generating front mockup canvas.');
-              // small pause to help browser process the download
-              await new Promise(r => setTimeout(r, 150));
+              else console.error('Failed to generate front preview canvas.');
+              await new Promise(r => setTimeout(r, 140));
             }
+
             if (backHas) {
-              const c = generateMockupForSide('back');
-              if (c) downloadCanvas(c, 'back-preview.png');
-              else console.error('Failed generating back mockup canvas.');
+              const c2 = generateMockupForSide('back', { clampMaxPx: window.MAX_FINAL_ON_CANVAS });
+              if (c2) downloadCanvas(c2, 'back-preview.png');
+              else console.error('Failed to generate back preview canvas.');
             }
-          })();
-        } catch (err) {
-          console.error('Download handler error', err);
-          alert('An error occurred during download. See console.');
-        } finally {
-          setTimeout(() => {
-            running = false;
-            btn.disabled = false;
-            console.log('Download finished, button re-enabled.');
-          }, 700);
-        }
+          } catch (err) {
+            console.error('Download handler error', err);
+            alert('An error occurred during download. See console for details.');
+          } finally {
+            setTimeout(() => {
+              running = false;
+              btn.disabled = false;
+              console.log('Download process finished and button re-enabled.');
+            }, 700);
+          }
+        })();
       }, 40);
     }, { passive: false });
   })();
@@ -360,7 +384,7 @@
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      console.log('downloadCanvas: download triggered', filename);
+      console.log('downloadCanvas: download triggered for', filename);
     } catch (e) {
       console.error('downloadCanvas: failed', e);
       alert('Failed to prepare download. See console for details.');
@@ -368,6 +392,9 @@
   }
 
   // Expose internals for debugging
+  window.__buildEditorSnapshotCanvas = buildEditorSnapshotCanvas;
   window.__generateMockupForSide = generateMockupForSide;
-  console.log('download.js initialized — final canvas uses base image (natural or 400x440) and places the design scaled to fit inside 150x150 then positioned per user edits.');
+  window.__lastEditorSnapshotDataUrl = window.__lastEditorSnapshotDataUrl || null;
+
+  console.log('download.js initialized — rasterize editor -> snapshot (150x150) -> paste into base canvas. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS);
 })();
