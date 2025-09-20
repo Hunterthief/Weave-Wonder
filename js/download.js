@@ -1,13 +1,12 @@
 // download.js
-// Three-step debug export (STEP1 removed) + final export, single safe download handler.
-// Steps now:
-// 1) scale design so it fits inside 150x150 (maintaining aspect), position at user's canonical position -> debug-step2-fit150-positioned.png
-// 2) apply the user's resize/position instructions relative to the step-2 size -> debug-step3-user-final.png
-// Then produce front-preview/back-preview as before.
+// Final-preview only export. Single safe download handler.
+// - Scale design to fit editor (150x150) canonical -> map to boundary -> apply user's resizing/positioning
+// - Move design down by configurable vertical percentage (default 4% of base canvas height)
+// - Download only the final preview image: `${side}-preview.png`
 //
-// Change in this version: the design is moved down by a configurable vertical offset (default 4% of the final base canvas height).
-//
-// Exposes window.generateMockupCanvas(side) and window.generateMockupFromDownloadPreview(side).
+// Exposes window.generateMockupCanvas(side) (returns a Promise resolving to a canvas)
+// and window.generateMockupFromDownloadPreview(side) (returns a Promise resolving to a dataURL or 'No design uploaded').
+
 (function () {
   'use strict';
 
@@ -179,11 +178,11 @@
     return off;
   }
 
-  // core generator implementing the two debug steps + final export (STEP1 removed)
-  async function generateMockupForSideWithDebug(side) {
+  // Generate final canvas (single final image) and return it (Promise<canvas>)
+  async function generateMockupFinalCanvas(side) {
     try {
       if (side !== 'front' && side !== 'back') {
-        console.warn('invalid side', side);
+        console.warn('generateMockupFinalCanvas: invalid side', side);
         return null;
       }
       const viewId = side === 'front' ? 'front-view' : 'back-view';
@@ -191,115 +190,94 @@
       const viewEl = document.getElementById(viewId);
       const layerEl = document.getElementById(layerId);
       if (!viewEl || !layerEl) {
-        console.error('missing view or layer', viewId, layerId);
+        console.error('generateMockupFinalCanvas: missing view or layer', viewId, layerId);
         return null;
       }
       const baseImg = viewEl.querySelector('.base-image');
-      if (!baseImg || !(baseImg.complete || baseImg.naturalWidth)) {
-        console.warn('base image missing or not loaded');
+      if (!baseImg) {
+        console.error('generateMockupFinalCanvas: base-image not found inside', viewId);
+        return null;
+      }
+      if (!(baseImg.complete || baseImg.naturalWidth)) {
+        console.warn('generateMockupFinalCanvas: base image not loaded yet; aborting.');
         return null;
       }
 
+      // Final canvas sized to base image natural size (or fallback)
       const finalCanvas = createFinalCanvasForBase(baseImg);
       const fctx = finalCanvas.getContext('2d');
 
-      // draw base
-      try { fctx.drawImage(baseImg, 0, 0, finalCanvas.width, finalCanvas.height); } catch (e) { console.error('draw base failed', e); }
+      // Draw base mockup full-size
+      try {
+        fctx.drawImage(baseImg, 0, 0, finalCanvas.width, finalCanvas.height);
+      } catch (e) {
+        console.error('generateMockupFinalCanvas: failed drawing base image', e);
+      }
 
-      // find design
+      // Find design container and design image
       const designContainer = layerEl.querySelector('.design-container');
-      if (!designContainer) return finalCanvas;
+      if (!designContainer) {
+        return finalCanvas; // nothing to overlay
+      }
       const designImage = designContainer.querySelector('.design-image');
-      if (!designImage || !designImage.src) return finalCanvas;
+      if (!designImage || !designImage.src) {
+        return finalCanvas;
+      }
 
-      // natural size
+      // Natural size of design image
       const naturalW = designImage.naturalWidth || designImage.width || 1;
       const naturalH = designImage.naturalHeight || designImage.height || 1;
 
-      // --- STEP 2: RESIZE FROM ORIGINAL -> FIT-TO-150, then position at user canonical position ---
-      // initial editor fit (natural -> editor)
+      // initial editor fit (how the image would fit into 150x150 by default)
       const initialScaleEditor = Math.min(EDITOR_W / naturalW, EDITOR_H / naturalH, 1);
       const initialFitW = naturalW * initialScaleEditor;
       const initialFitH = naturalH * initialScaleEditor;
 
-      // compute user canonical state (position & displayed size)
+      // Compute user canonical state (position & displayed size in editor coords)
       const userState = getUserEditorState(designContainer, designImage);
+
+      // Boundary on final canvas
       const B = getBoundary();
       const boundaryScaleX = B.WIDTH / EDITOR_W;
       const boundaryScaleY = B.HEIGHT / EDITOR_H;
 
-      // SIZE on final canvas for initial fit (placed using user's canonical X/Y)
-      const step2W_onCanvas = initialFitW * boundaryScaleX;
-      const step2H_onCanvas = initialFitH * boundaryScaleY;
-
-      // compute vertical shift (default 4% of final canvas height)
+      // Apply vertical shift (percentage of final canvas height)
       const verticalShiftPx = Math.round(finalCanvas.height * Number(window.DESIGN_VERTICAL_SHIFT_PCT || 0));
 
-      // place using user's canonical X/Y mapped into final canvas via boundary, + vertical shift
-      const step2X_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
-      const step2Y_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
-
-      const step2 = createCanvas(finalCanvas.width, finalCanvas.height);
-      const s2ctx = step2.getContext('2d');
-      s2ctx.drawImage(baseImg, 0, 0, step2.width, step2.height);
-      try {
-        s2ctx.drawImage(designImage, step2X_onCanvas, step2Y_onCanvas, step2W_onCanvas, step2H_onCanvas);
-        console.log('STEP2: drew fit-to-150 (initial) positioned at user pos ->', step2X_onCanvas, step2Y_onCanvas, 'size', step2W_onCanvas, step2H_onCanvas, 'verticalShiftPx', verticalShiftPx);
-      } catch (e) {
-        console.error('STEP2 draw failed', e);
-      }
-
-      downloadCanvas(step2, `debug-${side}-step2-fit150-positioned.png`);
-      await delay(160);
-
-      // --- STEP 3: APPLY USER RESIZE INSTRUCTIONS (relative to the initial fit) ---
+      // Final size on final canvas after applying user scale relative to initial fit
       const userScaleRel = userState.userScaleRelativeToInitial || 1;
-
-      // final size on final canvas after applying user scale
       const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
-      // final position: apply same vertical shift so user instructions apply on top of shifted base
+      // Final position on final canvas (user canonical position mapped + vertical shift)
       const finalX_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
       const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
 
-      // Compose final canvas (base + user final)
-      const step3 = createCanvas(finalCanvas.width, finalCanvas.height);
-      const s3ctx = step3.getContext('2d');
-      s3ctx.drawImage(baseImg, 0, 0, step3.width, step3.height);
+      // Draw design onto final canvas
       try {
-        s3ctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log('STEP3: drew user-final design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx);
+        fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
+        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx);
       } catch (e) {
-        console.error('STEP3 draw failed', e);
+        console.error('generateMockupFinalCanvas: failed to draw design', e);
       }
 
-      downloadCanvas(step3, `debug-${side}-step3-user-final.png`);
-      await delay(160);
-
-      // final export
-      downloadCanvas(step3, `${side}-preview.png`);
-      await delay(120);
-
-      return step3;
-    } catch (err) {
-      console.error('generateMockupForSideWithDebug error', err);
+      // Safety clamp: ensure the drawn design doesn't exceed configured MAX_FINAL_ON_CANVAS (numeric enforcement)
+      // (If enforcement required, you could resample here — currently math aims to produce correct size; clamp left as optional.)
+      return finalCanvas;
+    } catch (ex) {
+      console.error('generateMockupFinalCanvas: unexpected error', ex);
       return null;
     }
   }
 
-  function delay(ms) {
-    return new Promise(r => setTimeout(r, ms));
-  }
-
-  // convenience wrappers used elsewhere
+  // Expose generateMockupCanvas as a function returning a Promise that resolves to the final canvas
   window.generateMockupCanvas = function (side) {
-    // non-debug callers expect a canvas; run the full sequence but return the final image's canvas
-    return generateMockupForSideWithDebug(side);
+    return generateMockupFinalCanvas(side);
   };
 
+  // Returns dataURL of the final preview (JPEG)
   window.generateMockupFromDownloadPreview = async function (side) {
-    const canv = await generateMockupForSideWithDebug(side);
+    const canv = await generateMockupFinalCanvas(side);
     if (!canv) return 'No design uploaded';
     try {
       return canv.toDataURL('image/jpeg', 0.9);
@@ -337,7 +315,7 @@
       }
       running = true;
       btn.disabled = true;
-      try { btn.blur(); } catch (e) {}
+      try { btn.blur(); } catch (err) { /* ignore */ }
 
       setTimeout(() => {
         (async () => {
@@ -353,11 +331,15 @@
               return;
             }
 
+            // Sequentially generate and download final previews
             if (frontHas) {
-              await generateMockupForSideWithDebug('front');
+              const canvas = await generateMockupFinalCanvas('front');
+              if (canvas) downloadCanvas(canvas, 'front-preview.png');
             }
+
             if (backHas) {
-              await generateMockupForSideWithDebug('back');
+              const canvas2 = await generateMockupFinalCanvas('back');
+              if (canvas2) downloadCanvas(canvas2, 'back-preview.png');
             }
           } catch (err) {
             console.error('Download handler error', err);
@@ -388,9 +370,9 @@
     }
   }
 
-  // Expose some internals for debugging
-  window.__generateMockupForSideWithDebug = generateMockupForSideWithDebug;
+  // Expose some internals for debugging if needed
+  window.__generateMockupFinalCanvas = generateMockupFinalCanvas;
   window.__buildEditorSnapshotCanvas = buildEditorSnapshotCanvas;
 
-  console.log('download.js initialized — STEP1 removed. debug-step2 & debug-step3 + final export active. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS, 'VERT_SHIFT_PCT=', window.DESIGN_VERTICAL_SHIFT_PCT);
+  console.log('download.js initialized — final-preview only. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS, 'VERT_SHIFT_PCT=', window.DESIGN_VERTICAL_SHIFT_PCT);
 })();
