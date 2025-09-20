@@ -1,9 +1,9 @@
 // download.js
-// Three-step debug export + final export, single safe download handler.
-// Steps:
-// 1) draw base + design scaled to fit entire base canvas (full-fit) -> download debug-step1-fullfit.png
-// 2) scale that design so it fits inside 150x150 (maintaining aspect), position it at user's canonical position -> download debug-step2-fit150-positioned.png
-// 3) apply the user's resize/position instructions relative to the step-2 size (i.e., user ops are applied on top of the fit-to-150 state) -> download debug-step3-user-final.png
+// Three-step debug export (STEP1 removed) + final export, single safe download handler.
+// Steps now:
+// 1) (removed) full-fit debug
+// 2) scale design so it fits inside 150x150 (maintaining aspect), position at user's canonical position -> debug-step2-fit150-positioned.png
+// 3) apply the user's resize/position instructions relative to the step-2 size -> debug-step3-user-final.png
 // Then produce front-preview/back-preview as before.
 //
 // Exposes window.generateMockupCanvas(side) and window.generateMockupFromDownloadPreview(side).
@@ -123,7 +123,7 @@
     return used;
   }
 
-  // Build editor snapshot (150x150) as before (keeps available)
+  // Build editor snapshot (150x150)
   function buildEditorSnapshotCanvas(designContainer, designImage) {
     if (!designContainer || !designImage) {
       console.error('buildEditorSnapshotCanvas: missing args');
@@ -175,7 +175,7 @@
     return off;
   }
 
-  // core generator implementing the three debug steps + final export
+  // core generator implementing the two debug steps + final export (STEP1 removed)
   async function generateMockupForSideWithDebug(side) {
     try {
       if (side !== 'front' && side !== 'back') {
@@ -212,29 +212,7 @@
       const naturalW = designImage.naturalWidth || designImage.width || 1;
       const naturalH = designImage.naturalHeight || designImage.height || 1;
 
-      // --- STEP 1: FULL-FIT-TO-BASE (scale design so it fits inside final canvas while preserving aspect) ---
-      const scaleFull = Math.min(finalCanvas.width / naturalW, finalCanvas.height / naturalH, 1);
-      const fullW = naturalW * scaleFull;
-      const fullH = naturalH * scaleFull;
-      const fullX = Math.round((finalCanvas.width - fullW) / 2);
-      const fullY = Math.round((finalCanvas.height - fullH) / 2);
-
-      // draw step1 onto a copy of base for download
-      const step1 = createCanvas(finalCanvas.width, finalCanvas.height);
-      const s1ctx = step1.getContext('2d');
-      s1ctx.drawImage(baseImg, 0, 0, step1.width, step1.height);
-      try {
-        s1ctx.drawImage(designImage, fullX, fullY, fullW, fullH);
-        console.log('STEP1: drew full-fit design to step1 canvas at', fullX, fullY, 'size', fullW, fullH);
-      } catch (e) {
-        console.error('STEP1 draw failed', e);
-      }
-
-      // download step1 debug image
-      downloadCanvas(step1, `debug-${side}-step1-fullfit.png`);
-      await delay(140);
-
-      // --- STEP 2: RESIZE FROM FULL-FIT -> FIT-TO-150, then position at user canonical position ---
+      // --- STEP 2: RESIZE FROM ORIGINAL -> FIT-TO-150, then position at user canonical position ---
       // initial editor fit (natural -> editor)
       const initialScaleEditor = Math.min(EDITOR_W / naturalW, EDITOR_H / naturalH, 1);
       const initialFitW = naturalW * initialScaleEditor;
@@ -242,13 +220,11 @@
 
       // compute user canonical state (position & displayed size)
       const userState = getUserEditorState(designContainer, designImage);
-      // userState.canonicalX/Y/W/H are in editor (150x150) coordinates
-      // For step2 we place the design at initialFitW/H and position at userState.canonicalX/Y mapped into final canvas via boundary
       const B = getBoundary();
       const boundaryScaleX = B.WIDTH / EDITOR_W;
       const boundaryScaleY = B.HEIGHT / EDITOR_H;
 
-      // size on final canvas for initial fit
+      // size on final canvas for initial fit (placed using user's canonical X/Y)
       const step2W_onCanvas = initialFitW * boundaryScaleX;
       const step2H_onCanvas = initialFitH * boundaryScaleY;
       const step2X_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
@@ -268,15 +244,12 @@
       await delay(160);
 
       // --- STEP 3: APPLY USER RESIZE INSTRUCTIONS (relative to the initial fit) ---
-      // userScaleRelativeToInitial already computed inside getUserEditorState
       const userScaleRel = userState.userScaleRelativeToInitial || 1;
 
       // final size on final canvas after applying user scale
       const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
-      // final position: user's canonicalX/Y already reflect their position after interactions.
-      // If resizing is centered, the editor's left/top already change in DOM — we used stored attributes if present.
       const finalX_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
       const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY);
 
@@ -294,9 +267,7 @@
       downloadCanvas(step3, `debug-${side}-step3-user-final.png`);
       await delay(160);
 
-      // --- Also produce the standard front-preview/back-preview final (same as step3) ---
-      // You may want a differently named final — we'll also return step3 as the final canvas.
-      // (Optionally you can also supply a non-debug filename)
+      // final export
       downloadCanvas(step3, `${side}-preview.png`);
       await delay(120);
 
@@ -411,5 +382,5 @@
   window.__generateMockupForSideWithDebug = generateMockupForSideWithDebug;
   window.__buildEditorSnapshotCanvas = buildEditorSnapshotCanvas;
 
-  console.log('download.js initialized — three-step debug export installed. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS);
+  console.log('download.js initialized — STEP1 removed. debug-step2 & debug-step3 + final export active. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS);
 })();
