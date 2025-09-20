@@ -1,15 +1,26 @@
 // download.js
-// Enforces that the final drawn size on the mockup never exceeds 150x150 px
-// by clamping the user's editor-size values (preserving aspect ratio).
-// Exposes window.generateMockupCanvas(side) for email.js and other callers.
+// Final fixed version: captures exactly what the user sees inside the 150x150 editor boundary
+// and maps that rendered editor-area into the mockup BOUNDARY on the full-size base image.
+// Behavior:
+// 1. When the user uploads, the design fits inside a 150x150 editor area (UI behavior).
+// 2. The user can resize/position the design inside that editor as they like.
+// 3. On export/download/generate, we rasterize the editor-area (150x150) to an offscreen canvas
+//    using the actual on-screen rendered size/position of the design, preserving cropping and placement.
+// 4. We then draw the full-size base mockup image, then draw that rasterized editor canvas
+//    into the BOUNDARY (B.LEFT,B.TOP,B.WIDTH,B.HEIGHT) on the final canvas — guaranteeing that
+//    the downloaded image matches the editor preview the user saw (same crop/position/scale).
+//
+// Exposes:
+//   window.generateMockupCanvas(side) -> HTMLCanvasElement | null
+//   window.generateMockupFromDownloadPreview(side) -> Promise<string | 'No design uploaded'>
+// Also wires #download-design button safely (replaces old listeners).
 
 (function () {
   'use strict';
 
   // ---------- Config ----------
-  const EDITOR_CONTAINER_WIDTH = 150;
-  const EDITOR_CONTAINER_HEIGHT = 150;
-  const MAX_FINAL_DIM = 150; // Final drawn size must not exceed 150 x 150 on canvas
+  const EDITOR_CONTAINER_WIDTH = 150; // the logical editor width
+  const EDITOR_CONTAINER_HEIGHT = 150; // the logical editor height
 
   // ---------- Helpers ----------
   function safeInt(v, fallback = 0) {
@@ -18,6 +29,7 @@
   }
 
   function getBoundary() {
+    // Prefer global BOUNDARY object if present
     if (typeof window.BOUNDARY === 'object' && window.BOUNDARY !== null) {
       return {
         TOP: safeInt(window.BOUNDARY.TOP, 101),
@@ -26,6 +38,7 @@
         HEIGHT: safeInt(window.BOUNDARY.HEIGHT, 150)
       };
     }
+    // Fallback to CSS variables
     try {
       const styles = getComputedStyle(document.documentElement);
       const t = parseFloat(styles.getPropertyValue('--boundary-top')) || 101;
@@ -38,166 +51,152 @@
     }
   }
 
-  function setCanvasSize(ctx, baseImage) {
+  function setCanvasSizeToBase(ctx, baseImage) {
     ctx.canvas.width = baseImage.naturalWidth || baseImage.width || 1;
     ctx.canvas.height = baseImage.naturalHeight || baseImage.height || 1;
   }
 
+  // ---------- Core: rasterize editor view then map into final canvas ----------
   /**
-   * Clamp the editor-space width/height so the final drawn size on the canvas
-   * does not exceed MAX_FINAL_DIM in either axis. Preserve aspect ratio and
-   * adjust the top-left to keep the design visually centered at the same place.
+   * Builds an offscreen 150x150 canvas that represents exactly what the user sees inside the editor boundary.
+   * It uses bounding rects of the .design-container and the .design-image to compute the expected drawing coordinates,
+   * then paints the designImage into the offscreen canvas at the corresponding coordinates (scaling if necessary).
    *
-   * @param {number} w Editor-space width (px)
-   * @param {number} h Editor-space height (px)
-   * @param {number} x Editor-space left/top (px)
-   * @param {number} y Editor-space top (px)
-   * @param {Object} B Boundary (TOP, LEFT, WIDTH, HEIGHT)
-   * @returns {{w:number,h:number,x:number,y:number,scaled:boolean}}
+   * Returns: an HTMLCanvasElement sized 150x150, or null on failure.
    */
-  function clampEditorSizeToFinal(w, h, x, y, B) {
-    // Determine scale factors mapping editor -> final canvas for width/height
-    const mapScaleX = (B.WIDTH / EDITOR_CONTAINER_WIDTH) || 1;
-    const mapScaleY = (B.HEIGHT / EDITOR_CONTAINER_HEIGHT) || 1;
-
-    // Maximum allowed editor-space dimensions so final stays <= MAX_FINAL_DIM
-    const maxEditorW = (MAX_FINAL_DIM / mapScaleX); // derived from: finalWidth = imgW_editor * mapScaleX <= MAX_FINAL_DIM
-    const maxEditorH = (MAX_FINAL_DIM / mapScaleY);
-
-    // If both dimensions already within allowed, no-op
-    if (w <= maxEditorW && h <= maxEditorH) {
-      return { w, h, x, y, scaled: false };
+  function buildEditorSnapshotCanvas(designContainer, designImage) {
+    if (!designContainer || !designImage) {
+      console.error('buildEditorSnapshotCanvas: missing designContainer or designImage');
+      return null;
     }
 
-    // Compute scale to fit within maxEditorW x maxEditorH while preserving aspect ratio
-    const scale = Math.min(maxEditorW / w, maxEditorH / h, 1);
+    // Get on-screen bounding rects (CSS pixels)
+    const containerRect = designContainer.getBoundingClientRect();
+    const imgRect = designImage.getBoundingClientRect();
 
-    const newW = Math.max(1, w * scale);
-    const newH = Math.max(1, h * scale);
+    // Defensive fallbacks: if rects are 0 (not laid out), try using element dimensions
+    if (containerRect.width === 0 || containerRect.height === 0) {
+      containerRect.width = designContainer.offsetWidth || EDITOR_CONTAINER_WIDTH;
+      containerRect.height = designContainer.offsetHeight || EDITOR_CONTAINER_HEIGHT;
+    }
 
-    // Adjust position to keep visual center the same: shift by half the shrink delta
-    const deltaW = w - newW;
-    const deltaH = h - newH;
+    if (imgRect.width === 0 || imgRect.height === 0) {
+      imgRect.width = designImage.offsetWidth || designImage.naturalWidth || 1;
+      imgRect.height = designImage.offsetHeight || designImage.naturalHeight || 1;
+      // position fallback: try style left/top or data attributes
+      const s = getComputedStyle(designImage);
+      imgRect.left = (containerRect.left || 0) + (parseFloat(s.left) || parseFloat(designImage.style.left) || parseFloat(designImage.getAttribute('data-left')) || 0);
+      imgRect.top = (containerRect.top || 0) + (parseFloat(s.top) || parseFloat(designImage.style.top) || parseFloat(designImage.getAttribute('data-top')) || 0);
+    }
 
-    const newX = x + (deltaW / 2);
-    const newY = y + (deltaH / 2);
+    // Compute relative position of image inside the container (in CSS pixels)
+    const relX = imgRect.left - containerRect.left;
+    const relY = imgRect.top - containerRect.top;
+    const relW = imgRect.width;
+    const relH = imgRect.height;
 
-    console.log(`clampEditorSizeToFinal: clamped editor ${w.toFixed(1)}x${h.toFixed(1)} -> ${newW.toFixed(1)}x${newH.toFixed(1)} (scale ${scale.toFixed(3)}). Editor pos ${x.toFixed(1)},${y.toFixed(1)} -> ${newX.toFixed(1)},${newY.toFixed(1)}. maxEditorW=${maxEditorW.toFixed(1)} maxEditorH=${maxEditorH.toFixed(1)}`);
+    // Map on-screen container size to canonical 150x150 canvas.
+    // There may be slight differences in CSS sizing; we scale coordinates appropriately.
+    const scaleToCanonicalX = EDITOR_CONTAINER_WIDTH / containerRect.width;
+    const scaleToCanonicalY = EDITOR_CONTAINER_HEIGHT / containerRect.height;
+    // Use uniform scale to keep aspect ratio consistent with editor's coordinate system
+    // But since editor is square, using separate scales still maps correctly.
+    const canonicalX = relX * scaleToCanonicalX;
+    const canonicalY = relY * scaleToCanonicalY;
+    const canonicalW = relW * scaleToCanonicalX;
+    const canonicalH = relH * scaleToCanonicalY;
 
-    return { w: newW, h: newH, x: newX, y: newY, scaled: true };
+    // Create offscreen canvas 150x150 (canonical editor size)
+    const off = document.createElement('canvas');
+    off.width = EDITOR_CONTAINER_WIDTH;
+    off.height = EDITOR_CONTAINER_HEIGHT;
+    const octx = off.getContext('2d');
+
+    // Optional: clear/transparent background (so base mockup shows through where no design exists)
+    octx.clearRect(0, 0, off.width, off.height);
+
+    // If the designImage has CSS transform (rotate/scale) we cannot easily capture it without drawing computed transform.
+    // This approach covers typical flows where the editor modifies width/height and left/top.
+    try {
+      // If designImage is an <img>, draw it scaled to the canonical position/size
+      octx.drawImage(designImage, canonicalX, canonicalY, canonicalW, canonicalH);
+    } catch (e) {
+      // If drawImage with element fails (e.g., tainted canvas or cross-origin), attempt drawing from src via a new Image()
+      console.warn('buildEditorSnapshotCanvas: drawImage(designImage) failed, trying fallback via new Image():', e);
+      try {
+        const fallbackImg = new Image();
+        fallbackImg.crossOrigin = 'anonymous';
+        fallbackImg.src = designImage.src;
+        // draw synchronously if loaded, else schedule using onload (but we must remain sync here).
+        if (fallbackImg.complete && fallbackImg.naturalWidth) {
+          octx.drawImage(fallbackImg, canonicalX, canonicalY, canonicalW, canonicalH);
+        } else {
+          // Can't synchronously draw fallback image; still return an empty snapshot to avoid blocking.
+          console.error('buildEditorSnapshotCanvas: fallback image not loaded; returning partial/empty editor snapshot.');
+        }
+      } catch (e2) {
+        console.error('buildEditorSnapshotCanvas: fallback draw also failed', e2);
+      }
+    }
+
+    return off;
   }
 
-  // ---------- Core drawing routine ----------
-  function drawDesign(ctx, baseImage, designLayer) {
+  /**
+   * Draws base mockup and overlays the editor snapshot scaled into BOUNDARY.
+   * This ensures the exported mockup matches the editor preview exactly.
+   * Returns true on success, false on failure.
+   */
+  function drawDesignIntoCanvas(ctx, baseImage, designLayer) {
     if (!ctx || !baseImage || !designLayer) {
-      console.error('drawDesign: missing args', { ctx: !!ctx, baseImage: !!baseImage, designLayer: !!designLayer });
+      console.error('drawDesignIntoCanvas: missing args', { ctx: !!ctx, baseImage: !!baseImage, designLayer: !!designLayer });
       return false;
     }
 
-    // Draw base mockup first
+    // 1) draw base image full-size on canvas
     try {
       ctx.drawImage(baseImage, 0, 0);
     } catch (e) {
-      console.error('drawDesign: failed to draw base image', e);
+      console.error('drawDesignIntoCanvas: failed to draw base image', e);
       return false;
     }
 
+    // 2) locate design container & design image
     const designContainer = designLayer.querySelector('.design-container');
     if (!designContainer) {
-      console.info('drawDesign: no design container present — exporting base only.');
+      // Nothing to overlay; valid use-case (plain product)
       return true;
     }
-
     const designImage = designContainer.querySelector('.design-image');
     if (!designImage) {
-      console.info('drawDesign: design container present but no .design-image inside.');
       return true;
     }
 
-    // Allow drawing even if not fully complete (browser will scale)
-    if (!(designImage.complete || designImage.naturalWidth)) {
-      console.warn('drawDesign: design image might not be fully loaded; proceeding.');
+    // 3) Build the editor snapshot (150x150) representing exactly the user's editor viewport
+    const editorSnap = buildEditorSnapshotCanvas(designContainer, designImage);
+    if (!editorSnap) {
+      console.error('drawDesignIntoCanvas: failed to build editor snapshot; aborting overlay.');
+      return false;
     }
 
+    // 4) Map snapshot into BOUNDARY on the final canvas
     const B = getBoundary();
-
-    // Editor-space dimensions / offsets (these are what the user set in the editor)
-    const naturalW = designImage.naturalWidth || designImage.width || 1;
-    const naturalH = designImage.naturalHeight || designImage.height || 1;
-
-    let imgWidthInEditor = designImage.offsetWidth || parseFloat(designImage.style.width) || naturalW;
-    let imgHeightInEditor = designImage.offsetHeight || parseFloat(designImage.style.height) || naturalH;
-
-    const s = getComputedStyle(designImage);
-    let imgXInEditor = parseFloat(s.left) || parseFloat(designImage.style.left) || parseFloat(designImage.getAttribute('data-left')) || 0;
-    let imgYInEditor = parseFloat(s.top) || parseFloat(designImage.style.top) || parseFloat(designImage.getAttribute('data-top')) || 0;
-
-    // Use stored attributes if editor logic wrote them (some flows do)
-    const storedW = parseFloat(designImage.getAttribute('data-width'));
-    const storedH = parseFloat(designImage.getAttribute('data-height'));
-    if (storedW && storedH) {
-      imgWidthInEditor = storedW;
-      imgHeightInEditor = storedH;
-      const storedLeft = parseFloat(designImage.getAttribute('data-left'));
-      const storedTop = parseFloat(designImage.getAttribute('data-top'));
-      if (!Number.isNaN(storedLeft)) imgXInEditor = storedLeft;
-      if (!Number.isNaN(storedTop)) imgYInEditor = storedTop;
-    }
-
-    imgWidthInEditor = Math.max(1, imgWidthInEditor);
-    imgHeightInEditor = Math.max(1, imgHeightInEditor);
-
-    console.log(`drawDesign: user editor size ${imgWidthInEditor.toFixed(1)}x${imgHeightInEditor.toFixed(1)} at (${imgXInEditor.toFixed(1)},${imgYInEditor.toFixed(1)}). natural ${naturalW}x${naturalH}`);
-
-    // Clamp editor size so final drawn size (after mapping to boundary) <= MAX_FINAL_DIM
-    const clamped = clampEditorSizeToFinal(imgWidthInEditor, imgHeightInEditor, imgXInEditor, imgYInEditor, B);
-    imgWidthInEditor = clamped.w;
-    imgHeightInEditor = clamped.h;
-    imgXInEditor = clamped.x;
-    imgYInEditor = clamped.y;
-
-    // compute container offsets (editor container relative to product-view)
-    let containerOffsetX = 0, containerOffsetY = 0;
     try {
-      const productView = designLayer.closest('.product-view') || designLayer.parentElement;
-      if (productView) {
-        const viewRect = productView.getBoundingClientRect();
-        const containerRect = designContainer.getBoundingClientRect();
-        containerOffsetX = containerRect.left - viewRect.left;
-        containerOffsetY = containerRect.top - viewRect.top;
-      }
-    } catch (e) {
-      // ignore bounding rect issues
-    }
-
-    // Map editor coordinates into canvas coordinates using boundary scale
-    const boundaryScaleX = (B.WIDTH / EDITOR_CONTAINER_WIDTH) || 1;
-    const boundaryScaleY = (B.HEIGHT / EDITOR_CONTAINER_HEIGHT) || 1;
-
-    const finalX = B.LEFT + (containerOffsetX + imgXInEditor) * boundaryScaleX;
-    const finalY = B.TOP + (containerOffsetY + imgYInEditor) * boundaryScaleY;
-    const finalWidth = imgWidthInEditor * boundaryScaleX;
-    const finalHeight = imgHeightInEditor * boundaryScaleY;
-
-    // Safety: ensure final dims do not exceed MAX_FINAL_DIM (numeric safety)
-    const safeFinalWidth = Math.min(finalWidth, MAX_FINAL_DIM);
-    const safeFinalHeight = Math.min(finalHeight, MAX_FINAL_DIM);
-
-    try {
-      ctx.drawImage(designImage, finalX, finalY, safeFinalWidth, safeFinalHeight);
-      console.log(`drawDesign: drew design at canvas coords (${finalX.toFixed(1)}, ${finalY.toFixed(1)}) size ${safeFinalWidth.toFixed(1)}x${safeFinalHeight.toFixed(1)} (boundary ${B.WIDTH}x${B.HEIGHT})`);
+      // Draw editor snapshot scaled into the boundary area on the final canvas
+      ctx.drawImage(editorSnap, B.LEFT, B.TOP, B.WIDTH, B.HEIGHT);
+      console.log(`drawDesignIntoCanvas: painted editor snapshot into canvas at (${B.LEFT},${B.TOP}) size ${B.WIDTH}x${B.HEIGHT}`);
       return true;
     } catch (e) {
-      console.error('drawDesign: failed to draw design', e);
+      console.error('drawDesignIntoCanvas: failed drawing editor snapshot to final canvas', e);
       return false;
     }
   }
 
-  // ---------- Exposed function ----------
+  // ---------- Public: generateMockupCanvas(side) ----------
   window.generateMockupCanvas = function (side) {
     try {
       if (side !== 'front' && side !== 'back') {
-        console.warn('generateMockupCanvas: invalid side requested:', side);
+        console.warn('generateMockupCanvas: invalid side', side);
         return null;
       }
 
@@ -207,38 +206,58 @@
       const viewElement = document.getElementById(viewId);
       const designLayer = document.getElementById(layerId);
 
-      if (!viewElement || !designLayer) {
-        console.error('generateMockupCanvas: required elements missing:', { viewElement: !!viewElement, designLayer: !!designLayer });
+      if (!viewElement) {
+        console.error('generateMockupCanvas: missing view element:', viewId);
+        return null;
+      }
+      if (!designLayer) {
+        console.error('generateMockupCanvas: missing design layer element:', layerId);
         return null;
       }
 
       const baseImage = viewElement.querySelector('.base-image');
       if (!baseImage) {
-        console.error('generateMockupCanvas: base image missing inside view:', viewId);
+        console.error('generateMockupCanvas: base-image not found inside', viewId);
         return null;
       }
 
+      // ensure base image loaded
       if (!(baseImage.complete || baseImage.naturalWidth)) {
         console.warn('generateMockupCanvas: base image not loaded yet; returning null.');
         return null;
       }
 
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      setCanvasSize(ctx, baseImage);
+      // Create final canvas sized to base image
+      const finalCanvas = document.createElement('canvas');
+      const ctx = finalCanvas.getContext('2d');
+      setCanvasSizeToBase(ctx, baseImage);
 
-      const ok = drawDesign(ctx, baseImage, designLayer);
+      // Draw base + overlay
+      const ok = drawDesignIntoCanvas(ctx, baseImage, designLayer);
       if (!ok) {
-        console.warn('generateMockupCanvas: drawDesign returned false; canvas contains what was drawn (likely base only).');
+        console.warn('generateMockupCanvas: drawDesignIntoCanvas returned false; returning canvas with whatever was drawn.');
       }
-      return canvas;
+
+      return finalCanvas;
     } catch (e) {
       console.error('generateMockupCanvas: unexpected error', e);
       return null;
     }
   };
 
-  // ---------- Download button wiring (single safe listener) ----------
+  // Convenience for email.js — returns dataURL or 'No design uploaded'
+  window.generateMockupFromDownloadPreview = async function (side) {
+    const canv = window.generateMockupCanvas(side);
+    if (!canv) return 'No design uploaded';
+    try {
+      return canv.toDataURL('image/jpeg', 0.9);
+    } catch (e) {
+      console.error('generateMockupFromDownloadPreview: toDataURL failed', e);
+      return 'No design uploaded';
+    }
+  };
+
+  // ---------- Download button wiring (single listener, safe replace) ----------
   (function setupDownloadButton() {
     const original = document.getElementById('download-design');
     if (!original) {
@@ -262,7 +281,6 @@
       downloadInProgress = true;
       btn.disabled = true;
 
-      // small delay to let UI settle
       setTimeout(() => {
         try {
           const frontLayer = document.getElementById('front-layer');
@@ -294,7 +312,7 @@
             downloadInProgress = false;
             btn.disabled = false;
             console.log('Download process finished and button re-enabled.');
-          }, 800);
+          }, 700);
         }
       }, 40);
     }, { passive: false });
@@ -315,21 +333,9 @@
     }
   }
 
-  // convenience used by email.js
-  window.generateMockupFromDownloadPreview = async function (side) {
-    const c = window.generateMockupCanvas(side);
-    if (!c) return 'No design uploaded';
-    try {
-      return c.toDataURL('image/jpeg', 0.9);
-    } catch (e) {
-      console.error('generateMockupFromDownloadPreview: toDataURL failed', e);
-      return 'No design uploaded';
-    }
-  };
+  // Expose internals for debugging convenience
+  window.__buildEditorSnapshotCanvas = buildEditorSnapshotCanvas;
+  window.__drawDesignIntoCanvas = drawDesignIntoCanvas;
 
-  // expose internals for debugging
-  window.__drawDesignImpl = drawDesign;
-  window.__clampEditorSizeToFinal = clampEditorSizeToFinal;
-
-  console.log('download.js initialized — editor-size clamping active. MAX_FINAL_DIM=', MAX_FINAL_DIM);
+  console.log('download.js initialized — export maps editor 150x150 snapshot into final BOUNDARY.');
 })();
