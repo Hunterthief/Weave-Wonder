@@ -263,27 +263,16 @@
       const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
-      // ----- FIX FOR REVERSED AXES -----
-      // Some editors produce coordinates where 0,0 is top-left but user coordinates may be mirrored.
-      // To correct "down is up" and "left is right" we flip canonical coords inside the editor box.
-      // Compute flipped canonical coordinates (editor-space) and then map to final canvas.
-      const canonicalW = userState.canonicalW || (initialFitW * userScaleRel);
-      const canonicalH = userState.canonicalH || (initialFitH * userScaleRel);
-
-      // Flip within editor bounds:
-      const flippedCanonicalX = Math.max(0, EDITOR_W - canonicalW - (userState.canonicalX || 0));
-      const flippedCanonicalY = Math.max(0, EDITOR_H - canonicalH - (userState.canonicalY || 0));
-
       // Final position on final canvas:
       // base: B.LEFT/B.TOP is the boundary's top-left in the product-view
-      // add containerOffset (container inside product-view), then use flipped canonical coords
-      const finalX_onCanvas = B.LEFT + (containerOffsetX * boundaryScaleX) + (flippedCanonicalX * boundaryScaleX);
-      const finalY_onCanvas = B.TOP + (containerOffsetY * boundaryScaleY) + (flippedCanonicalY * boundaryScaleY) + verticalShiftPx;
+      // add containerOffset (container inside product-view), then user's canonicalX/Y (inside container)
+      const finalX_onCanvas = B.LEFT + (containerOffsetX * boundaryScaleX) + (userState.canonicalX * boundaryScaleX);
+      const finalY_onCanvas = B.TOP + (containerOffsetY * boundaryScaleY) + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
 
       // Draw design onto final canvas
       try {
         fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'containerOffset', containerOffsetX, containerOffsetY, 'flippedCanonical', flippedCanonicalX, flippedCanonicalY);
+        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'containerOffset', containerOffsetX, containerOffsetY);
       } catch (e) {
         console.error('generateMockupFinalCanvas: failed to draw design', e);
       }
