@@ -1,16 +1,17 @@
 // download.js
-// Updated: pre-resize design source to max 150x150 (maintain aspect ratio),
-// then apply user position/size mapping into final mockup BOUNDARY area.
-// Exposes: window.generateMockupCanvas(side)
-// Keeps a FORCE flag for testing behavior.
+// Enforces that the final drawn size on the mockup never exceeds 150x150 px
+// by clamping the user's editor-size values (preserving aspect ratio).
+// Exposes window.generateMockupCanvas(side) for email.js and other callers.
 
 (function () {
   'use strict';
 
+  // ---------- Config ----------
   const EDITOR_CONTAINER_WIDTH = 150;
   const EDITOR_CONTAINER_HEIGHT = 150;
-  window.FORCE_FIT_TO_150 = window.FORCE_FIT_TO_150 || false;
+  const MAX_FINAL_DIM = 150; // Final drawn size must not exceed 150 x 150 on canvas
 
+  // ---------- Helpers ----------
   function safeInt(v, fallback = 0) {
     const n = parseInt(v, 10);
     return Number.isFinite(n) ? n : fallback;
@@ -43,46 +44,50 @@
   }
 
   /**
-   * Returns an offscreen canvas containing the source image scaled down so
-   * both dimensions are <= maxDim (maintains aspect ratio). If the source is
-   * already within maxDim, returns null to indicate original image should be used.
-   * @param {HTMLImageElement} img
-   * @param {number} maxDim
-   * @returns {HTMLCanvasElement|null}
+   * Clamp the editor-space width/height so the final drawn size on the canvas
+   * does not exceed MAX_FINAL_DIM in either axis. Preserve aspect ratio and
+   * adjust the top-left to keep the design visually centered at the same place.
+   *
+   * @param {number} w Editor-space width (px)
+   * @param {number} h Editor-space height (px)
+   * @param {number} x Editor-space left/top (px)
+   * @param {number} y Editor-space top (px)
+   * @param {Object} B Boundary (TOP, LEFT, WIDTH, HEIGHT)
+   * @returns {{w:number,h:number,x:number,y:number,scaled:boolean}}
    */
-  function createPreResizedSourceCanvas(img, maxDim = 150) {
-    const naturalW = img.naturalWidth || img.width || 1;
-    const naturalH = img.naturalHeight || img.height || 1;
+  function clampEditorSizeToFinal(w, h, x, y, B) {
+    // Determine scale factors mapping editor -> final canvas for width/height
+    const mapScaleX = (B.WIDTH / EDITOR_CONTAINER_WIDTH) || 1;
+    const mapScaleY = (B.HEIGHT / EDITOR_CONTAINER_HEIGHT) || 1;
 
-    // If already within bounds, no pre-resizing required.
-    if (naturalW <= maxDim && naturalH <= maxDim) {
-      return null;
+    // Maximum allowed editor-space dimensions so final stays <= MAX_FINAL_DIM
+    const maxEditorW = (MAX_FINAL_DIM / mapScaleX); // derived from: finalWidth = imgW_editor * mapScaleX <= MAX_FINAL_DIM
+    const maxEditorH = (MAX_FINAL_DIM / mapScaleY);
+
+    // If both dimensions already within allowed, no-op
+    if (w <= maxEditorW && h <= maxEditorH) {
+      return { w, h, x, y, scaled: false };
     }
 
-    const scale = Math.min(maxDim / naturalW, maxDim / naturalH);
-    const targetW = Math.max(1, Math.round(naturalW * scale));
-    const targetH = Math.max(1, Math.round(naturalH * scale));
+    // Compute scale to fit within maxEditorW x maxEditorH while preserving aspect ratio
+    const scale = Math.min(maxEditorW / w, maxEditorH / h, 1);
 
-    const off = document.createElement('canvas');
-    off.width = targetW;
-    off.height = targetH;
-    const octx = off.getContext('2d');
+    const newW = Math.max(1, w * scale);
+    const newH = Math.max(1, h * scale);
 
-    // draw scaled-down source into offscreen canvas
-    try {
-      octx.drawImage(img, 0, 0, targetW, targetH);
-      console.log(`createPreResizedSourceCanvas: scaled source ${naturalW}x${naturalH} -> ${targetW}x${targetH}`);
-      return off;
-    } catch (e) {
-      console.error('createPreResizedSourceCanvas: failed to draw scaled source', e);
-      return null;
-    }
+    // Adjust position to keep visual center the same: shift by half the shrink delta
+    const deltaW = w - newW;
+    const deltaH = h - newH;
+
+    const newX = x + (deltaW / 2);
+    const newY = y + (deltaH / 2);
+
+    console.log(`clampEditorSizeToFinal: clamped editor ${w.toFixed(1)}x${h.toFixed(1)} -> ${newW.toFixed(1)}x${newH.toFixed(1)} (scale ${scale.toFixed(3)}). Editor pos ${x.toFixed(1)},${y.toFixed(1)} -> ${newX.toFixed(1)},${newY.toFixed(1)}. maxEditorW=${maxEditorW.toFixed(1)} maxEditorH=${maxEditorH.toFixed(1)}`);
+
+    return { w: newW, h: newH, x: newX, y: newY, scaled: true };
   }
 
-  /**
-   * Core drawing routine: draws base mockup and overlays user's design.
-   * Uses pre-resized source canvas if necessary (or original img otherwise).
-   */
+  // ---------- Core drawing routine ----------
   function drawDesign(ctx, baseImage, designLayer) {
     if (!ctx || !baseImage || !designLayer) {
       console.error('drawDesign: missing args', { ctx: !!ctx, baseImage: !!baseImage, designLayer: !!designLayer });
@@ -102,21 +107,21 @@
       console.info('drawDesign: no design container present — exporting base only.');
       return true;
     }
+
     const designImage = designContainer.querySelector('.design-image');
     if (!designImage) {
       console.info('drawDesign: design container present but no .design-image inside.');
       return true;
     }
 
+    // Allow drawing even if not fully complete (browser will scale)
     if (!(designImage.complete || designImage.naturalWidth)) {
-      console.warn('drawDesign: design image not fully loaded; proceeding anyway.');
+      console.warn('drawDesign: design image might not be fully loaded; proceeding.');
     }
 
     const B = getBoundary();
-    const boundaryScaleX = (B.WIDTH / EDITOR_CONTAINER_WIDTH) || 1;
-    const boundaryScaleY = (B.HEIGHT / EDITOR_CONTAINER_HEIGHT) || 1;
 
-    // Determine user's final rendered size & position in editor coordinates
+    // Editor-space dimensions / offsets (these are what the user set in the editor)
     const naturalW = designImage.naturalWidth || designImage.width || 1;
     const naturalH = designImage.naturalHeight || designImage.height || 1;
 
@@ -127,7 +132,7 @@
     let imgXInEditor = parseFloat(s.left) || parseFloat(designImage.style.left) || parseFloat(designImage.getAttribute('data-left')) || 0;
     let imgYInEditor = parseFloat(s.top) || parseFloat(designImage.style.top) || parseFloat(designImage.getAttribute('data-top')) || 0;
 
-    // Check stored dataset attributes for reliability (some flows store user transforms there)
+    // Use stored attributes if editor logic wrote them (some flows do)
     const storedW = parseFloat(designImage.getAttribute('data-width'));
     const storedH = parseFloat(designImage.getAttribute('data-height'));
     if (storedW && storedH) {
@@ -142,32 +147,16 @@
     imgWidthInEditor = Math.max(1, imgWidthInEditor);
     imgHeightInEditor = Math.max(1, imgHeightInEditor);
 
-    // If FORCE fit mode is enabled, compute a centered fit in editor coordinates
-    if (window.FORCE_FIT_TO_150) {
-      const scaleToFit = Math.min(EDITOR_CONTAINER_WIDTH / naturalW, EDITOR_CONTAINER_HEIGHT / naturalH, 1);
-      imgWidthInEditor = naturalW * scaleToFit;
-      imgHeightInEditor = naturalH * scaleToFit;
-      imgXInEditor = (EDITOR_CONTAINER_WIDTH - imgWidthInEditor) / 2;
-      imgYInEditor = (EDITOR_CONTAINER_HEIGHT - imgHeightInEditor) / 2;
-      console.log('drawDesign(FORCE): forcing editor size to', imgWidthInEditor, imgHeightInEditor);
-    }
+    console.log(`drawDesign: user editor size ${imgWidthInEditor.toFixed(1)}x${imgHeightInEditor.toFixed(1)} at (${imgXInEditor.toFixed(1)},${imgYInEditor.toFixed(1)}). natural ${naturalW}x${naturalH}`);
 
-    // ---------- NEW: pre-resize source so its natural dims <= 150 ----------
+    // Clamp editor size so final drawn size (after mapping to boundary) <= MAX_FINAL_DIM
+    const clamped = clampEditorSizeToFinal(imgWidthInEditor, imgHeightInEditor, imgXInEditor, imgYInEditor, B);
+    imgWidthInEditor = clamped.w;
+    imgHeightInEditor = clamped.h;
+    imgXInEditor = clamped.x;
+    imgYInEditor = clamped.y;
 
-    // create pre-resized canvas if needed (if original natural > 150 in any dimension)
-    const preResizedSource = createPreResizedSourceCanvas(designImage, 150);
-
-    // If we have an offscreen pre-resized canvas, we must also scale the user's editor dims
-    // to remain consistent with using the smaller source as "the original".
-    // Important: The user's size/position are in editor pixels (relative to 150x150).
-    // Since we use the *resized source* as the new base image, we keep user-specified editor dims unchanged,
-    // but note that the source now has smaller intrinsic pixels — final draw will scale the pre-resized source
-    // to the finalWidth/finalHeight (just like before). This avoids extremely large texture sources.
-
-    const sourceForDraw = preResizedSource || designImage;
-
-    // compute final canvas coords
-    // container offsets (rarely non-zero in this layout) are treated as inside product view
+    // compute container offsets (editor container relative to product-view)
     let containerOffsetX = 0, containerOffsetY = 0;
     try {
       const productView = designLayer.closest('.product-view') || designLayer.parentElement;
@@ -181,39 +170,56 @@
       // ignore bounding rect issues
     }
 
+    // Map editor coordinates into canvas coordinates using boundary scale
+    const boundaryScaleX = (B.WIDTH / EDITOR_CONTAINER_WIDTH) || 1;
+    const boundaryScaleY = (B.HEIGHT / EDITOR_CONTAINER_HEIGHT) || 1;
+
     const finalX = B.LEFT + (containerOffsetX + imgXInEditor) * boundaryScaleX;
     const finalY = B.TOP + (containerOffsetY + imgYInEditor) * boundaryScaleY;
     const finalWidth = imgWidthInEditor * boundaryScaleX;
     const finalHeight = imgHeightInEditor * boundaryScaleY;
 
+    // Safety: ensure final dims do not exceed MAX_FINAL_DIM (numeric safety)
+    const safeFinalWidth = Math.min(finalWidth, MAX_FINAL_DIM);
+    const safeFinalHeight = Math.min(finalHeight, MAX_FINAL_DIM);
+
     try {
-      ctx.drawImage(sourceForDraw, finalX, finalY, finalWidth, finalHeight);
-      console.log(`drawDesign: drew design (source ${preResizedSource ? 'pre-resized' : 'original'}) at (${finalX.toFixed(1)},${finalY.toFixed(1)}) size ${finalWidth.toFixed(1)}x${finalHeight.toFixed(1)}`);
+      ctx.drawImage(designImage, finalX, finalY, safeFinalWidth, safeFinalHeight);
+      console.log(`drawDesign: drew design at canvas coords (${finalX.toFixed(1)}, ${finalY.toFixed(1)}) size ${safeFinalWidth.toFixed(1)}x${safeFinalHeight.toFixed(1)} (boundary ${B.WIDTH}x${B.HEIGHT})`);
       return true;
     } catch (e) {
-      console.error('drawDesign: drawing final image failed', e);
+      console.error('drawDesign: failed to draw design', e);
       return false;
     }
   }
 
-  // generateMockupCanvas exported for email.js usage
+  // ---------- Exposed function ----------
   window.generateMockupCanvas = function (side) {
     try {
       if (side !== 'front' && side !== 'back') {
-        console.warn('generateMockupCanvas: invalid side', side);
+        console.warn('generateMockupCanvas: invalid side requested:', side);
         return null;
       }
+
       const viewId = side === 'front' ? 'front-view' : 'back-view';
       const layerId = side === 'front' ? 'front-layer' : 'back-layer';
+
       const viewElement = document.getElementById(viewId);
       const designLayer = document.getElementById(layerId);
+
       if (!viewElement || !designLayer) {
-        console.error('generateMockupCanvas: missing elements', { viewElement: !!viewElement, designLayer: !!designLayer });
+        console.error('generateMockupCanvas: required elements missing:', { viewElement: !!viewElement, designLayer: !!designLayer });
         return null;
       }
+
       const baseImage = viewElement.querySelector('.base-image');
-      if (!baseImage || !(baseImage.complete || baseImage.naturalWidth)) {
-        console.error('generateMockupCanvas: base image missing or not loaded');
+      if (!baseImage) {
+        console.error('generateMockupCanvas: base image missing inside view:', viewId);
+        return null;
+      }
+
+      if (!(baseImage.complete || baseImage.naturalWidth)) {
+        console.warn('generateMockupCanvas: base image not loaded yet; returning null.');
         return null;
       }
 
@@ -223,7 +229,7 @@
 
       const ok = drawDesign(ctx, baseImage, designLayer);
       if (!ok) {
-        console.warn('generateMockupCanvas: drawDesign returned false; returning canvas with whatever was drawn (likely base only).');
+        console.warn('generateMockupCanvas: drawDesign returned false; canvas contains what was drawn (likely base only).');
       }
       return canvas;
     } catch (e) {
@@ -232,48 +238,63 @@
     }
   };
 
-  // download button wiring (single safe listener)
+  // ---------- Download button wiring (single safe listener) ----------
   (function setupDownloadButton() {
     const original = document.getElementById('download-design');
     if (!original) {
-      console.warn('setupDownloadButton: no #download-design button found');
+      console.warn('setupDownloadButton: #download-design not found.');
       return;
     }
+
+    // replace node to clear old listeners
     const btn = original.cloneNode(true);
     original.parentNode.replaceChild(btn, original);
-    let inProgress = false;
-    btn.addEventListener('click', function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (inProgress) return;
-      inProgress = true;
+
+    let downloadInProgress = false;
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (downloadInProgress) {
+        console.log('download already in progress; ignoring.');
+        return;
+      }
+      downloadInProgress = true;
       btn.disabled = true;
+
+      // small delay to let UI settle
       setTimeout(() => {
         try {
           const frontLayer = document.getElementById('front-layer');
           const backLayer = document.getElementById('back-layer');
+
           const frontHas = frontLayer && frontLayer.querySelector('.design-container');
           const backHas = backLayer && backLayer.querySelector('.design-container');
+
           if (!frontHas && !backHas) {
             alert('No design uploaded.');
             return;
           }
+
           if (frontHas) {
-            const c = window.generateMockupCanvas('front');
-            if (c) downloadImage(c, 'front-preview.png');
+            const frontCanvas = window.generateMockupCanvas('front');
+            if (frontCanvas) downloadImage(frontCanvas, 'front-preview.png');
+            else console.error('Failed to generate front canvas.');
           }
           if (backHas) {
-            const c = window.generateMockupCanvas('back');
-            if (c) downloadImage(c, 'back-preview.png');
+            const backCanvas = window.generateMockupCanvas('back');
+            if (backCanvas) downloadImage(backCanvas, 'back-preview.png');
+            else console.error('Failed to generate back canvas.');
           }
-        } catch (e) {
-          console.error('Download handler error', e);
-          alert('Error during download. See console.');
+        } catch (err) {
+          console.error('Download handler error:', err);
+          alert('An error occurred during download. See console for details.');
         } finally {
           setTimeout(() => {
-            inProgress = false;
+            downloadInProgress = false;
             btn.disabled = false;
-          }, 700);
+            console.log('Download process finished and button re-enabled.');
+          }, 800);
         }
       }, 40);
     }, { passive: false });
@@ -281,30 +302,34 @@
 
   function downloadImage(canvas, filename) {
     try {
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = filename || 'download.png';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = filename || 'download.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      console.log('downloadImage: triggered download for', filename);
     } catch (e) {
-      console.error('downloadImage error', e);
-      alert('Failed to prepare download.');
+      console.error('downloadImage: failed', e);
+      alert('Failed to prepare download. See console for details.');
     }
   }
 
-  // small helper used elsewhere in codebase
+  // convenience used by email.js
   window.generateMockupFromDownloadPreview = async function (side) {
     const c = window.generateMockupCanvas(side);
     if (!c) return 'No design uploaded';
     try {
       return c.toDataURL('image/jpeg', 0.9);
     } catch (e) {
-      console.error('generateMockupFromDownloadPreview error', e);
+      console.error('generateMockupFromDownloadPreview: toDataURL failed', e);
       return 'No design uploaded';
     }
   };
 
+  // expose internals for debugging
   window.__drawDesignImpl = drawDesign;
-  console.log('download.js initialized (pre-resize -> max 150px). FORCE_FIT_TO_150=', !!window.FORCE_FIT_TO_150);
+  window.__clampEditorSizeToFinal = clampEditorSizeToFinal;
+
+  console.log('download.js initialized — editor-size clamping active. MAX_FINAL_DIM=', MAX_FINAL_DIM);
 })();
