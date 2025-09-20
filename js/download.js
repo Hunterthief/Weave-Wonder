@@ -1,6 +1,5 @@
 // download.js
 // Final-preview only export. Single safe download handler.
-// Fix: inverted canonical coords (left/right + up/down) corrected.
 // - Scale design to fit editor (150x150) canonical -> map to boundary -> apply user's resizing/positioning
 // - Move design down by configurable vertical percentage (default 4% of base canvas height)
 // - Download only the final preview image: `${side}-preview.png`
@@ -19,9 +18,6 @@
 
   // vertical shift percentage (default 4%)
   window.DESIGN_VERTICAL_SHIFT_PCT = (typeof window.DESIGN_VERTICAL_SHIFT_PCT === 'number') ? window.DESIGN_VERTICAL_SHIFT_PCT : 0.04;
-
-  // Toggle if you ever want to revert the flipping behavior (false = old mapping)
-  window.FLIP_CANONICAL_COORDS = (typeof window.FLIP_CANONICAL_COORDS === 'boolean') ? window.FLIP_CANONICAL_COORDS : true;
 
   // small guard (ms) after a download finishes to ignore additional clicks
   const RECENT_FINISH_GUARD_MS = 600;
@@ -267,34 +263,27 @@
       const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
-      // Prepare canonical values (edit-space) with sensible fallbacks
-      const cx = (typeof userState.canonicalX === 'number') ? userState.canonicalX : 0;
-      const cy = (typeof userState.canonicalY === 'number') ? userState.canonicalY : 0;
-      const cw = (typeof userState.canonicalW === 'number' && userState.canonicalW > 0) ? userState.canonicalW : initialFitW;
-      const ch = (typeof userState.canonicalH === 'number' && userState.canonicalH > 0) ? userState.canonicalH : initialFitH;
+      // ----- FIX FOR REVERSED AXES -----
+      // Some editors produce coordinates where 0,0 is top-left but user coordinates may be mirrored.
+      // To correct "down is up" and "left is right" we flip canonical coords inside the editor box.
+      // Compute flipped canonical coordinates (editor-space) and then map to final canvas.
+      const canonicalW = userState.canonicalW || (initialFitW * userScaleRel);
+      const canonicalH = userState.canonicalH || (initialFitH * userScaleRel);
 
-      // Optionally flip canonical coordinates inside editor space (fix inversion)
-      let usedCanonicalX = cx;
-      let usedCanonicalY = cy;
-      if (window.FLIP_CANONICAL_COORDS) {
-        usedCanonicalX = EDITOR_W - cx - cw;
-        usedCanonicalY = EDITOR_H - cy - ch;
-      }
+      // Flip within editor bounds:
+      const flippedCanonicalX = Math.max(0, EDITOR_W - canonicalW - (userState.canonicalX || 0));
+      const flippedCanonicalY = Math.max(0, EDITOR_H - canonicalH - (userState.canonicalY || 0));
 
       // Final position on final canvas:
       // base: B.LEFT/B.TOP is the boundary's top-left in the product-view
-      // add containerOffset (container inside product-view), then user's canonicalX/Y (inside container)
-      const finalX_onCanvas = B.LEFT + (containerOffsetX * boundaryScaleX) + (usedCanonicalX * boundaryScaleX);
-      const finalY_onCanvas = B.TOP + (containerOffsetY * boundaryScaleY) + (usedCanonicalY * boundaryScaleY) + verticalShiftPx;
-
-      // Debug log showing original vs used canonical coords
-      console.log('mapping debug:',
-        { cx, cy, cw, ch, usedCanonicalX, usedCanonicalY, containerOffsetX, containerOffsetY, boundaryScaleX, boundaryScaleY });
+      // add containerOffset (container inside product-view), then use flipped canonical coords
+      const finalX_onCanvas = B.LEFT + (containerOffsetX * boundaryScaleX) + (flippedCanonicalX * boundaryScaleX);
+      const finalY_onCanvas = B.TOP + (containerOffsetY * boundaryScaleY) + (flippedCanonicalY * boundaryScaleY) + verticalShiftPx;
 
       // Draw design onto final canvas
       try {
         fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'containerOffset', containerOffsetX, containerOffsetY);
+        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'containerOffset', containerOffsetX, containerOffsetY, 'flippedCanonical', flippedCanonicalX, flippedCanonicalY);
       } catch (e) {
         console.error('generateMockupFinalCanvas: failed to draw design', e);
       }
@@ -410,5 +399,5 @@
   window.__generateMockupFinalCanvas = generateMockupFinalCanvas;
   window.__buildEditorSnapshotCanvas = buildEditorSnapshotCanvas;
 
-  console.log('download.js initialized — final-preview only. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS, 'VERT_SHIFT_PCT=', window.DESIGN_VERTICAL_SHIFT_PCT, 'FLIP_CANONICAL_COORDS=', window.FLIP_CANONICAL_COORDS);
+  console.log('download.js initialized — final-preview only. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS, 'VERT_SHIFT_PCT=', window.DESIGN_VERTICAL_SHIFT_PCT);
 })();
