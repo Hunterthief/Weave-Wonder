@@ -17,10 +17,7 @@
   window.MAX_FINAL_ON_CANVAS = window.MAX_FINAL_ON_CANVAS || 150;
 
   // vertical shift percentage (default 4%)
-  window.DESIGN_VERTICAL_SHIFT_PCT =
-    typeof window.DESIGN_VERTICAL_SHIFT_PCT === 'number'
-      ? window.DESIGN_VERTICAL_SHIFT_PCT
-      : 0.04;
+  window.DESIGN_VERTICAL_SHIFT_PCT = (typeof window.DESIGN_VERTICAL_SHIFT_PCT === 'number') ? window.DESIGN_VERTICAL_SHIFT_PCT : 0.04;
 
   // small guard (ms) after a download finishes to ignore additional clicks
   const RECENT_FINISH_GUARD_MS = 600;
@@ -37,7 +34,7 @@
         TOP: safeInt(window.BOUNDARY.TOP, 101),
         LEFT: safeInt(window.BOUNDARY.LEFT, 125),
         WIDTH: safeInt(window.BOUNDARY.WIDTH, EDITOR_W),
-        HEIGHT: safeInt(window.BOUNDARY.HEIGHT, EDITOR_H),
+        HEIGHT: safeInt(window.BOUNDARY.HEIGHT, EDITOR_H)
       };
     }
     try {
@@ -67,47 +64,28 @@
 
   // read user's editor state and map to canonical 150x150 coordinates
   function getUserEditorState(designContainer, designImage) {
-    const containerW =
-      designContainer.offsetWidth || designContainer.clientWidth || EDITOR_W;
-    const containerH =
-      designContainer.offsetHeight || designContainer.clientHeight || EDITOR_H;
+    const containerRect = designContainer.getBoundingClientRect();
 
-    const imgW =
-      parseFloat(designImage.style.width) ||
-      designImage.offsetWidth ||
-      designImage.naturalWidth ||
-      1;
-    const imgH =
-      parseFloat(designImage.style.height) ||
-      designImage.offsetHeight ||
-      designImage.naturalHeight ||
-      1;
+    const containerW = containerRect.width || designContainer.offsetWidth || EDITOR_W;
+    const containerH = containerRect.height || designContainer.offsetHeight || EDITOR_H;
 
-    // --- FIX: prioritize style/data-* positioning first ---
-    let relX =
-      parseFloat(designImage.getAttribute('data-left')) ||
-      parseFloat(designImage.style.left) ||
-      0;
-    let relY =
-      parseFloat(designImage.getAttribute('data-top')) ||
-      parseFloat(designImage.style.top) ||
-      0;
+    const imgW = designImage.offsetWidth || designImage.naturalWidth || 1;
+    const imgH = designImage.offsetHeight || designImage.naturalHeight || 1;
 
-    // fallback to bounding rect if available and reliable
-    if (relX === 0 && relY === 0) {
-      try {
-        const containerRect = designContainer.getBoundingClientRect();
-        const imgRect = designImage.getBoundingClientRect();
-        if (containerRect && imgRect) {
-          relX = imgRect.left - containerRect.left;
-          relY = imgRect.top - containerRect.top;
-        }
-      } catch (e) {
-        // ignore rect failures
-      }
+    // Prefer style/data-left/data-top first (true editor positions)
+    let relX = parseFloat(designImage.style.left) ||
+               parseFloat(designImage.getAttribute('data-left')) || 0;
+    let relY = parseFloat(designImage.style.top) ||
+               parseFloat(designImage.getAttribute('data-top')) || 0;
+
+    // Fallback: bounding rect difference
+    if ((!relX && !relY) || Number.isNaN(relX) || Number.isNaN(relY)) {
+      const imgRect = designImage.getBoundingClientRect();
+      relX = (imgRect.left - containerRect.left);
+      relY = (imgRect.top - containerRect.top);
     }
 
-    // Map to canonical 150x150 coords
+    // Map screen container -> canonical 150x150
     const scaleToCanonicalX = EDITOR_W / containerW;
     const scaleToCanonicalY = EDITOR_H / containerH;
 
@@ -117,15 +95,14 @@
     const canonicalH = imgH * scaleToCanonicalY;
 
     // initial fit (natural -> editor)
-    const naturalW = designImage.naturalWidth || 1;
-    const naturalH = designImage.naturalHeight || 1;
+    const naturalW = designImage.naturalWidth || designImage.width || 1;
+    const naturalH = designImage.naturalHeight || designImage.height || 1;
     const initialScale = Math.min(EDITOR_W / naturalW, EDITOR_H / naturalH, 1);
     const initialFitW = naturalW * initialScale;
     const initialFitH = naturalH * initialScale;
 
-    // user scale relative to the initial fit (how much they zoomed)
-    const userScaleRelativeToInitial =
-      initialFitW > 0 ? canonicalW / initialFitW : 1;
+    // user scale relative to the initial fit
+    const userScaleRelativeToInitial = (initialFitW > 0) ? (canonicalW / initialFitW) : 1;
 
     return {
       canonicalX,
@@ -138,11 +115,11 @@
       naturalW,
       naturalH,
       containerW,
-      containerH,
+      containerH
     };
   }
 
-  // Generate final canvas (single final image)
+  // Generate final canvas (single final image) and return it (Promise<canvas>)
   async function generateMockupFinalCanvas(side) {
     try {
       if (side !== 'front' && side !== 'back') {
@@ -153,75 +130,59 @@
       const layerId = side === 'front' ? 'front-layer' : 'back-layer';
       const viewEl = document.getElementById(viewId);
       const layerEl = document.getElementById(layerId);
-      if (!viewEl || !layerEl) return null;
-
+      if (!viewEl || !layerEl) {
+        console.error('generateMockupFinalCanvas: missing view or layer', viewId, layerId);
+        return null;
+      }
       const baseImg = viewEl.querySelector('.base-image');
-      if (!baseImg || !(baseImg.complete || baseImg.naturalWidth)) return null;
+      if (!baseImg || !(baseImg.complete || baseImg.naturalWidth)) {
+        console.warn('generateMockupFinalCanvas: base image missing or not loaded');
+        return null;
+      }
 
-      // Final canvas sized to base image
       const finalCanvas = createFinalCanvasForBase(baseImg);
       const fctx = finalCanvas.getContext('2d');
 
-      // Draw base
-      fctx.drawImage(baseImg, 0, 0, finalCanvas.width, finalCanvas.height);
+      try { fctx.drawImage(baseImg, 0, 0, finalCanvas.width, finalCanvas.height); } catch (e) {
+        console.error('generateMockupFinalCanvas: draw base failed', e);
+      }
 
       const designContainer = layerEl.querySelector('.design-container');
       if (!designContainer) return finalCanvas;
-
       const designImage = designContainer.querySelector('.design-image');
       if (!designImage || !designImage.src) return finalCanvas;
 
-      // natural size
-      const naturalW = designImage.naturalWidth || 1;
-      const naturalH = designImage.naturalHeight || 1;
+      const naturalW = designImage.naturalWidth || designImage.width || 1;
+      const naturalH = designImage.naturalHeight || designImage.height || 1;
 
-      // initial fit
-      const initialScaleEditor = Math.min(
-        EDITOR_W / naturalW,
-        EDITOR_H / naturalH,
-        1
-      );
+      const initialScaleEditor = Math.min(EDITOR_W / naturalW, EDITOR_H / naturalH, 1);
       const initialFitW = naturalW * initialScaleEditor;
       const initialFitH = naturalH * initialScaleEditor;
 
       const userState = getUserEditorState(designContainer, designImage);
-
-      // map to final canvas
       const B = getBoundary();
       const boundaryScaleX = B.WIDTH / EDITOR_W;
       const boundaryScaleY = B.HEIGHT / EDITOR_H;
 
-      // vertical shift
-      const verticalShiftPx = Math.round(
-        finalCanvas.height * Number(window.DESIGN_VERTICAL_SHIFT_PCT || 0)
-      );
+      const verticalShiftPx = Math.round(finalCanvas.height * Number(window.DESIGN_VERTICAL_SHIFT_PCT || 0));
 
-      // size
       const userScaleRel = userState.userScaleRelativeToInitial || 1;
-      const finalW_onCanvas = initialFitW * userScaleRel * boundaryScaleX;
-      const finalH_onCanvas = initialFitH * userScaleRel * boundaryScaleY;
+      const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
+      const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
-      // position
-      const finalX_onCanvas = B.LEFT + userState.canonicalX * boundaryScaleX;
-      const finalY_onCanvas =
-        B.TOP + userState.canonicalY * boundaryScaleY + verticalShiftPx;
+      const finalX_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
+      const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
 
-      // draw
-      fctx.drawImage(
-        designImage,
-        finalX_onCanvas,
-        finalY_onCanvas,
-        finalW_onCanvas,
-        finalH_onCanvas
-      );
-
-      console.log(
-        `generateMockupFinalCanvas(${side}): pos=(${finalX_onCanvas},${finalY_onCanvas}) size=${finalW_onCanvas}x${finalH_onCanvas}`
-      );
+      try {
+        fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
+        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas);
+      } catch (e) {
+        console.error('generateMockupFinalCanvas: failed to draw design', e);
+      }
 
       return finalCanvas;
     } catch (ex) {
-      console.error('generateMockupFinalCanvas error', ex);
+      console.error('generateMockupFinalCanvas: unexpected error', ex);
       return null;
     }
   }
@@ -235,87 +196,81 @@
     if (!canv) return 'No design uploaded';
     try {
       return canv.toDataURL('image/jpeg', 0.9);
-    } catch {
+    } catch (e) {
+      console.error('generateMockupFromDownloadPreview: toDataURL failed', e);
       return 'No design uploaded';
     }
   };
 
   (function setupDownloadButton() {
     const original = document.getElementById('download-design');
-    if (!original) return;
-
+    if (!original) {
+      console.warn('setupDownloadButton: #download-design not found.');
+      return;
+    }
     const btn = original.cloneNode(true);
     original.parentNode.replaceChild(btn, original);
 
     let running = false;
-    btn.addEventListener(
-      'click',
-      function (e) {
-        e.preventDefault();
-        e.stopPropagation();
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
 
-        const now = Date.now();
-        if (now - lastFinishTimestamp < RECENT_FINISH_GUARD_MS) return;
+      const now = Date.now();
+      if (now - lastFinishTimestamp < RECENT_FINISH_GUARD_MS) {
+        console.log('Ignored click due to recent finish guard.');
+        return;
+      }
+      if (running) return;
 
-        if (running) return;
-        running = true;
-        btn.disabled = true;
+      running = true;
+      btn.disabled = true;
 
-        setTimeout(() => {
-          (async () => {
-            try {
-              const frontLayer = document.getElementById('front-layer');
-              const backLayer = document.getElementById('back-layer');
-              const frontHas =
-                frontLayer &&
-                frontLayer.querySelector('.design-image') &&
-                frontLayer.querySelector('.design-container');
-              const backHas =
-                backLayer &&
-                backLayer.querySelector('.design-image') &&
-                backLayer.querySelector('.design-container');
+      setTimeout(() => {
+        (async () => {
+          try {
+            const frontLayer = document.getElementById('front-layer');
+            const backLayer = document.getElementById('back-layer');
 
-              if (!frontHas && !backHas) {
-                alert('No design uploaded.');
-                return;
-              }
+            const frontHas = frontLayer && frontLayer.querySelector('.design-container') && frontLayer.querySelector('.design-image');
+            const backHas = backLayer && backLayer.querySelector('.design-container') && backLayer.querySelector('.design-image');
 
-              if (frontHas) {
-                const canvas = await generateMockupFinalCanvas('front');
-                if (canvas) downloadCanvas(canvas, 'front-preview.png');
-              }
-
-              if (backHas) {
-                const canvas2 = await generateMockupFinalCanvas('back');
-                if (canvas2) downloadCanvas(canvas2, 'back-preview.png');
-              }
-            } finally {
-              running = false;
-              btn.disabled = false;
-              lastFinishTimestamp = Date.now();
+            if (!frontHas && !backHas) {
+              alert('No design uploaded.');
+              return;
             }
-          })();
-        }, 40);
-      },
-      { passive: false }
-    );
+
+            if (frontHas) {
+              const canvas = await generateMockupFinalCanvas('front');
+              if (canvas) downloadCanvas(canvas, 'front-preview.png');
+            }
+            if (backHas) {
+              const canvas2 = await generateMockupFinalCanvas('back');
+              if (canvas2) downloadCanvas(canvas2, 'back-preview.png');
+            }
+          } finally {
+            running = false;
+            btn.disabled = false;
+            lastFinishTimestamp = Date.now();
+          }
+        })();
+      }, 40);
+    }, { passive: false });
   })();
 
   function downloadCanvas(canvas, filename) {
-    if (!canvas) return;
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = filename || 'download.png';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = filename || 'download.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('downloadCanvas error', e);
+    }
   }
 
   window.__generateMockupFinalCanvas = generateMockupFinalCanvas;
-  console.log(
-    'download.js initialized — final-preview only. MAX_FINAL_ON_CANVAS=',
-    window.MAX_FINAL_ON_CANVAS,
-    'VERT_SHIFT_PCT=',
-    window.DESIGN_VERTICAL_SHIFT_PCT
-  );
+  console.log('download.js initialized — final-preview only. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS, 'VERT_SHIFT_PCT=', window.DESIGN_VERTICAL_SHIFT_PCT);
 })();
