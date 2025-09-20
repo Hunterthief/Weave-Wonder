@@ -250,14 +250,14 @@
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
       // Final position on final canvas (user canonical position mapped + vertical shift)
-      // IMPORTANT: We now preserve the user's horizontal positioning but anchor vertical positioning to the top of the boundary + vertical shift
+      // Now respecting BOTH horizontal AND vertical user positioning, then applying the configured vertical shift
       const finalX_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
-      const finalY_onCanvas = B.TOP + verticalShiftPx; // Ignore user's vertical drag — only apply configured vertical shift
+      const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
 
       // Draw design onto final canvas
       try {
         fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'IGNORING user vertical drag (canonicalY=', userState.canonicalY, ')');
+        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'user canonicalY=', userState.canonicalY);
       } catch (e) {
         console.error('generateMockupFinalCanvas: failed to draw design', e);
       }
