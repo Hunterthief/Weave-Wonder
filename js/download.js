@@ -4,8 +4,8 @@
 // - Move design down by configurable vertical percentage (default 4% of base canvas height)
 // - Download only the final preview image: `${side}-preview.png`
 //
-// Exposes window.generateMockupCanvas(side) (returns a Promise resolving to a canvas)
-// and window.generateMockupFromDownloadPreview(side) (returns a Promise resolving to a dataURL or 'No design uploaded').
+// Exposes window.generateMockupCanvas(side) (returns a Canvas) and
+// window.generateMockupFromDownloadPreview(side) (returns a dataURL or 'No design uploaded').
 
 (function () {
   'use strict';
@@ -126,7 +126,7 @@
     return used;
   }
 
-  // Build editor snapshot (150x150)
+  // Build editor snapshot (150x150) - still exposed if you need it
   function buildEditorSnapshotCanvas(designContainer, designImage) {
     if (!designContainer || !designImage) {
       console.error('buildEditorSnapshotCanvas: missing args');
@@ -178,8 +178,8 @@
     return off;
   }
 
-  // Generate final canvas (single final image) and return it (Promise<canvas>)
-  async function generateMockupFinalCanvas(side) {
+  // Generate final canvas (synchronous) and return it (Canvas or null)
+  function generateMockupFinalCanvas(side) {
     try {
       if (side !== 'front' && side !== 'back') {
         console.warn('generateMockupFinalCanvas: invalid side', side);
@@ -241,6 +241,20 @@
       const boundaryScaleX = B.WIDTH / EDITOR_W;
       const boundaryScaleY = B.HEIGHT / EDITOR_H;
 
+      // compute container offset relative to product-view (CRITICAL for correct mapping)
+      let containerOffsetX = 0, containerOffsetY = 0;
+      try {
+        const productView = layerEl.closest('.product-view') || layerEl.parentElement;
+        if (productView) {
+          const viewRect = productView.getBoundingClientRect();
+          const containerRect = designContainer.getBoundingClientRect();
+          containerOffsetX = (containerRect.left - viewRect.left) || 0;
+          containerOffsetY = (containerRect.top - viewRect.top) || 0;
+        }
+      } catch (err) {
+        // ignore, fall back to zero offsets
+      }
+
       // Apply vertical shift (percentage of final canvas height)
       const verticalShiftPx = Math.round(finalCanvas.height * Number(window.DESIGN_VERTICAL_SHIFT_PCT || 0));
 
@@ -249,20 +263,20 @@
       const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
-      // Final position on final canvas (user canonical position mapped + vertical shift)
-      const finalX_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
-      const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
+      // Final position on final canvas:
+      // base: B.LEFT/B.TOP is the boundary's top-left in the product-view
+      // add containerOffset (container inside product-view), then user's canonicalX/Y (inside container)
+      const finalX_onCanvas = B.LEFT + (containerOffsetX * boundaryScaleX) + (userState.canonicalX * boundaryScaleX);
+      const finalY_onCanvas = B.TOP + (containerOffsetY * boundaryScaleY) + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
 
       // Draw design onto final canvas
       try {
         fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx);
+        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'containerOffset', containerOffsetX, containerOffsetY);
       } catch (e) {
         console.error('generateMockupFinalCanvas: failed to draw design', e);
       }
 
-      // Safety clamp: ensure the drawn design doesn't exceed configured MAX_FINAL_ON_CANVAS (numeric enforcement)
-      // (If enforcement required, you could resample here — currently math aims to produce correct size; clamp left as optional.)
       return finalCanvas;
     } catch (ex) {
       console.error('generateMockupFinalCanvas: unexpected error', ex);
@@ -270,14 +284,14 @@
     }
   }
 
-  // Expose generateMockupCanvas as a function returning a Promise that resolves to the final canvas
+  // Expose generateMockupCanvas as a function returning the final canvas (synchronous)
   window.generateMockupCanvas = function (side) {
     return generateMockupFinalCanvas(side);
   };
 
   // Returns dataURL of the final preview (JPEG)
-  window.generateMockupFromDownloadPreview = async function (side) {
-    const canv = await generateMockupFinalCanvas(side);
+  window.generateMockupFromDownloadPreview = function (side) {
+    const canv = generateMockupFinalCanvas(side);
     if (!canv) return 'No design uploaded';
     try {
       return canv.toDataURL('image/jpeg', 0.9);
@@ -318,7 +332,7 @@
       try { btn.blur(); } catch (err) { /* ignore */ }
 
       setTimeout(() => {
-        (async () => {
+        (function () {
           try {
             const frontLayer = document.getElementById('front-layer');
             const backLayer = document.getElementById('back-layer');
@@ -333,12 +347,12 @@
 
             // Sequentially generate and download final previews
             if (frontHas) {
-              const canvas = await generateMockupFinalCanvas('front');
+              const canvas = generateMockupFinalCanvas('front');
               if (canvas) downloadCanvas(canvas, 'front-preview.png');
             }
 
             if (backHas) {
-              const canvas2 = await generateMockupFinalCanvas('back');
+              const canvas2 = generateMockupFinalCanvas('back');
               if (canvas2) downloadCanvas(canvas2, 'back-preview.png');
             }
           } catch (err) {
