@@ -1,10 +1,11 @@
 // download.js
 // Three-step debug export (STEP1 removed) + final export, single safe download handler.
 // Steps now:
-// 1) (removed) full-fit debug
-// 2) scale design so it fits inside 150x150 (maintaining aspect), position at user's canonical position -> debug-step2-fit150-positioned.png
-// 3) apply the user's resize/position instructions relative to the step-2 size -> debug-step3-user-final.png
+// 1) scale design so it fits inside 150x150 (maintaining aspect), position at user's canonical position -> debug-step2-fit150-positioned.png
+// 2) apply the user's resize/position instructions relative to the step-2 size -> debug-step3-user-final.png
 // Then produce front-preview/back-preview as before.
+//
+// Change in this version: the design is moved down by a configurable vertical offset (default 4% of the final base canvas height).
 //
 // Exposes window.generateMockupCanvas(side) and window.generateMockupFromDownloadPreview(side).
 (function () {
@@ -15,6 +16,9 @@
   const FALLBACK_BASE_W = 400;
   const FALLBACK_BASE_H = 440;
   window.MAX_FINAL_ON_CANVAS = window.MAX_FINAL_ON_CANVAS || 150;
+
+  // vertical shift percentage (default 4%)
+  window.DESIGN_VERTICAL_SHIFT_PCT = (typeof window.DESIGN_VERTICAL_SHIFT_PCT === 'number') ? window.DESIGN_VERTICAL_SHIFT_PCT : 0.04;
 
   // small guard (ms) after a download finishes to ignore additional clicks
   const RECENT_FINISH_GUARD_MS = 600;
@@ -224,18 +228,23 @@
       const boundaryScaleX = B.WIDTH / EDITOR_W;
       const boundaryScaleY = B.HEIGHT / EDITOR_H;
 
-      // size on final canvas for initial fit (placed using user's canonical X/Y)
+      // SIZE on final canvas for initial fit (placed using user's canonical X/Y)
       const step2W_onCanvas = initialFitW * boundaryScaleX;
       const step2H_onCanvas = initialFitH * boundaryScaleY;
+
+      // compute vertical shift (default 4% of final canvas height)
+      const verticalShiftPx = Math.round(finalCanvas.height * Number(window.DESIGN_VERTICAL_SHIFT_PCT || 0));
+
+      // place using user's canonical X/Y mapped into final canvas via boundary, + vertical shift
       const step2X_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
-      const step2Y_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY);
+      const step2Y_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
 
       const step2 = createCanvas(finalCanvas.width, finalCanvas.height);
       const s2ctx = step2.getContext('2d');
       s2ctx.drawImage(baseImg, 0, 0, step2.width, step2.height);
       try {
         s2ctx.drawImage(designImage, step2X_onCanvas, step2Y_onCanvas, step2W_onCanvas, step2H_onCanvas);
-        console.log('STEP2: drew fit-to-150 (initial) positioned at user pos ->', step2X_onCanvas, step2Y_onCanvas, 'size', step2W_onCanvas, step2H_onCanvas);
+        console.log('STEP2: drew fit-to-150 (initial) positioned at user pos ->', step2X_onCanvas, step2Y_onCanvas, 'size', step2W_onCanvas, step2H_onCanvas, 'verticalShiftPx', verticalShiftPx);
       } catch (e) {
         console.error('STEP2 draw failed', e);
       }
@@ -250,8 +259,9 @@
       const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
+      // final position: apply same vertical shift so user instructions apply on top of shifted base
       const finalX_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
-      const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY);
+      const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
 
       // Compose final canvas (base + user final)
       const step3 = createCanvas(finalCanvas.width, finalCanvas.height);
@@ -259,7 +269,7 @@
       s3ctx.drawImage(baseImg, 0, 0, step3.width, step3.height);
       try {
         s3ctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log('STEP3: drew user-final design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel);
+        console.log('STEP3: drew user-final design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx);
       } catch (e) {
         console.error('STEP3 draw failed', e);
       }
@@ -382,5 +392,5 @@
   window.__generateMockupForSideWithDebug = generateMockupForSideWithDebug;
   window.__buildEditorSnapshotCanvas = buildEditorSnapshotCanvas;
 
-  console.log('download.js initialized — STEP1 removed. debug-step2 & debug-step3 + final export active. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS);
+  console.log('download.js initialized — STEP1 removed. debug-step2 & debug-step3 + final export active. MAX_FINAL_ON_CANVAS=', window.MAX_FINAL_ON_CANVAS, 'VERT_SHIFT_PCT=', window.DESIGN_VERTICAL_SHIFT_PCT);
 })();
