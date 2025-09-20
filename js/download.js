@@ -108,8 +108,6 @@ window.generateMockupCanvas = function(side) {
   // Ensure base image is loaded before proceeding
   if (!baseImage.complete) {
       console.error("Base image is not loaded yet.");
-      // Consider returning a Promise that resolves when the image loads,
-      // or handling this case upstream.
       return null;
   }
 
@@ -117,7 +115,7 @@ window.generateMockupCanvas = function(side) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  // Set canvas size to match base image dimensions using the robust setCanvasSize
+  // Set canvas size to match base image dimensions
   setCanvasSize(ctx, baseImage);
   console.log(`Canvas size set to ${canvas.width} x ${canvas.height}`);
 
@@ -127,9 +125,6 @@ window.generateMockupCanvas = function(side) {
       console.log("Base image drawn successfully.");
   } catch (imgError) {
       console.error("Failed to draw base image:", imgError);
-      // Return canvas even if base image failed, but log the error
-      // Returning early here might be better depending on requirements
-      // For now, let's continue to see if design drawing reports issues
   }
 
   // 2. Find the design elements
@@ -141,7 +136,6 @@ window.generateMockupCanvas = function(side) {
   }
 
   const designImage = designContainer.querySelector('.design-image');
-  // More robust check for image readiness
   if (!designImage || !designImage.src || designImage.src === '') {
       console.log("Design image element found but no valid source.");
       return canvas;
@@ -150,8 +144,6 @@ window.generateMockupCanvas = function(side) {
   // Wait for the design image to load if it's not complete
   if (!designImage.complete) {
       console.log("Design image is not loaded yet, waiting...");
-      // Returning canvas here means the design won't be drawn if it's not ready.
-      // A more advanced solution would involve Promises.
       return canvas;
   }
 
@@ -162,8 +154,6 @@ window.generateMockupCanvas = function(side) {
 
 
   // --- Now, call the EXISTING drawDesign function ---
-  // It will read the user's final offsetWidth/offsetHeight and computed styles
-  // and draw the image correctly onto the full-size canvas based on the BOUNDARY
   try {
       drawDesign(ctx, baseImage, designLayer);
       console.log("--- drawDesign executed ---");
@@ -174,15 +164,16 @@ window.generateMockupCanvas = function(side) {
   return canvas;
 };
 
-// --- Keep the setCanvasSize function for potential future use or other functions ---
+// --- Keep the setCanvasSize function ---
 function setCanvasSize(ctx, baseImage) {
   ctx.canvas.width = baseImage.naturalWidth || baseImage.width;
   ctx.canvas.height = baseImage.naturalHeight || baseImage.height;
 }
 
 
-// --- Corrected drawDesign function ---
-// This function correctly maps the 150x150 editor design area to the BOUNDARY on the base image.
+// --- FINAL drawDesign function ---
+// This function reads the user's final actions within the 150x150 editor container
+// and applies them directly to the 150x150 BOUNDARY area on the full-size canvas.
 function drawDesign(ctx, baseImage, designLayer) {
   // 1. Draw the base image first
   ctx.drawImage(baseImage, 0, 0);
@@ -195,44 +186,50 @@ function drawDesign(ctx, baseImage, designLayer) {
     return;
   }
 
+  // --- THE FINAL FIX: Map Editor Actions Directly to BOUNDARY ---
+
   // 3. Get the final rendered size and position of the image AS SET BY THE USER
-  //    within the 150x150 editor container.
+  //    within the 150x150px editor container (.design-container).
   const imgStyle = window.getComputedStyle(designImage);
-  const imgX = parseFloat(imgStyle.left) || 0; // Position relative to container
-  const imgY = parseFloat(imgStyle.top) || 0;  // Position relative to container
-  const imgWidth = designImage.offsetWidth;     // Final user-set width
-  const imgHeight = designImage.offsetHeight;   // Final user-set height
+  const imgX_inContainer = parseFloat(imgStyle.left) || 0; // Position relative to container left
+  const imgY_inContainer = parseFloat(imgStyle.top) || 0;  // Position relative to container top
+  const imgWidth_inContainer = designImage.offsetWidth;     // Final user-set width (<= 150)
+  const imgHeight_inContainer = designImage.offsetHeight;   // Final user-set height (<= 150)
 
-  console.log(`User final design size: ${imgWidth} x ${imgHeight} at (${imgX}, ${imgY})`);
+  console.log(`User final design size in editor: ${imgWidth_inContainer} x ${imgHeight_inContainer} at (${imgX_inContainer}, ${imgY_inContainer})`);
 
-  // --- THE CORE FIX: Calculate scale and position based on the KNOWN 150x150 editor area ---
+  // 4. Define the known size of the editor container area
+  //    This is hardcoded in script.js reader.onload as 150x150px.
+  const EDITOR_CONTAINER_WIDTH = 150;
+  const EDITOR_CONTAINER_HEIGHT = 150;
 
-  // 4. Define the known size of the editor container area (from script.js reader.onload)
-  const EDITOR_CONTAINER_SIZE = 150;
+  // 5. Define the target area on the final canvas (BOUNDARY)
+  //    This is defined in script.js
+  // const BOUNDARY = { TOP: 101, LEFT: 125, WIDTH: 150, HEIGHT: 150 };
+  const BOUNDARY_WIDTH = BOUNDARY.WIDTH; // Should be 150
+  const BOUNDARY_HEIGHT = BOUNDARY.HEIGHT; // Should be 150
 
-  // 5. Get the dimensions of the final canvas (which matches the base image)
-  const canvasWidth = ctx.canvas.width;
-  const canvasHeight = ctx.canvas.height;
+  // 6. Calculate the scale factors between the editor container and the BOUNDARY area.
+  //    Since both are 150x150, these factors are 1.0. This is the key simplification.
+  const scaleX = BOUNDARY_WIDTH / EDITOR_CONTAINER_WIDTH; // 150 / 150 = 1.0
+  const scaleY = BOUNDARY_HEIGHT / EDITOR_CONTAINER_HEIGHT; // 150 / 150 = 1.0
 
-  // 6. Calculate the scale factor between the editor container (150x150) and the final canvas area (BOUNDARY size)
-  //    We assume BOUNDARY.WIDTH and BOUNDARY.HEIGHT are also 150.
-  const scaleFromEditorToCanvas = BOUNDARY.WIDTH / EDITOR_CONTAINER_SIZE; // Should be 1.0 if both are 150
+  // 7. Calculate the final drawing size on the canvas: user's size * scale factor (1.0)
+  //    This ensures the physical size on the canvas matches the editor size.
+  const finalWidth = imgWidth_inContainer * scaleX; // width * 1.0
+  const finalHeight = imgHeight_inContainer * scaleY; // height * 1.0
 
-  // 7. Calculate the final drawing size: user's size * scale factor
-  //    This correctly maps the user's resize actions from the 150x150 editor to the BOUNDARY area.
-  const finalWidth = imgWidth * scaleFromEditorToCanvas;
-  const finalHeight = imgHeight * scaleFromEditorToCanvas;
+  // 8. Calculate the final drawing position on the canvas:
+  //    a. User's position within the editor container (imgX_inContainer, imgY_inContainer)
+  //    b. Scale that position (by 1.0)
+  //    c. Add the BOUNDARY's absolute top-left offset to place it correctly on the mockup
+  const finalX = BOUNDARY.LEFT + (imgX_inContainer * scaleX); // LEFT + (x * 1.0)
+  const finalY = BOUNDARY.TOP + (imgY_inContainer * scaleY);  // TOP + (y * 1.0)
 
-  // 8. Calculate the final drawing position:
-  //    a. User's position within the editor container (imgX, imgY)
-  //    b. Map that position to the canvas using the same scale factor
-  //    c. Add the BOUNDARY's top-left offset to place it in the correct area on the mockup
-  const finalX = BOUNDARY.LEFT + (imgX * scaleFromEditorToCanvas);
-  const finalY = BOUNDARY.TOP + (imgY * scaleFromEditorToCanvas);
-
-  console.log(`Final draw coords: (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}`);
+  console.log(`Final draw coords on canvas: (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}`);
 
   // 9. Draw the image onto the canvas at the calculated final position and size
+  //    The size will be the same as in the editor (e.g., 150x150 if that's what the user made it).
   try {
     ctx.drawImage(
       designImage,
@@ -241,7 +238,7 @@ function drawDesign(ctx, baseImage, designLayer) {
       finalWidth,
       finalHeight
     );
-    console.log(`Successfully drew design.`);
+    console.log(`Successfully drew design at final size ${finalWidth}x${finalHeight}.`);
   } catch (drawError) {
       console.error("Failed to draw design image:", drawError);
   }
@@ -251,7 +248,6 @@ function drawDesign(ctx, baseImage, designLayer) {
 // --- Function to trigger the download ---
 function downloadImage(canvas, filename) {
   console.log(`Initiating download for ${filename}`);
-  // Create download link
   const link = document.createElement('a');
   try {
       link.href = canvas.toDataURL('image/png');
@@ -263,10 +259,8 @@ function downloadImage(canvas, filename) {
   link.download = filename;
   console.log(`Download link created for ${filename}`);
 
-  // Add to document body
   document.body.appendChild(link);
 
-  // Trigger download
   try {
     console.log(`Triggering click for ${filename}`);
     link.click();
@@ -274,34 +268,7 @@ function downloadImage(canvas, filename) {
     console.error("Error triggering download click:", clickError);
     alert("Sorry, an error occurred triggering the download.");
   } finally {
-    // Clean up immediately
     document.body.removeChild(link);
     console.log(`Download link removed for ${filename}`);
   }
 }
-
-// --- Keep the old generateAndDownloadDesign for reference (but it's not used in the new flow) ---
-/*
-function generateAndDownloadDesign() {
-  const frontLayer = document.getElementById('front-layer');
-  const backLayer = document.getElementById('back-layer');
-  const hasFront = frontLayer.querySelector('.design-image');
-  const hasBack = backLayer.querySelector('.design-image');
-
-  if (!hasFront && !hasBack) {
-    alert("No design uploaded.");
-    return;
-  }
-
-  // Use the shared function to generate canvases
-  if (hasFront) {
-    const frontCanvas = window.generateMockupCanvas('front');
-    if (frontCanvas) downloadImage(frontCanvas, 'front-preview.png');
-  }
-
-  if (hasBack) {
-    const backCanvas = window.generateMockupCanvas('back');
-    if (backCanvas) downloadImage(backCanvas, 'back-preview.png');
-  }
-}
-*/
