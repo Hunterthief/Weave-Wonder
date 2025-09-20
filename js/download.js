@@ -250,15 +250,27 @@
       const finalW_onCanvas = (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas = (initialFitH * userScaleRel) * boundaryScaleY;
 
+      // Get the CONTAINER'S position (as calculated by script.js/main.js)
+      const containerRect = designContainer.getBoundingClientRect();
+      const layerRect = layerEl.getBoundingClientRect();
+
+      // Container position relative to its parent layer (in screen pixels)
+      const containerScreenX = containerRect.left - layerRect.left;
+      const containerScreenY = containerRect.top - layerRect.top;
+
+      // Map screen position to canonical 150x150 editor coordinates
+      const containerCanonicalX = (containerScreenX / layerRect.width) * EDITOR_W;
+      const containerCanonicalY = (containerScreenY / layerRect.height) * EDITOR_H;
+
       // Final position on final canvas (user canonical position mapped + vertical shift)
-      // Now respecting BOTH horizontal AND vertical user positioning, then applying the configured vertical shift
-      const finalX_onCanvas = B.LEFT + (userState.canonicalX * boundaryScaleX);
-      const finalY_onCanvas = B.TOP + (userState.canonicalY * boundaryScaleY) + verticalShiftPx;
+      // This respects exactly where the user dragged the container
+      const finalX_onCanvas = B.LEFT + (containerCanonicalX * boundaryScaleX);
+      const finalY_onCanvas = B.TOP + (containerCanonicalY * boundaryScaleY) + verticalShiftPx;
 
       // Draw design onto final canvas
       try {
         fctx.drawImage(designImage, finalX_onCanvas, finalY_onCanvas, finalW_onCanvas, finalH_onCanvas);
-        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'user canonicalY=', userState.canonicalY);
+        console.log('generateMockupFinalCanvas: drew design at', finalX_onCanvas, finalY_onCanvas, 'size', finalW_onCanvas, finalH_onCanvas, 'userScaleRel', userScaleRel, 'verticalShiftPx', verticalShiftPx, 'containerCanonicalX=', containerCanonicalX, 'containerCanonicalY=', containerCanonicalY);
       } catch (e) {
         console.error('generateMockupFinalCanvas: failed to draw design', e);
       }
