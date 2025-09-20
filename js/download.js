@@ -41,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const backLayer = document.getElementById('back-layer');
 
                 // Check for the container, not the image directly
-                // The container exists if a design was uploaded, even if the image hasn't finished loading yet.
                 const hasFront = frontLayer?.querySelector('.design-container') !== null;
                 const hasBack = backLayer?.querySelector('.design-container') !== null;
 
@@ -75,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("An error occurred during the download process:", error);
             } finally {
                 // Re-enable the button and reset the flag after a short delay
-                // to prevent accidental double clicks
                 setTimeout(() => {
                     downloadInProgress = false;
                     const btn = document.getElementById('download-design');
@@ -175,84 +173,79 @@ function setCanvasSize(ctx, baseImage) {
 }
 
 
-// --- FINAL drawDesign function ---
-// This function reads the user's final actions within the 150x150 editor container
-// and applies them directly to the 150x150 BOUNDARY area on the full-size canvas.
+// --- REVISED drawDesign function ---
+// This function reads the final rendered size and position of the design image
+// within the editor's 150x150px container and maps it directly onto the
+// corresponding 150x150px area on the full-size canvas.
 function drawDesign(ctx, baseImage, designLayer) {
-  // 1. Draw the base image first (already done in generateMockupCanvas, but safe to call again)
-  ctx.drawImage(baseImage, 0, 0);
+    // 1. Draw the base image first (already done in generateMockupCanvas, but safe)
+    ctx.drawImage(baseImage, 0, 0);
 
-  // 2. Find the design container and image
-  const designContainer = designLayer.querySelector('.design-container');
-  const designImage = designContainer?.querySelector('.design-image');
-  if (!designContainer || !designImage || !designImage.complete) {
-    console.log("Design elements not ready in drawDesign.");
-    return;
-  }
+    // 2. Find the design container and image
+    const designContainer = designLayer.querySelector('.design-container');
+    const designImage = designContainer?.querySelector('.design-image');
+    if (!designContainer || !designImage || !designImage.complete) {
+        console.log("Design elements not ready in drawDesign.");
+        return;
+    }
 
-  // --- THE FINAL FIX: Map Editor Actions Directly to BOUNDARY ---
+    // --- Simplified Mapping Logic ---
 
-  // 3. Get the final rendered size and position of the image AS SET BY THE USER
-  //    within the 150x150px editor container (.design-container).
-  const imgStyle = window.getComputedStyle(designImage);
-  const imgX_inContainer = parseFloat(imgStyle.left) || 0; // Position relative to container left
-  const imgY_inContainer = parseFloat(imgStyle.top) || 0;  // Position relative to container top
-  const imgWidth_inContainer = designImage.offsetWidth;     // Final user-set width (<= 150)
-  const imgHeight_inContainer = designImage.offsetHeight;   // Final user-set height (<= 150)
+    // 3. Get the final rendered size and position of the image AS DISPLAYED IN THE EDITOR
+    //    These are relative to the 150x150px .design-container.
+    const imgStyle = window.getComputedStyle(designImage);
+    const imgX_inContainer = parseFloat(imgStyle.left) || 0;
+    const imgY_inContainer = parseFloat(imgStyle.top) || 0;
+    const imgWidth_inContainer = designImage.offsetWidth;   // Actual rendered width
+    const imgHeight_inContainer = designImage.offsetHeight; // Actual rendered height
 
-  console.log(`User final design size in editor: ${imgWidth_inContainer} x ${imgHeight_inContainer} at (${imgX_inContainer}, ${imgY_inContainer})`);
+    console.log(`User final design size in editor (150x150 container): ${imgWidth_inContainer} x ${imgHeight_inContainer} at (${imgX_inContainer}, ${imgY_inContainer})`);
 
-  // 4. Define the known size of the editor container area
-  //    This is hardcoded in script.js reader.onload as 150x150px.
-  const EDITOR_CONTAINER_WIDTH = 150;
-  const EDITOR_CONTAINER_HEIGHT = 150;
-
-  // 5. Define the target area on the final canvas (BOUNDARY)
-  //    This should ideally be defined in script.js and accessible globally.
-    // Fallback definition if not available globally
+    // 4. Define the target area on the final canvas (BOUNDARY)
+    //    This should be defined in script.js. Using a fallback if not.
     const BOUNDARY = typeof window.BOUNDARY !== 'undefined' ? window.BOUNDARY : {
         TOP: 101,
         LEFT: 125,
         WIDTH: 150,
         HEIGHT: 150
     };
-    console.warn("BOUNDARY constant not found globally, using fallback definition.");
-  const BOUNDARY_WIDTH = BOUNDARY.WIDTH; // Should be 150
-  const BOUNDARY_HEIGHT = BOUNDARY.HEIGHT; // Should be 150
+    if (typeof window.BOUNDARY === 'undefined') {
+        console.warn("BOUNDARY constant not found globally, using fallback definition.");
+    }
 
-  // 6. Calculate the scale factors between the editor container and the BOUNDARY area.
-  //    Since both are 150x150, these factors are 1.0. This is the key simplification.
-  const scaleX = BOUNDARY_WIDTH / EDITOR_CONTAINER_WIDTH; // 150 / 150 = 1.0
-  const scaleY = BOUNDARY_HEIGHT / EDITOR_CONTAINER_HEIGHT; // 150 / 150 = 1.0
+    // 5. Since the editor container and the canvas target area are both 150x150,
+    //    the scale factors are 1.0. This is the key simplification.
+    const EDITOR_CONTAINER_WIDTH = 150;
+    const EDITOR_CONTAINER_HEIGHT = 150;
+    const scaleX = BOUNDARY.WIDTH / EDITOR_CONTAINER_WIDTH; // 150 / 150 = 1.0
+    const scaleY = BOUNDARY.HEIGHT / EDITOR_CONTAINER_HEIGHT; // 150 / 150 = 1.0
 
-  // 7. Calculate the final drawing size on the canvas: user's size * scale factor (1.0)
-  //    This ensures the physical size on the canvas matches the editor size.
-  const finalWidth = imgWidth_inContainer * scaleX; // width * 1.0
-  const finalHeight = imgHeight_inContainer * scaleY; // height * 1.0
+    // 6. Calculate the final drawing size on the canvas: user's size * scale factor (1.0)
+    const finalWidth = imgWidth_inContainer * scaleX;
+    const finalHeight = imgHeight_inContainer * scaleY;
 
-  // 8. Calculate the final drawing position on the canvas:
-  //    a. User's position within the editor container (imgX_inContainer, imgY_inContainer)
-  //    b. Scale that position (by 1.0)
-  //    c. Add the BOUNDARY's absolute top-left offset to place it correctly on the mockup
-  const finalX = BOUNDARY.LEFT + (imgX_inContainer * scaleX); // LEFT + (x * 1.0)
-  const finalY = BOUNDARY.TOP + (imgY_inContainer * scaleY);  // TOP + (y * 1.0)
+    // 7. Calculate the final drawing position on the canvas:
+    //    a. User's position within the editor container (imgX_inContainer, imgY_inContainer)
+    //    b. Scale that position (by 1.0)
+    //    c. Add the BOUNDARY's absolute top-left offset
+    const finalX = BOUNDARY.LEFT + (imgX_inContainer * scaleX);
+    const finalY = BOUNDARY.TOP + (imgY_inContainer * scaleY);
 
-  console.log(`Final draw coords on canvas: (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}`);
+    console.log(`Final draw coords on canvas: (${finalX.toFixed(2)}, ${finalY.toFixed(2)}) size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}`);
 
-  // 9. Draw the image onto the canvas at the calculated final position and size
-  //    The size will be the same as in the editor (e.g., 150x150 if that's what the user made it).
-  try {
-    ctx.drawImage(
-      designImage,
-      finalX,
-      finalY,
-      finalWidth,
-      finalHeight
-    );
-    console.log(`Successfully drew design at final size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}.`);
-  } catch (drawError) {
-      console.error("Failed to draw design image:", drawError);
-  }
+    // 8. Draw the image onto the canvas at the calculated final position and size
+    try {
+        ctx.drawImage(
+            designImage,
+            finalX,
+            finalY,
+            finalWidth,
+            finalHeight
+        );
+        console.log(`Successfully drew design at final size ${finalWidth.toFixed(2)}x${finalHeight.toFixed(2)}.`);
+    } catch (drawError) {
+        console.error("Failed to draw design image:", drawError);
+    }
 }
 
 
