@@ -44,10 +44,8 @@
       const s = getComputedStyle(document.documentElement);
       const t = parseFloat(s.getPropertyValue('--boundary-top')) || 101;
       const l = parseFloat(s.getPropertyValue('--boundary-left')) || 125;
-      const w =
-        parseFloat(s.getPropertyValue('--boundary-width')) || EDITOR_W;
-      const h =
-        parseFloat(s.getPropertyValue('--boundary-height')) || EDITOR_H;
+      const w = parseFloat(s.getPropertyValue('--boundary-width')) || EDITOR_W;
+      const h = parseFloat(s.getPropertyValue('--boundary-height')) || EDITOR_H;
       return { TOP: t, LEFT: l, WIDTH: w, HEIGHT: h };
     } catch (e) {
       return { TOP: 101, LEFT: 125, WIDTH: EDITOR_W, HEIGHT: EDITOR_H };
@@ -90,9 +88,22 @@
       designImage.naturalHeight ||
       1;
 
+    // position relative to container
     let relX = imgRect.left - containerRect.left;
     let relY = imgRect.top - containerRect.top;
 
+    if (Number.isNaN(relX) || Number.isNaN(relY)) {
+      relX =
+        parseFloat(getComputedStyle(designImage).left) ||
+        parseFloat(designImage.getAttribute('data-left')) ||
+        0;
+      relY =
+        parseFloat(getComputedStyle(designImage).top) ||
+        parseFloat(designImage.getAttribute('data-top')) ||
+        0;
+    }
+
+    // map into canonical 150x150
     const scaleToCanonicalX = EDITOR_W / containerW;
     const scaleToCanonicalY = EDITOR_H / containerH;
 
@@ -101,9 +112,11 @@
     const canonicalW = imgW * scaleToCanonicalX;
     const canonicalH = imgH * scaleToCanonicalY;
 
-    // initial fit (natural -> editor)
-    const naturalW = designImage.naturalWidth || designImage.width || 1;
-    const naturalH = designImage.naturalHeight || designImage.height || 1;
+    // initial fit
+    const naturalW =
+      designImage.naturalWidth || designImage.width || 1;
+    const naturalH =
+      designImage.naturalHeight || designImage.height || 1;
     const initialScale = Math.min(
       EDITOR_W / naturalW,
       EDITOR_H / naturalH,
@@ -115,7 +128,12 @@
     const userScaleRelativeToInitial =
       initialFitW > 0 ? canonicalW / initialFitW : 1;
 
-    return {
+    // stored attributes override
+    const storedW = parseFloat(designImage.getAttribute('data-width'));
+    const storedH = parseFloat(designImage.getAttribute('data-height'));
+    const storedLeft = parseFloat(designImage.getAttribute('data-left'));
+    const storedTop = parseFloat(designImage.getAttribute('data-top'));
+    const used = {
       canonicalX,
       canonicalY,
       canonicalW,
@@ -128,9 +146,20 @@
       containerW,
       containerH,
     };
+    if (!Number.isNaN(storedW) && !Number.isNaN(storedH)) {
+      used.canonicalW = storedW;
+      used.canonicalH = storedH;
+      used.userScaleRelativeToInitial =
+        initialFitW > 0 ? storedW / initialFitW : used.userScaleRelativeToInitial;
+    }
+    if (!Number.isNaN(storedLeft) && !Number.isNaN(storedTop)) {
+      used.canonicalX = storedLeft;
+      used.canonicalY = storedTop;
+    }
+    return used;
   }
 
-  // Generate final canvas (single final image) and return it (Promise<canvas>)
+  // Generate final canvas (single final image)
   async function generateMockupFinalCanvas(side) {
     try {
       if (side !== 'front' && side !== 'back') {
@@ -167,6 +196,7 @@
       const finalCanvas = createFinalCanvasForBase(baseImg);
       const fctx = finalCanvas.getContext('2d');
 
+      // draw base
       try {
         fctx.drawImage(
           baseImg,
@@ -176,13 +206,13 @@
           finalCanvas.height
         );
       } catch (e) {
-        console.error('generateMockupFinalCanvas: failed drawing base', e);
+        console.error('draw base failed', e);
       }
 
+      // find design
       const designContainer = layerEl.querySelector('.design-container');
       if (!designContainer) return finalCanvas;
-      const designImage =
-        designContainer.querySelector('.design-image');
+      const designImage = designContainer.querySelector('.design-image');
       if (!designImage || !designImage.src) return finalCanvas;
 
       const naturalW =
@@ -198,42 +228,42 @@
       const initialFitW = naturalW * initialScaleEditor;
       const initialFitH = naturalH * initialScaleEditor;
 
-      const userState = getUserEditorState(
-        designContainer,
-        designImage
-      );
+      const userState = getUserEditorState(designContainer, designImage);
 
       const B = getBoundary();
       const boundaryScaleX = B.WIDTH / EDITOR_W;
       const boundaryScaleY = B.HEIGHT / EDITOR_H;
 
-      // vertical shift
+      // container offset relative to product-view
+      let containerOffsetX = 0,
+        containerOffsetY = 0;
+      try {
+        const productView =
+          designContainer.closest('.product-view') || layerEl.parentElement;
+        if (productView) {
+          const viewRect = productView.getBoundingClientRect();
+          const containerRect = designContainer.getBoundingClientRect();
+          containerOffsetX = containerRect.left - viewRect.left;
+          containerOffsetY = containerRect.top - viewRect.top;
+        }
+      } catch (e) {}
+
       const verticalShiftPx = Math.round(
-        finalCanvas.height *
-          Number(window.DESIGN_VERTICAL_SHIFT_PCT || 0)
+        finalCanvas.height * Number(window.DESIGN_VERTICAL_SHIFT_PCT || 0)
       );
 
       const userScaleRel = userState.userScaleRelativeToInitial || 1;
       const finalW_onCanvas =
-        initialFitW * userScaleRel * boundaryScaleX;
+        (initialFitW * userScaleRel) * boundaryScaleX;
       const finalH_onCanvas =
-        initialFitH * userScaleRel * boundaryScaleY;
-
-      // container offset relative to layer (fix for top-left issue)
-      let offsetX = 0,
-        offsetY = 0;
-      try {
-        const layerRect = layerEl.getBoundingClientRect();
-        const containerRect = designContainer.getBoundingClientRect();
-        offsetX = containerRect.left - layerRect.left;
-        offsetY = containerRect.top - layerRect.top;
-      } catch (e) {}
+        (initialFitH * userScaleRel) * boundaryScaleY;
 
       const finalX_onCanvas =
-        B.LEFT + (userState.canonicalX + offsetX) * boundaryScaleX;
+        B.LEFT +
+        (containerOffsetX + userState.canonicalX) * boundaryScaleX;
       const finalY_onCanvas =
         B.TOP +
-        (userState.canonicalY + offsetY) * boundaryScaleY +
+        (containerOffsetY + userState.canonicalY) * boundaryScaleY +
         verticalShiftPx;
 
       try {
@@ -253,7 +283,7 @@
           finalH_onCanvas
         );
       } catch (e) {
-        console.error('generateMockupFinalCanvas: failed to draw design', e);
+        console.error('draw design failed', e);
       }
 
       return finalCanvas;
@@ -263,6 +293,7 @@
     }
   }
 
+  // Expose generateMockupCanvas as Promise<canvas>
   window.generateMockupCanvas = function (side) {
     return generateMockupFinalCanvas(side);
   };
@@ -281,6 +312,7 @@
     }
   };
 
+  // single safe download handler
   (function setupDownloadButton() {
     const original = document.getElementById('download-design');
     if (!original) {
@@ -316,8 +348,7 @@
         setTimeout(() => {
           (async () => {
             try {
-              const frontLayer =
-                document.getElementById('front-layer');
+              const frontLayer = document.getElementById('front-layer');
               const backLayer = document.getElementById('back-layer');
 
               const frontHas =
@@ -335,17 +366,13 @@
               }
 
               if (frontHas) {
-                const canvas = await generateMockupFinalCanvas(
-                  'front'
-                );
-                if (canvas)
-                  downloadCanvas(canvas, 'front-preview.png');
+                const canvas = await generateMockupFinalCanvas('front');
+                if (canvas) downloadCanvas(canvas, 'front-preview.png');
               }
 
               if (backHas) {
                 const canvas2 = await generateMockupFinalCanvas('back');
-                if (canvas2)
-                  downloadCanvas(canvas2, 'back-preview.png');
+                if (canvas2) downloadCanvas(canvas2, 'back-preview.png');
               }
             } catch (err) {
               console.error('Download handler error', err);
@@ -356,9 +383,7 @@
               running = false;
               btn.disabled = false;
               lastFinishTimestamp = Date.now();
-              console.log(
-                'Download process finished and button re-enabled.'
-              );
+              console.log('Download finished.');
             }
           })();
         }, 40);
@@ -381,8 +406,6 @@
       console.error('downloadCanvas error', e);
     }
   }
-
-  window.__generateMockupFinalCanvas = generateMockupFinalCanvas;
 
   console.log(
     'download.js initialized — final-preview only. MAX_FINAL_ON_CANVAS=',
