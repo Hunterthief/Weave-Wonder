@@ -119,10 +119,11 @@
       used.canonicalH = storedH;
       used.userScaleRelativeToInitial = (initialFitW > 0) ? (storedW / initialFitW) : used.userScaleRelativeToInitial;
     }
-    if (!Number.isNaN(storedLeft) && !Number.isNaN(storedTop)) {
-      used.canonicalX = storedLeft;
-      used.canonicalY = storedTop;
-    }
+    // 🚨 CRITICAL FIX: Always use the live computed style for position, NOT the potentially stale data attributes.
+    // The draggable handler updates the container's style, not the image's data attributes.
+    used.canonicalX = relX * scaleToCanonicalX;
+    used.canonicalY = relY * scaleToCanonicalY;
+
     return used;
   }
 
