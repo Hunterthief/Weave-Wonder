@@ -27,24 +27,27 @@ async function uploadImageToSupabase(base64, prefix = '') {
       throw new Error('Invalid base64 image format');
     }
 
-    // Convert base64 to Blob
+    // Extract MIME type from base64 string
+    const mimeType = base64.split(',')[0].split(':')[1].split(';')[0];
+    
+    // Convert base64 to Blob without any alteration
     const byteString = atob(base64.split(',')[1]);
-    const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
     const ab = new ArrayBuffer(byteString.length);
     const ia = new Uint8Array(ab);
     for (let i = 0; i < byteString.length; i++) {
       ia[i] = byteString.charCodeAt(i);
     }
-    const blob = new Blob([ia], { type: mimeString });
+    const blob = new Blob([ia], { type: mimeType });
 
-    // Generate unique filename
-    const filename = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 9)}.jpg`;
+    // Generate unique filename with original extension
+    const fileExtension = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : mimeType.split('/')[1];
+    const filename = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage without compression or resizing
     const { data, error } = await supabase.storage
       .from('egymerch_designs')
       .upload(filename, blob, {
-        contentType: 'image/jpeg',
+        contentType: mimeType,
         upsert: false
       });
 
@@ -62,44 +65,19 @@ async function uploadImageToSupabase(base64, prefix = '') {
 }
 
 /**
- * Compresses and resizes a base64 image to reduce its size.
- * @param {string} base64 - The base64 image string
- * @param {number} maxWidth - Max width to resize to (default: 300)
- * @param {number} quality - JPEG quality 0-1 (default: 0.7)
- * @returns {Promise<string>} - Compressed base64 string
+ * Uploads the original design image without any compression or resizing.
+ * @param {string} base64 - The base64 image string (original upload)
+ * @param {string} prefix - Folder prefix for storage
+ * @returns {Promise<string>} - Public URL of the uploaded image
  */
-async function compressImage(base64, maxWidth = 300, quality = 0.7) {
+async function uploadOriginalImage(base64, prefix = '') {
   // Early return for invalid inputs
   if (!base64 || typeof base64 !== 'string' || base64 === 'No design uploaded') {
     return base64;
   }
-
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64;
-    img.onload = () => {
-      // Calculate new dimensions
-      const scale = maxWidth / img.width;
-      const newWidth = maxWidth;
-      const newHeight = img.height * scale;
-
-      // Create canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-      const ctx = canvas.getContext('2d');
-
-      // Draw and compress
-      ctx.drawImage(img, 0, 0, newWidth, newHeight);
-      const compressed = canvas.toDataURL('image/jpeg', quality);
-
-      resolve(compressed);
-    };
-    img.onerror = () => {
-      console.error('Failed to load image for compression:', base64);
-      resolve(base64); // fallback if error
-    };
-  });
+  
+  // Simply upload without any processing
+  return await uploadImageToSupabase(base64, prefix);
 }
 
 /**
@@ -123,8 +101,8 @@ async function generateMockupFromDownloadPreview(side) {
       // 🚨 AWAIT the Promise to resolve to the actual canvas
       const canvas = await window.generateMockupCanvas(side);
       if (canvas) {
-        // Convert canvas to base64 JPEG
-        const base64Data = canvas.toDataURL('image/jpeg', 0.9);
+        // Convert canvas to base64 JPEG with maximum quality (1.0)
+        const base64Data = canvas.toDataURL('image/jpeg', 1.0);
         return base64Data;
       } else {
         console.error(`Failed to generate canvas for ${side}.`);
@@ -158,11 +136,11 @@ async function sendOrderEmail(data) {
     let backSourceLinkHtml = 'No design uploaded';
 
     // ✅ Generate and handle front PRODUCT PREVIEW using the download.js function
+    // Upload with maximum quality (no compression)
     if (data.has_front_design) {
       const frontMockupUrl = await generateMockupFromDownloadPreview('front');
       if (frontMockupUrl && frontMockupUrl !== 'No design uploaded') {
-        const frontCompressed = await compressImage(frontMockupUrl);
-        const frontUrl = await uploadImageToSupabase(frontCompressed, 'front/');
+        const frontUrl = await uploadImageToSupabase(frontMockupUrl, 'front/');
         if (frontUrl && frontUrl !== 'No design uploaded') {
           frontLinkHtml = `<a href="${frontUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Front Product Preview</a>`;
         }
@@ -170,32 +148,28 @@ async function sendOrderEmail(data) {
     }
 
     // ✅ Generate and handle back PRODUCT PREVIEW using the download.js function
+    // Upload with maximum quality (no compression)
     if (data.has_back_design) {
       const backMockupUrl = await generateMockupFromDownloadPreview('back');
       if (backMockupUrl && backMockupUrl !== 'No design uploaded') {
-        const backCompressed = await compressImage(backMockupUrl);
-        const backUrl = await uploadImageToSupabase(backCompressed, 'back/');
+        const backUrl = await uploadImageToSupabase(backMockupUrl, 'back/');
         if (backUrl && backUrl !== 'No design uploaded') {
           backLinkHtml = `<a href="${backUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download Back Product Preview</a>`;
         }
       }
     }
 
-    // ✅ Handle front SOURCE design (Raw Upload) - TEXT LINK ONLY
-    // This logic is untouched as requested.
+    // ✅ Handle front SOURCE design (Raw Upload) - Upload original without compression
     if (data.has_front_design && data.front_design_url && data.front_design_url !== 'No design uploaded') {
-      const frontSourceCompressed = await compressImage(data.front_design_url);
-      const frontSourceUrl = await uploadImageToSupabase(frontSourceCompressed, 'front_source/');
+      const frontSourceUrl = await uploadOriginalImage(data.front_design_url, 'front_source/');
       if (frontSourceUrl && frontSourceUrl !== 'No design uploaded') {
         frontSourceLinkHtml = `<a href="${frontSourceUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download/View Front Source Image</a>`;
       }
     }
 
-    // ✅ Handle back SOURCE design (Raw Upload) - TEXT LINK ONLY
-    // This logic is untouched as requested.
+    // ✅ Handle back SOURCE design (Raw Upload) - Upload original without compression
     if (data.has_back_design && data.back_design_url && data.back_design_url !== 'No design uploaded') {
-      const backSourceCompressed = await compressImage(data.back_design_url);
-      const backSourceUrl = await uploadImageToSupabase(backSourceCompressed, 'back_source/');
+      const backSourceUrl = await uploadOriginalImage(data.back_design_url, 'back_source/');
       if (backSourceUrl && backSourceUrl !== 'No design uploaded') {
         backSourceLinkHtml = `<a href="${backSourceUrl}" target="_blank" style="color: #3498db; text-decoration: underline;">Download/View Back Source Image</a>`;
       }
