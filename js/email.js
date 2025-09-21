@@ -109,32 +109,35 @@ async function compressImage(base64, maxWidth = 300, quality = 0.7) {
  * @returns {Promise<string>} - Base64 data URL of the mockup image, or 'No design uploaded' if no design is present
  */
 async function generateMockupFromDownloadPreview(side) {
-  return new Promise((resolve) => {
+  try {
     const layerId = side === 'front' ? 'front-layer' : 'back-layer';
     const designLayer = document.getElementById(layerId);
     const designImage = designLayer?.querySelector('.design-image');
 
     if (!designImage) {
-      resolve('No design uploaded');
-      return;
+      return 'No design uploaded';
     }
 
-    // ✅ Call the function exposed by download.js
+    // ✅ Call the function exposed by download.js — IT RETURNS A PROMISE!
     if (typeof window.generateMockupCanvas === 'function') {
-      const canvas = window.generateMockupCanvas(side);
+      // 🚨 AWAIT the Promise to resolve to the actual canvas
+      const canvas = await window.generateMockupCanvas(side);
       if (canvas) {
         // Convert canvas to base64 JPEG
         const base64Data = canvas.toDataURL('image/jpeg', 0.9);
-        resolve(base64Data);
+        return base64Data;
       } else {
         console.error(`Failed to generate canvas for ${side}.`);
-        resolve('No design uploaded');
+        return 'No design uploaded';
       }
     } else {
       console.error('generateMockupCanvas function is not available. Ensure download.js is loaded.');
-      resolve('No design uploaded');
+      return 'No design uploaded';
     }
-  });
+  } catch (error) {
+    console.error('Error in generateMockupFromDownloadPreview:', error);
+    return 'No design uploaded';
+  }
 }
 
 /**
