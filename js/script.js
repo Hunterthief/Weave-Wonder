@@ -652,15 +652,18 @@ function updateColorOptions(productType) {
     const colorOption = document.createElement('div');
     colorOption.className = 'color-option';
     colorOption.dataset.color = color;
-    colorOption.style.backgroundColor = color === 'black' ? '#000' : 
-                                      color === 'white' ? '#fff' : 
-                                      color === 'gray' ? '#808080' : 
-                                      color === 'blue' ? '#0000ff' : 
-                                      color === 'red' ? '#ff0000' : 
-                                      color === 'light-blue' ? '#87CEEB' : 
-                                      color === 'beige' ? '#F5F5DC' : 
-                                      color === 'olive-green' ? '#808000' : 
-                                      color === 'magenta' ? '#FF00FF' : '#000';
+  const colorMap = {
+  'black': '#000',
+  'white': '#fff',
+  'gray': '#808080',
+  'blue': '#0000ff',
+  'red': '#ff0000',
+  'light-blue': '#87CEEB',
+  'beige': '#F5F5DC',
+  'olive-green': '#808000',
+  'magenta': '#FF00FF'
+};
+colorOption.style.backgroundColor = colorMap[color] || '#000';
     container.appendChild(colorOption);
   });
   // Select first color by default
