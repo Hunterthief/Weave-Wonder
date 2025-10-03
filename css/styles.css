@@ -200,10 +200,6 @@ select:focus, input:focus, textarea:focus {
   box-sizing: border-box;
 }
 
-.mobile-warning.active {
-  display: flex; /* Only shown when .active class is added */
-}
-
 .mobile-warning-content {
   text-align: center;
   max-width: 500px;
@@ -234,16 +230,6 @@ select:focus, input:focus, textarea:focus {
 .mobile-warning .store-btn:hover {
   background: #2980b9;
   transform: translateY(-2px);
-}
-
-/* Helper class */
-.hidden {
-  display: none !important;
-}
-
-/* Hide main content on mobile */
-.mobile-warning ~ * {
-  display: none !important;
 }
 
 /* Helper class */
@@ -454,6 +440,7 @@ select:focus, input:focus, textarea:focus {
   text-decoration: line-through;
   color: #999;
 }
+
 
 
 
