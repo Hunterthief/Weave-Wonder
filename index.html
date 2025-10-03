@@ -209,5 +209,37 @@
       }
     });
   </script>
+  <script>
+  // Remove hoodies from product selection after page loads
+  document.addEventListener('DOMContentLoaded', () => {
+    // Remove from dropdown in design section
+    const productTypeSelect = document.getElementById('product-type');
+    if (productTypeSelect) {
+      const hoodieOptions = ['premium-hoodie', 'classic-hoodie', 'oversized-hoodie'];
+      hoodieOptions.forEach(value => {
+        const option = productTypeSelect.querySelector(`option[value="${value}"]`);
+        if (option) option.remove();
+      });
+    }
+
+    // Also remove from order form dropdown if it exists
+    const orderProductSelect = document.getElementById('product-type-order');
+    if (orderProductSelect) {
+      const hoodieOptions = ['premium-hoodie', 'classic-hoodie', 'oversized-hoodie'];
+      hoodieOptions.forEach(value => {
+        const option = orderProductSelect.querySelector(`option[value="${value}"]`);
+        if (option) option.remove();
+      });
+    }
+
+    // Optional: Remove from global productsConfig if needed
+    if (typeof productsConfig !== 'undefined') {
+      delete productsConfig['premium-hoodie'];
+      delete productsConfig['classic-hoodie'];
+      delete productsConfig['oversized-hoodie'];
+    }
+  });
+</script>
 </body>
 </html>
+
