@@ -880,7 +880,7 @@ function updateSizeOptions(type, color) {
       white: "xl",
       gray: "l 2xl 3xl",
       blue: "xl",
-      red: "M L xl 2XL 3XL",
+      red: "M l xl 2XL 3XL",
       indigo: "",
       "light-blue": "2xl",
       "dark-light-blue": ""
