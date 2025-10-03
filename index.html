@@ -9,6 +9,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/interact.js/1.10.1/interact.min.js"></script>
 </head>
 <body>
+  <div id="mobile-warning" class="mobile-warning hidden">
+  <div class="mobile-warning-content">
+    <h2>Sorry!</h2>
+    <p>Our design tool doesn't work on mobile yet.</p>
+    <p>Please visit us on a desktop or laptop computer to create your custom design.</p>
+    <a href="https://egymerch.net/en/stores/ntr" target="_blank" class="store-btn">Check Our Store</a>
+  </div>
+</div>
   <header>
     <h1>Weave Wonder</h1>
     <p>Custom Designed Clothing for Every Style</p>
@@ -182,5 +190,18 @@
   <script src="js/download.js"></script>
   <script src="js/email.js"></script>
   <script src="js/script.js"></script>
+  <script>
+  function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const mobileWarning = document.getElementById('mobile-warning');
+    if (isMobileDevice()) {
+      mobileWarning.classList.remove('hidden');
+    }
+  });
+</script>
 </body>
 </html>
+
