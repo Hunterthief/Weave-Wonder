@@ -198,11 +198,14 @@
   document.addEventListener('DOMContentLoaded', () => {
     const mobileWarning = document.getElementById('mobile-warning');
     if (isMobileDevice()) {
-      mobileWarning.classList.add('active'); // Show warning on mobile
+      mobileWarning.style.display = 'flex';
+      // Optional: hide body scroll
+      document.body.style.overflow = 'hidden';
     }
   });
 </script>
 </body>
 </html>
+
 
 
