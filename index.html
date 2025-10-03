@@ -198,10 +198,11 @@
   document.addEventListener('DOMContentLoaded', () => {
     const mobileWarning = document.getElementById('mobile-warning');
     if (isMobileDevice()) {
-      mobileWarning.classList.remove('hidden');
+      mobileWarning.classList.add('active'); // Show warning on mobile
     }
   });
 </script>
 </body>
 </html>
+
 
