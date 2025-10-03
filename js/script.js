@@ -132,7 +132,7 @@ const productsConfig = {
     },
     sizeChart: 'Classic Sweatshirt/sweatshirt-size-table-on-egymerch.jpg'
   },
-  "premium-hoodie": {
+  /*"premium-hoodie": {
     name: "Premium Hoodie",
     basePrice: 300,
     frontBackPrice: 100,
@@ -152,9 +152,9 @@ const productsConfig = {
         frontImage: 'Premium Hoodie/product-1-mockup-1-color-3-thumb.jpeg',
         backImage: 'Premium Hoodie/default-color-3-mockup-3.jpeg'
       }
-    },
+    },*/ 
     sizeChart: 'Premium Hoodie/premium-hoodie-size-table-on-egymerch.jpg'
-  },
+  },/*
   "classic-hoodie": {
     name: "Classic Hoodie",
     basePrice: 280,
@@ -195,9 +195,9 @@ const productsConfig = {
         frontImage: 'Classic Hoodie/product-2-mockup-4-color-11-thumb.jpeg',
         backImage: 'Classic Hoodie/default-color-11-mockup-5.jpeg'
       }
-    },
+    }, */
     sizeChart: 'Classic Hoodie/classic-hoodie-size-table-on-egymerch.jpg'
-  },
+  }, /*
   "oversized-hoodie": {
     name: "Oversized Hoodie",
     basePrice: 320,
@@ -228,7 +228,7 @@ const productsConfig = {
         frontImage: 'Oversized Hoodie/product-3-mockup-6-color-11-thumb.jpeg',
         backImage: 'Oversized Hoodie/default-color-11-mockup-7.jpeg'
       }
-    },
+    },*/
     sizeChart: 'Oversized Hoodie/oversize-hoodie-size-table-on-egymerch.jpg'
   }
 };
