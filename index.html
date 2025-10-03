@@ -240,33 +240,75 @@
     }
   });
 </script>
-  <!-- ✅ NEW: "Please wait" handler -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('order-form');
-      if (!form) return;
+<!-- ✅ Reliable "Processing" handler with proper reset -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('order-form');
+    if (!form) return;
 
-      let isSubmitting = false;
+    // Remove any existing submit listener to avoid duplicates
+    const submitBtn = form.querySelector('.submit-btn');
+    let originalHandler = null;
 
-      form.addEventListener('submit', (e) => {
-        if (isSubmitting) {
-          e.preventDefault();
-          return;
-        }
+    // Store the original sendOrderEmail-based handler
+    const originalSubmit = (e) => {
+      e.preventDefault();
+      if (!validateForm()) return;
 
-        alert('Please wait while your order is processing this may take a minute or two please do not close the page ');
-        isSubmitting = true;
+      const frontLayer = document.getElementById('front-layer');
+      const backLayer = document.getElementById('back-layer');
+      const formData = {
+        productType: productsConfig[document.getElementById('product-type-order').value].name,
+        color: document.getElementById('color-order').value,
+        size: document.querySelector('.size-option.selected')?.textContent || '',
+        quantity: parseInt(document.getElementById('quantity').value) || 1,
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        secondaryPhone: document.getElementById('secondary-phone').value,
+        governorate: document.getElementById('governorate').value,
+        address: document.getElementById('address').value,
+        deliveryNotes: document.getElementById('delivery-notes').value,
+        productPrice: parseFloat(document.getElementById('product-price').textContent),
+        shippingCost: parseFloat(document.getElementById('shipping-cost').textContent),
+        totalPrice: parseFloat(document.getElementById('total-price').textContent),
+        has_front_design: frontLayer.querySelector('.design-container') !== null,
+        has_back_design: backLayer.querySelector('.design-container') !== null,
+        front_design_url: frontLayer.querySelector('.design-image')?.src || '',
+        back_design_url: backLayer.querySelector('.design-image')?.src || ''
+      };
 
-        const submitBtn = form.querySelector('.submit-btn');
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Processing...';
-        }
-      });
-    });
-  </script>
+      // Show processing UI
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+      }
+
+      // Call sendOrderEmail and reset UI when done
+      sendOrderEmail(formData)
+        .then(success => {
+          // Reset button after success or failure
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Purchase';
+          }
+        })
+        .catch(error => {
+          console.error('Order submission failed:', error);
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Purchase';
+          }
+        });
+    };
+
+    // Remove existing listener (if any) and add our enhanced one
+    form.removeEventListener('submit', originalHandler);
+    form.addEventListener('submit', originalSubmit);
+  });
+</script>
 </body>
 </html>
+
 
 
 
