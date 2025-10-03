@@ -240,6 +240,32 @@
     }
   });
 </script>
+  <!-- ✅ NEW: "Please wait" handler -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('order-form');
+      if (!form) return;
+
+      let isSubmitting = false;
+
+      form.addEventListener('submit', (e) => {
+        if (isSubmitting) {
+          e.preventDefault();
+          return;
+        }
+
+        alert('Please wait while your order is processing...');
+        isSubmitting = true;
+
+        const submitBtn = form.querySelector('.submit-btn');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Processing...';
+        }
+      });
+    });
+  </script>
 </body>
 </html>
+
 
