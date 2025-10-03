@@ -195,7 +195,7 @@ select:focus, input:focus, textarea:focus {
   display: none; /* Hidden by default */
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 20px;
   box-sizing: border-box;
 }
@@ -440,6 +440,7 @@ select:focus, input:focus, textarea:focus {
   text-decoration: line-through;
   color: #999;
 }
+
 
 
 
