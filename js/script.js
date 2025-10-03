@@ -53,7 +53,7 @@ const productsConfig = {
         frontImage: 'Oversized Tshirt/product-5-mockup-10-color-2-thumb.jpeg',
         backImage: 'Oversized Tshirt/default-color-2-mockup-11.jpeg'
       },
-      gray: {
+      blue: {
         sizes: ["M", "L"],
         frontImage: 'Oversized Tshirt/product-5-mockup-10-color-10-thumb.jpeg',
         backImage: 'Oversized Tshirt/default-color-10-mockup-11.jpeg'
